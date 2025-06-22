@@ -6,7 +6,7 @@
 export type Status = 'ATIVO' | 'INATIVO'
 export type TipoTransacao = 'GASTO' | 'RECEITA'
 export type StatusPagamento = 'PENDENTE' | 'PAGO' | 'PAGO_TOTAL' | 'PAGO_PARCIAL' | 'CONFIRMADO' | 'CANCELADO'
-export type TipoPessoa = 'PROPRIETARIO' | 'PARTICIPANTE'
+// TipoPessoa removido - agora usamos eh_proprietario: boolean
 export type Trend = 'up' | 'down' | 'neutral'
 export type ColorVariant = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'default'
 
@@ -17,7 +17,7 @@ export interface Pessoa {
   email: string
   telefone?: string
   cpf?: string
-  tipo: TipoPessoa
+  eh_proprietario: boolean
   status: Status
   divida?: number
   avatar?: string
@@ -151,7 +151,7 @@ export interface PessoaForm {
   email: string
   telefone?: string
   cpf?: string
-  tipo: TipoPessoa
+  eh_proprietario: boolean
 }
 
 export interface TagForm {
@@ -313,21 +313,7 @@ export interface PaginatedResponse<T> {
   }
 }
 
-// Auth
-export interface User {
-  id: number
-  nome: string
-  email: string
-  tipo: TipoPessoa
-  avatar?: string
-}
-
-export interface AuthState {
-  user: User | null
-  token: string | null
-  isAuthenticated: boolean
-  isLoading: boolean
-}
+// Auth - Interfaces movidas para lib/auth.tsx para evitar duplicação
 
 // Hooks
 export interface UseApiOptions {

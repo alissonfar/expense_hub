@@ -319,4 +319,70 @@ export const PERIOD_OPTIONS = [
   { label: "Mês anterior", value: "prev_month" },
   { label: "Ano atual", value: "year" },
   { label: "Personalizado", value: "custom" }
-] 
+]
+
+// Endpoints da API
+export const API_ENDPOINTS = {
+  // Autenticação
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    ME: '/auth/me',
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password',
+    LOGOUT: '/auth/logout'
+  },
+  
+  // Pessoas
+  PESSOAS: {
+    LIST: '/pessoas',
+    CREATE: '/pessoas',
+    GET: (id: string) => `/pessoas/${id}`,
+    UPDATE: (id: string) => `/pessoas/${id}`,
+    DELETE: (id: string) => `/pessoas/${id}`
+  },
+  
+  // Tags
+  TAGS: {
+    LIST: '/tags',
+    CREATE: '/tags',
+    GET: (id: string) => `/tags/${id}`,
+    UPDATE: (id: string) => `/tags/${id}`,
+    DELETE: (id: string) => `/tags/${id}`
+  },
+  
+  // Transações
+  TRANSACOES: {
+    LIST: '/transacoes',
+    CREATE: '/transacoes',
+    CREATE_RECEITA: '/transacoes/receita',
+    GET: (id: string) => `/transacoes/${id}`,
+    UPDATE: (id: string) => `/transacoes/${id}`,
+    UPDATE_RECEITA: (id: string) => `/transacoes/receita/${id}`,
+    DELETE: (id: string) => `/transacoes/${id}`
+  },
+  
+  // Pagamentos
+  PAGAMENTOS: {
+    LIST: '/pagamentos',
+    CREATE: '/pagamentos',
+    GET: (id: string) => `/pagamentos/${id}`,
+    UPDATE: (id: string) => `/pagamentos/${id}`,
+    DELETE: (id: string) => `/pagamentos/${id}`,
+    CONFIG_EXCEDENTE: '/pagamentos/configuracoes/excedente'
+  },
+  
+  // Relatórios
+  RELATORIOS: {
+    DASHBOARD: '/relatorios/dashboard',
+    SALDOS: '/relatorios/saldos',
+    PENDENCIAS: '/relatorios/pendencias',
+    TRANSACOES: '/relatorios/transacoes',
+    CATEGORIAS: '/relatorios/categorias'
+  },
+  
+  // Configurações
+  CONFIGURACOES: {
+    TEMA: '/configuracoes/tema'
+  }
+} as const 

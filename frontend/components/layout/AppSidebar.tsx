@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { SIDEBAR_NAVIGATION } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
 
 // Mapeamento de ícones
 const iconMap: Record<string, LucideIcon> = {
@@ -50,16 +51,19 @@ const iconMap: Record<string, LucideIcon> = {
   User,
 }
 
-// Mock user data
-const mockUser = {
-  nome: 'Proprietário Sistema',
-  email: 'admin@personalexpense.com',
-  avatar: 'PS',
-  tipo: 'PROPRIETARIO' as const
-}
-
 export function AppSidebar() {
   const pathname = usePathname()
+  const { user, logout } = useAuth()
+
+  // Gerar iniciais do usuário
+  const getUserInitials = (nome: string) => {
+    return nome
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
 
   return (
     <Sidebar className="w-64">
@@ -127,17 +131,17 @@ export function AppSidebar() {
         {/* User Profile */}
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="" alt={mockUser.nome} />
+            <AvatarImage src="" alt={user?.nome || 'Usuário'} />
             <AvatarFallback className="text-xs">
-              {mockUser.avatar}
+              {user ? getUserInitials(user.nome) : 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
-              {mockUser.nome}
+              {user?.nome || 'Usuário'}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {mockUser.email}
+              {user?.email || ''}
             </p>
           </div>
         </div>
@@ -160,6 +164,7 @@ export function AppSidebar() {
             variant="ghost" 
             size="sm" 
             className="w-full justify-start text-xs text-muted-foreground hover:text-destructive"
+            onClick={logout}
           >
             <LogOut className="w-3 h-3 mr-2" />
             Sair

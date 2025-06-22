@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import { StatsCard } from '@/components/common/StatsCard'
 import { ChartWrapper as Chart } from '@/components/charts/ChartWrapper'
@@ -6,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { ArrowRight, Clock, DollarSign } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowRight, Clock, DollarSign, AlertCircle } from 'lucide-react'
 import {
   MOCK_METRICS,
   MOCK_CHART_DATA,
@@ -15,9 +18,12 @@ import {
   MOCK_PAGAMENTOS_RECENTES
 } from '@/lib/constants'
 import { formatCurrency, formatRelativeDate, getStatusColor, generateAvatarColor, getInitials } from '@/lib/utils'
+import { useDashboardSimple } from '@/hooks/useDashboardSimple'
 import Link from 'next/link'
 
 export default function DashboardPage() {
+  const { metrics, isLoading, error } = useDashboardSimple()
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -38,23 +44,73 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {MOCK_METRICS.map((metric, index) => (
-          <StatsCard
-            key={index}
-            title={metric.title}
-            value={metric.value}
-            description={metric.description}
-            trend={metric.trend}
-            trendValue={metric.trendValue}
-            icon={metric.icon}
-            color={metric.color}
-          />
-        ))}
+        {isLoading ? (
+          <>
+            <Card className="col-span-full">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <p className="text-sm">
+                    Carregando dados do dashboard...
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index}>
+                <CardContent className="p-6">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : error ? (
+          <>
+            <Card className="col-span-full">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <p className="text-sm">
+                    Não foi possível carregar dados reais. Exibindo dados de exemplo.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            {MOCK_METRICS.map((metric, index) => (
+              <StatsCard
+                key={index}
+                title={metric.title}
+                value={metric.value}
+                description={metric.description}
+                trend={metric.trend}
+                trendValue={metric.trendValue}
+                icon={metric.icon}
+                color={metric.color}
+              />
+            ))}
+          </>
+        ) : (
+          metrics.map((metric, index) => (
+            <StatsCard
+              key={index}
+              title={metric.title}
+              value={formatCurrency(metric.value)}
+              description={metric.description}
+              trend={metric.trend}
+              trendValue={metric.trendValue}
+              icon={metric.icon}
+              color={metric.color}
+            />
+          ))
+        )}
       </div>
 
       {/* Charts Grid */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Gastos vs Receitas Chart */}
         <Chart
           type="line"
           data={MOCK_CHART_DATA}
@@ -66,7 +122,6 @@ export default function DashboardPage() {
           showLegend={true}
         />
 
-        {/* Gastos por Categoria Chart */}
         <Chart
           type="bar"
           data={MOCK_CATEGORIAS_DATA}

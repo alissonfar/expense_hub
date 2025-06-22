@@ -33,14 +33,7 @@ import {
   Bell
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-// Mock user data
-const mockUser = {
-  nome: 'Proprietário Sistema',
-  email: 'admin@personalexpense.com',
-  avatar: 'PS',
-  tipo: 'PROPRIETARIO' as const
-}
+import { useAuth } from '@/lib/auth'
 
 // Mapeamento de rotas para breadcrumbs
 const routeMap: Record<string, string> = {
@@ -56,6 +49,17 @@ const routeMap: Record<string, string> = {
 export function AppHeader() {
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()
+  const { user, logout } = useAuth()
+
+  // Gerar iniciais do usuário
+  const getUserInitials = (nome: string) => {
+    return nome
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
 
   // Gerar breadcrumbs baseado na rota atual
   const generateBreadcrumbs = () => {
@@ -168,9 +172,9 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="" alt={mockUser.nome} />
+                <AvatarImage src="" alt={user?.nome || 'Usuário'} />
                 <AvatarFallback className="text-xs">
-                  {mockUser.avatar}
+                  {user ? getUserInitials(user.nome) : 'U'}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -179,10 +183,13 @@ export function AppHeader() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {mockUser.nome}
+                  {user?.nome || 'Usuário'}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {mockUser.email}
+                  {user?.email || ''}
+                </p>
+                <p className="text-xs leading-none text-blue-600">
+                  {user?.eh_proprietario ? 'Proprietário' : 'Participante'}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -196,7 +203,10 @@ export function AppHeader() {
               <span>Configurações</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem 
+              className="text-red-600" 
+                              onClick={logout}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sair</span>
             </DropdownMenuItem>

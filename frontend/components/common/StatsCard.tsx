@@ -118,7 +118,6 @@ export function StatsCard({
             </CardContent>
           </Card>
         </TooltipTrigger>
-        {/* Tooltip para clique removido temporariamente */}
       </Tooltip>
     </TooltipProvider>
   )
