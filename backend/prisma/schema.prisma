@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pagamentos {
+  id                                         Int                    @id @default(autoincrement())
+  pessoa_id                                  Int
+  valor_total                                Decimal                @db.Decimal(10, 2)
+  valor_excedente                            Decimal?               @default(0) @db.Decimal(10, 2)
+  data_pagamento                             DateTime               @db.Date
+  forma_pagamento                            String?                @default("PIX") @db.VarChar(15)
+  observacoes                                String?
+  processar_excedente                        Boolean?               @default(true)
+  receita_excedente_id                       Int?
+  registrado_por                             Int
+  criado_em                                  DateTime?              @default(now()) @db.Timestamptz(6)
+  atualizado_em                              DateTime?              @default(now()) @db.Timestamptz(6)
+  pagamento_transacoes                       pagamento_transacoes[]
+  pessoas_pagamentos_pessoa_idTopessoas      pessoas                @relation("pagamentos_pessoa_idTopessoas", fields: [pessoa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  receita_excedente                          transacoes?            @relation("PagamentoReceita", fields: [receita_excedente_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pessoas_pagamentos_registrado_porTopessoas pessoas                @relation("pagamentos_registrado_porTopessoas", fields: [registrado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([data_pagamento], map: "idx_pagamentos_data")
+  @@index([pessoa_id], map: "idx_pagamentos_pessoa")
+  @@index([forma_pagamento], map: "idx_pagamentos_forma")
+  @@index([pessoa_id, data_pagamento], map: "idx_pagamentos_pessoa_data")
+}
+
+/// Nova tabela para detalhamento de pagamentos compostos
+model pagamento_transacoes {
+  id             Int        @id @default(autoincrement())
+  pagamento_id   Int
+  transacao_id   Int
+  valor_aplicado Decimal    @db.Decimal(10, 2)
+  criado_em      DateTime?  @default(now()) @db.Timestamptz(6)
+  pagamentos     pagamentos @relation(fields: [pagamento_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transacoes     transacoes @relation(fields: [transacao_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([pagamento_id, transacao_id])
+  @@index([pagamento_id], map: "idx_pagamento_transacoes_pagamento")
+  @@index([transacao_id], map: "idx_pagamento_transacoes_transacao")
+  @@index([valor_aplicado], map: "idx_pagamento_transacoes_valor")
+  @@index([transacao_id, pagamento_id], map: "idx_pagamento_transacoes_lookup")
+}
+
+/// Nova tabela para configurações do sistema
+model configuracoes_sistema {
+  id            Int       @id @default(autoincrement())
+  chave         String    @unique @db.VarChar(50)
+  valor         String
+  descricao     String?
+  criado_em     DateTime? @default(now()) @db.Timestamptz(6)
+  atualizado_em DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model pessoas {
+  id                                             Int                       @id @default(autoincrement())
+  nome                                           String                    @db.VarChar(100)
+  email                                          String                    @unique @db.VarChar(150)
+  telefone                                       String?                   @db.VarChar(20)
+  senha_hash                                     String                    @db.VarChar(255)
+  eh_proprietario                                Boolean?                  @default(false)
+  ativo                                          Boolean?                  @default(true)
+  data_cadastro                                  DateTime?                 @default(now()) @db.Timestamptz(6)
+  atualizado_em                                  DateTime?                 @default(now()) @db.Timestamptz(6)
+  pagamentos_pagamentos_pessoa_idTopessoas       pagamentos[]              @relation("pagamentos_pessoa_idTopessoas")
+  pagamentos_pagamentos_registrado_porTopessoas  pagamentos[]              @relation("pagamentos_registrado_porTopessoas")
+  tags                                           tags[]
+  transacao_participantes                        transacao_participantes[]
+  transacoes_transacoes_criado_porTopessoas      transacoes[]              @relation("transacoes_criado_porTopessoas")
+  transacoes_transacoes_proprietario_idTopessoas transacoes[]              @relation("transacoes_proprietario_idTopessoas")
+
+  @@index([ativo], map: "idx_pessoas_ativo")
+  @@index([email], map: "idx_pessoas_email")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model tags {
+  id             Int              @id @default(autoincrement())
+  nome           String           @unique @db.VarChar(50)
+  cor            String?          @default("#6B7280") @db.VarChar(7)
+  icone          String?          @db.VarChar(10)
+  ativo          Boolean?         @default(true)
+  criado_por     Int
+  criado_em      DateTime?        @default(now()) @db.Timestamptz(6)
+  pessoas        pessoas          @relation(fields: [criado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transacao_tags transacao_tags[]
+
+  @@index([ativo], map: "idx_tags_ativo")
+  @@index([nome], map: "idx_tags_nome")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model transacao_participantes {
+  id              Int        @id @default(autoincrement())
+  transacao_id    Int
+  pessoa_id       Int
+  valor_devido    Decimal?   @default(0) @db.Decimal(10, 2)
+  valor_recebido  Decimal?   @default(0) @db.Decimal(10, 2)
+  eh_proprietario Boolean?   @default(false)
+  valor_pago      Decimal?   @default(0) @db.Decimal(10, 2)
+  criado_em       DateTime?  @default(now()) @db.Timestamptz(6)
+  atualizado_em   DateTime?  @default(now()) @db.Timestamptz(6)
+  pessoas         pessoas    @relation(fields: [pessoa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transacoes      transacoes @relation(fields: [transacao_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([transacao_id, pessoa_id], map: "participante_transacao_unico")
+  @@index([pessoa_id], map: "idx_participantes_pessoa")
+  @@index([eh_proprietario], map: "idx_participantes_proprietario")
+  @@index([transacao_id], map: "idx_participantes_transacao")
+}
+
+model transacao_tags {
+  transacao_id Int
+  tag_id       Int
+  tags         tags       @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transacoes   transacoes @relation(fields: [transacao_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([transacao_id, tag_id])
+  @@index([tag_id], map: "idx_transacao_tags_tag")
+  @@index([transacao_id], map: "idx_transacao_tags_transacao")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model transacoes {
+  id                                          Int                       @id @default(autoincrement())
+  tipo                                        String                    @db.VarChar(10)
+  proprietario_id                             Int
+  descricao                                   String                    @db.VarChar(200)
+  local                                       String?                   @db.VarChar(150)
+  valor_total                                 Decimal                   @db.Decimal(10, 2)
+  data_transacao                              DateTime                  @db.Date
+  data_criacao                                DateTime?                 @default(now()) @db.Timestamptz(6)
+  eh_parcelado                                Boolean?                  @default(false)
+  parcela_atual                               Int?                      @default(1)
+  total_parcelas                              Int?                      @default(1)
+  valor_parcela                               Decimal                   @db.Decimal(10, 2)
+  grupo_parcela                               String?                   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  observacoes                                 String?
+  confirmado                                  Boolean?                  @default(true)
+  status_pagamento                            String?                   @default("PENDENTE") @db.VarChar(15)
+  criado_por                                  Int
+  atualizado_em                               DateTime?                 @default(now()) @db.Timestamptz(6)
+  pagamento_transacoes                        pagamento_transacoes[]
+  pagamentos_excedente                        pagamentos[]              @relation("PagamentoReceita")
+  transacao_participantes                     transacao_participantes[]
+  transacao_tags                              transacao_tags[]
+  pessoas_transacoes_criado_porTopessoas      pessoas                   @relation("transacoes_criado_porTopessoas", fields: [criado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pessoas_transacoes_proprietario_idTopessoas pessoas                   @relation("transacoes_proprietario_idTopessoas", fields: [proprietario_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([data_transacao], map: "idx_transacoes_data")
+  @@index([grupo_parcela], map: "idx_transacoes_grupo_parcela")
+  @@index([proprietario_id], map: "idx_transacoes_proprietario")
+  @@index([status_pagamento], map: "idx_transacoes_status")
+  @@index([tipo], map: "idx_transacoes_tipo")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model pagamentos_backup {
+  id              Int?
+  transacao_id    Int?
+  pessoa_id       Int?
+  valor_pago      Decimal?  @db.Decimal(10, 2)
+  data_pagamento  DateTime? @db.Date
+  forma_pagamento String?   @db.VarChar(15)
+  observacoes     String?
+  registrado_por  Int?
+  criado_em       DateTime? @db.Timestamptz(6)
+
+  @@ignore
+}
