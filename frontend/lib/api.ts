@@ -16,11 +16,15 @@ api.interceptors.request.use(
   (config) => {
     // Pegar token do localStorage (apenas no client-side)
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token')
+      const rawToken = localStorage.getItem('auth_token')
+      // Remover aspas extras se existirem (caso token foi salvo como JSON string)
+      const token = rawToken ? rawToken.replace(/^"(.*)"$/, '$1') : null
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
     }
+    
     return config
   },
   (error) => {
@@ -28,13 +32,13 @@ api.interceptors.request.use(
   }
 )
 
-// Interceptor simples para tratamento de respostas e errors
+// Interceptor para tratamento de respostas e erros
 api.interceptors.response.use(
   (response) => {
     return response
   },
   (error: AxiosError) => {
-    // Se token expirou ou inválido (401), apenas limpar localStorage
+    // Se token expirou ou inválido (401), limpar localStorage
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token')

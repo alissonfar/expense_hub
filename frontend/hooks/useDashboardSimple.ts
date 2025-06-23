@@ -36,46 +36,58 @@ export function useDashboardSimple() {
         return
       }
 
+      // Verificar se token existe
+      const token = localStorage.getItem('auth_token')
+      
+      if (!token) {
+        setError('Token não encontrado')
+        setIsLoading(false)
+        return
+      }
+
       try {
         setIsLoading(true)
         setError(null)
 
         const response = await api.get('/relatorios/dashboard')
-        const data: DashboardData = response.data.data
+        
+        const apiData = response.data.data
+        const resumo = apiData.resumo
+        const comparativo = apiData.comparativo
 
         // Converter dados do backend para formato do frontend
         const formattedMetrics: DashboardMetric[] = [
           {
             title: 'Total Gastos',
-            value: data.totalGastos || 0,
+            value: resumo.total_gastos || 0,
             description: 'Gastos do mês atual',
-            trend: 'neutral',
-            trendValue: '0%',
+            trend: comparativo?.gastos_variacao > 0 ? 'up' : comparativo?.gastos_variacao < 0 ? 'down' : 'neutral',
+            trendValue: comparativo?.gastos_variacao ? `${comparativo.gastos_variacao > 0 ? '+' : ''}${comparativo.gastos_variacao}%` : '0%',
             icon: 'TrendingDown',
             color: 'red'
           },
           {
             title: 'Total Receitas',
-            value: data.totalReceitas || 0,
+            value: resumo.total_receitas || 0,
             description: 'Receitas do mês atual',
-            trend: 'neutral',
-            trendValue: '0%',
+            trend: comparativo?.receitas_variacao > 0 ? 'up' : comparativo?.receitas_variacao < 0 ? 'down' : 'neutral',
+            trendValue: comparativo?.receitas_variacao ? `${comparativo.receitas_variacao > 0 ? '+' : ''}${comparativo.receitas_variacao}%` : '0%',
             icon: 'TrendingUp',
             color: 'green'
           },
           {
-            title: 'Saldo Atual',
-            value: data.saldoAtual || 0,
-            description: 'Diferença entre receitas e gastos',
-            trend: data.saldoAtual >= 0 ? 'up' : 'down',
+            title: 'Saldo do Período',
+            value: resumo.saldo_periodo || 0,
+            description: 'Receitas - Gastos',
+            trend: resumo.saldo_periodo > 0 ? 'up' : resumo.saldo_periodo < 0 ? 'down' : 'neutral',
             trendValue: '0%',
             icon: 'DollarSign',
-            color: data.saldoAtual >= 0 ? 'green' : 'red'
+            color: resumo.saldo_periodo >= 0 ? 'green' : 'red'
           },
           {
             title: 'Pendências',
-            value: data.transacoesPendentes || 0,
-            description: 'Transações pendentes',
+            value: resumo.transacoes_pendentes || 0,
+            description: `${resumo.pessoas_devedoras || 0} pessoas devendo`,
             trend: 'neutral',
             trendValue: '0%',
             icon: 'Clock',

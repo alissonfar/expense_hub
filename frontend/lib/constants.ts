@@ -323,43 +323,39 @@ export const PERIOD_OPTIONS = [
 
 // Endpoints da API
 export const API_ENDPOINTS = {
-  // Autenticação
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
-    ME: '/auth/me',
-    PROFILE: '/auth/profile',
-    CHANGE_PASSWORD: '/auth/change-password',
-    LOGOUT: '/auth/logout'
+    LOGOUT: '/auth/logout',
+    ME: '/auth/me'
   },
-  
-  // Pessoas
-  PESSOAS: {
-    LIST: '/pessoas',
-    CREATE: '/pessoas',
-    GET: (id: string) => `/pessoas/${id}`,
-    UPDATE: (id: string) => `/pessoas/${id}`,
-    DELETE: (id: string) => `/pessoas/${id}`
-  },
-  
-  // Tags
-  TAGS: {
-    LIST: '/tags',
-    CREATE: '/tags',
-    GET: (id: string) => `/tags/${id}`,
-    UPDATE: (id: string) => `/tags/${id}`,
-    DELETE: (id: string) => `/tags/${id}`
-  },
-  
+  DASHBOARD: '/relatorios/dashboard',
   // Transações
   TRANSACOES: {
     LIST: '/transacoes',
     CREATE: '/transacoes',
     CREATE_RECEITA: '/transacoes/receita',
-    GET: (id: string) => `/transacoes/${id}`,
-    UPDATE: (id: string) => `/transacoes/${id}`,
-    UPDATE_RECEITA: (id: string) => `/transacoes/receita/${id}`,
-    DELETE: (id: string) => `/transacoes/${id}`
+    GET: (id: number) => `/transacoes/${id}`,
+    UPDATE: (id: number) => `/transacoes/${id}`,
+    UPDATE_RECEITA: (id: number) => `/transacoes/receita/${id}`,
+    DELETE: (id: number) => `/transacoes/${id}`,
+    INFO: '/transacoes/info'
+  },
+  // Pessoas
+  PESSOAS: {
+    LIST: '/pessoas',
+    CREATE: '/pessoas',
+    GET: (id: number) => `/pessoas/${id}`,
+    UPDATE: (id: number) => `/pessoas/${id}`,
+    DELETE: (id: number) => `/pessoas/${id}`
+  },
+  // Tags
+  TAGS: {
+    LIST: '/tags',
+    CREATE: '/tags',
+    GET: (id: number) => `/tags/${id}`,
+    UPDATE: (id: number) => `/tags/${id}`,
+    DELETE: (id: number) => `/tags/${id}`
   },
   
   // Pagamentos
@@ -374,7 +370,6 @@ export const API_ENDPOINTS = {
   
   // Relatórios
   RELATORIOS: {
-    DASHBOARD: '/relatorios/dashboard',
     SALDOS: '/relatorios/saldos',
     PENDENCIAS: '/relatorios/pendencias',
     TRANSACOES: '/relatorios/transacoes',
@@ -386,3 +381,100 @@ export const API_ENDPOINTS = {
     TEMA: '/configuracoes/tema'
   }
 } as const 
+
+// ============================================================================
+// ⚡ CONSTANTES PARA FORMULÁRIO OTIMIZADO
+// ============================================================================
+
+// Atalhos de teclado
+export const KEYBOARD_SHORTCUTS = {
+  SAVE_AND_NEW: 'Ctrl+Enter',
+  SAVE_AND_CLOSE: 'Ctrl+S',
+  CANCEL: 'Escape',
+  DUPLICATE_LAST: 'Ctrl+D',
+  FOCUS_DESCRIPTION: 'Ctrl+1',
+  FOCUS_VALUE: 'Ctrl+2',
+  FOCUS_DATE: 'Ctrl+3',
+  ADD_PARTICIPANT: 'Ctrl+P',
+  ADD_TAG: 'Ctrl+T'
+}
+
+// Valores padrão para produtividade
+export const FORM_DEFAULTS = {
+  PARCELAS_PADRAO: 1,
+  LIMITE_PARTICIPANTES: 10,
+  LIMITE_TAGS: 5,
+  LIMITE_PARCELAS: 36,
+  DATA_PADRAO: () => new Date().toISOString().split('T')[0], // Hoje
+  VALOR_MINIMO: 0.01,
+  VALOR_MAXIMO: 999999.99
+}
+
+// Templates comuns de transação
+export const TRANSACAO_TEMPLATES = [
+  {
+    id: 'supermercado',
+    nome: 'Supermercado',
+    descricao: 'Compras do supermercado',
+    categoria: 'Alimentação',
+    icone: '🛒'
+  },
+  {
+    id: 'restaurante',
+    nome: 'Restaurante',
+    descricao: 'Jantar no restaurante',
+    categoria: 'Alimentação',
+    icone: '🍽️'
+  },
+  {
+    id: 'combustivel',
+    nome: 'Combustível',
+    descricao: 'Abastecimento do carro',
+    categoria: 'Transporte',
+    icone: '⛽'
+  },
+  {
+    id: 'cinema',
+    nome: 'Cinema',
+    descricao: 'Ingresso de cinema',
+    categoria: 'Lazer',
+    icone: '🎬'
+  }
+]
+
+// Sugestões automáticas para campos
+export const AUTO_SUGGESTIONS = {
+  LOCAIS_COMUNS: [
+    'Supermercado Extra',
+    'Restaurante',
+    'Shopping Center',
+    'Posto de Gasolina',
+    'Farmácia',
+    'Cinema',
+    'Uber',
+    'iFood',
+    'Mercado Livre',
+    'Amazon'
+  ],
+  DESCRICOES_COMUNS: [
+    'Supermercado - compras da semana',
+    'Jantar no restaurante',
+    'Combustível do carro',
+    'Cinema - ingresso',
+    'Farmácia - medicamentos',
+    'Uber - corrida',
+    'iFood - delivery',
+    'Compras online',
+    'Conta de luz',
+    'Conta de água'
+  ]
+}
+
+// Configurações de UX
+export const UX_CONFIG = {
+  DEBOUNCE_SEARCH: 300, // ms
+  AUTO_SAVE_DELAY: 1000, // ms
+  TOAST_DURATION: 3000, // ms
+  ANIMATION_DURATION: 200, // ms
+  MAX_RECENT_ITEMS: 10
+} 

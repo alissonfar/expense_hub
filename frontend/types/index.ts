@@ -5,7 +5,7 @@
 // Tipos básicos
 export type Status = 'ATIVO' | 'INATIVO'
 export type TipoTransacao = 'GASTO' | 'RECEITA'
-export type StatusPagamento = 'PENDENTE' | 'PAGO' | 'PAGO_TOTAL' | 'PAGO_PARCIAL' | 'CONFIRMADO' | 'CANCELADO'
+export type StatusPagamento = 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL'
 // TipoPessoa removido - agora usamos eh_proprietario: boolean
 export type Trend = 'up' | 'down' | 'neutral'
 export type ColorVariant = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'default'
@@ -23,6 +23,7 @@ export interface Pessoa {
   avatar?: string
   createdAt?: string
   updatedAt?: string
+  ativo: boolean
 }
 
 // Tag
@@ -35,24 +36,40 @@ export interface Tag {
   status: Status
   createdAt?: string
   updatedAt?: string
+  icone?: string
+  ativo: boolean
 }
 
 // Transação
 export interface Transacao {
   id: number
-  descricao: string
-  valor: number
-  data: string
   tipo: TipoTransacao
-  status: StatusPagamento
-  tag: string
-  tagId?: number
-  participantes?: number
-  parcelas?: number
-  grupoUuid?: string
+  proprietario_id: number
+  descricao: string
+  local?: string
+  valor_total: number
+  data_transacao: string
+  data_criacao: string
+  eh_parcelado: boolean
+  parcela_atual?: number
+  total_parcelas?: number
+  valor_parcela: number
+  grupo_parcela?: string
   observacoes?: string
-  createdAt?: string
-  updatedAt?: string
+  confirmado: boolean
+  status_pagamento: StatusPagamento
+  criado_por: number
+  atualizado_em: string
+  
+  // Relacionamentos expandidos
+  pessoas_transacoes_proprietario_idTopessoas: Pessoa
+  pessoas_transacoes_criado_porTopessoas: Pessoa
+  transacao_participantes: TransacaoParticipante[]
+  transacao_tags: TransacaoTag[]
+  
+  // Dados adicionais (quando disponíveis)
+  parcelas_relacionadas?: ParcelaRelacionada[]
+  estatisticas?: EstatisticasTransacao
 }
 
 // Pagamento
@@ -416,4 +433,211 @@ export interface DropResult {
   draggedId: string | number
   targetId?: string | number
   position: 'before' | 'after' | 'inside'
+}
+
+// ============================================================================
+// 💰 TRANSAÇÕES - TIPOS ATUALIZADOS PARA BACKEND
+// ============================================================================
+
+// Participante de transação (backend response)
+export interface TransacaoParticipante {
+  id: number
+  transacao_id: number
+  pessoa_id: number
+  valor_devido: number
+  valor_recebido: number
+  valor_pago: number
+  eh_proprietario: boolean
+  pessoas: Pessoa // Nome do campo no backend é "pessoas" (plural)
+}
+
+// Tag de transação (backend response)
+export interface TransacaoTag {
+  transacao_id: number
+  tag_id: number
+  tag: Tag
+}
+
+// Parcela relacionada
+export interface ParcelaRelacionada {
+  id: number
+  descricao: string
+  valor_total: number
+  data_transacao: string
+  parcela_atual: number | null
+  status_pagamento: string | null
+}
+
+// Estatísticas de transação
+export interface EstatisticasTransacao {
+  total_devido: number
+  total_pago: number
+  total_pendente: number
+  percentual_pago: number
+}
+
+// Paginação
+export interface Paginacao {
+  page: number
+  limit: number
+  total: number
+  pages: number
+}
+
+// Estatísticas da lista
+export interface EstatisticasLista {
+  total_transacoes: number
+  valor_total: number
+  valor_medio: number
+}
+
+// Response da API para lista
+export interface TransacoesResponse {
+  transacoes: Transacao[]
+  paginacao: Paginacao
+  estatisticas: EstatisticasLista
+}
+
+// ============================================================================
+// 📝 FORMULÁRIOS - OTIMIZADOS PARA PRODUTIVIDADE
+// ============================================================================
+
+// Participante no formulário
+export interface ParticipanteForm {
+  pessoa_id: number
+  nome: string // Para exibição
+  valor_devido: number
+  eh_proprietario?: boolean
+}
+
+// Formulário de gasto
+export interface CreateGastoForm {
+  descricao: string
+  local?: string
+  valor_total: number
+  data_transacao: string
+  observacoes?: string
+  eh_parcelado: boolean
+  total_parcelas: number
+  participantes: ParticipanteForm[]
+  tags: number[]
+}
+
+// Formulário de receita
+export interface CreateReceitaForm {
+  descricao: string
+  local?: string // fonte da receita
+  valor_recebido: number
+  data_transacao: string
+  observacoes?: string
+  tags: number[]
+}
+
+// Formulário de edição
+export interface UpdateTransacaoForm {
+  descricao?: string
+  local?: string
+  observacoes?: string
+  tags?: number[]
+}
+
+// ============================================================================
+// 🔍 FILTROS E BUSCA
+// ============================================================================
+
+export interface TransacaoFiltros {
+  tipo?: TipoTransacao
+  status_pagamento?: StatusPagamento
+  data_inicio?: string
+  data_fim?: string
+  pessoa_id?: number
+  tag_id?: number
+  eh_parcelado?: boolean
+  grupo_parcela?: string
+  page?: number
+  limit?: number
+}
+
+// ============================================================================
+// ⚡ PRODUTIVIDADE - TEMPLATES E PREFERÊNCIAS
+// ============================================================================
+
+// Template de transação para reutilização
+export interface TransacaoTemplate {
+  id: string
+  nome: string
+  descricao: string
+  local?: string
+  participantes_padrao: ParticipanteForm[]
+  tags_padrao: number[]
+  eh_parcelado: boolean
+  total_parcelas: number
+  criado_em: string
+}
+
+// Preferências do usuário para formulários
+export interface PreferenciasFormulario {
+  participantes_frequentes: ParticipanteForm[]
+  tags_frequentes: number[]
+  locais_frequentes: string[]
+  descricoes_frequentes: string[]
+  valor_padrao?: number
+  parcelas_padrao: number
+  auto_save: boolean
+  atalhos_habilitados: boolean
+}
+
+// Ação rápida no formulário
+export interface QuickAction {
+  id: string
+  label: string
+  icon: string
+  shortcut?: string
+  action: () => void
+}
+
+// ============================================================================
+// 📊 DASHBOARD E ESTATÍSTICAS
+// ============================================================================
+
+// Resumo para dashboard (já existente, mantendo compatibilidade)
+export interface DashboardData {
+  resumo: {
+    total_gastos: number
+    total_receitas: number
+    saldo_periodo: number
+    transacoes_pendentes: number
+    pessoas_devedoras: number
+  }
+  comparativo: {
+    gastos_variacao: number
+    receitas_variacao: number
+    transacoes_variacao: number
+  }
+  metricas: {
+    gastos_por_categoria: Array<{
+      categoria: string
+      valor: number
+      percentual: number
+    }>
+    evolucao_mensal: Array<{
+      mes: string
+      gastos: number
+      receitas: number
+    }>
+  }
+}
+
+// ============================================================================
+// 🔄 ESTADOS E LOADING
+// ============================================================================
+
+export interface LoadingState {
+  loading: boolean
+  error: string | null
+  success?: boolean
+}
+
+export interface AsyncState<T> extends LoadingState {
+  data: T | null
 } 
