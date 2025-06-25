@@ -3,10 +3,10 @@
 // ============================================================================
 
 // Tipos básicos
-export type Status = 'ATIVO' | 'INATIVO'
+export type Status = 'ATIVO' | 'INATIVO' | 'PENDENTE' | 'PAGO' | 'VENCIDO' | 'CANCELADO'
 export type TipoTransacao = 'GASTO' | 'RECEITA'
-export type StatusPagamento = 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL'
-// TipoPessoa removido - agora usamos eh_proprietario: boolean
+export type StatusPagamento = 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL' | 'CANCELADO'
+export type FormaPagamento = 'DINHEIRO' | 'PIX' | 'CARTAO_DEBITO' | 'CARTAO_CREDITO' | 'TRANSFERENCIA' | 'BOLETO' | 'OUTROS'
 export type Trend = 'up' | 'down' | 'neutral'
 export type ColorVariant = 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'default'
 
@@ -15,77 +15,92 @@ export interface Pessoa {
   id: number
   nome: string
   email: string
-  telefone?: string
-  cpf?: string
+  telefone?: string | null
+  cpf?: string | null
   eh_proprietario: boolean
-  status: Status
+  ativo: boolean
+  data_cadastro: string
+  atualizado_em: string
   divida?: number
   avatar?: string
-  createdAt?: string
-  updatedAt?: string
-  ativo: boolean
+  status?: Status
+  estatisticas?: {
+    total_transacoes: number
+    total_devendo: number
+    total_recebendo: number
+    total_pago: number
+    saldo_liquido: number
+  }
 }
 
 // Tag
 export interface Tag {
   id: number
   nome: string
-  cor: string
-  descricao?: string
-  usos?: number
-  status: Status
-  createdAt?: string
-  updatedAt?: string
+  cor?: string
   icone?: string
   ativo: boolean
+  criado_por: number
+  criado_em: string
+  atualizado_em: string
+  uso_count?: number
 }
 
 // Transação
 export interface Transacao {
   id: number
   tipo: TipoTransacao
-  proprietario_id: number
   descricao: string
   local?: string
-  valor_total: number
+  valor_total?: number
+  valor_recebido?: number
   data_transacao: string
-  data_criacao: string
-  eh_parcelado: boolean
-  parcela_atual?: number
-  total_parcelas?: number
-  valor_parcela: number
-  grupo_parcela?: string
   observacoes?: string
-  confirmado: boolean
+  eh_parcelado: boolean
+  total_parcelas?: number
+  numero_parcela?: number
+  grupo_parcela?: string
   status_pagamento: StatusPagamento
   criado_por: number
+  criado_em: string
   atualizado_em: string
   
-  // Relacionamentos expandidos
-  pessoas_transacoes_proprietario_idTopessoas: Pessoa
-  pessoas_transacoes_criado_porTopessoas: Pessoa
-  transacao_participantes: TransacaoParticipante[]
-  transacao_tags: TransacaoTag[]
-  
-  // Dados adicionais (quando disponíveis)
-  parcelas_relacionadas?: ParcelaRelacionada[]
-  estatisticas?: EstatisticasTransacao
+  // Relacionamentos
+  participantes?: TransacaoParticipante[]
+  tags?: TransacaoTag[]
+  pagamentos?: PagamentoTransacao[]
+  pessoas?: Pessoa // Para joins específicos
 }
 
 // Pagamento
 export interface Pagamento {
-  id: number
-  valor: number
-  data: string
-  pessoa: string
-  pessoaId?: number
-  metodo: string
-  status: StatusPagamento
-  transacoes?: number
+  id: string
+  pessoa_id: number
+  valor_pago: number
+  data_pagamento: string
+  forma_pagamento: FormaPagamento
   observacoes?: string
-  excesso?: number
-  createdAt?: string
-  updatedAt?: string
+  tem_excedente: boolean
+  valor_excedente?: number
+  receita_excedente_id?: number
+  criado_em: string
+  atualizado_em: string
+  
+  // Relacionamentos
+  pessoa: Pessoa
+  transacoes_pagas: PagamentoTransacao[]
+  receita_excedente?: Transacao
+}
+
+// Relacionamento pagamento-transação
+export interface PagamentoTransacao {
+  pagamento_id: string
+  transacao_id: number
+  valor_aplicado: number
+  criado_em: string
+  
+  // Relacionamentos
+  transacao: Transacao
 }
 
 // Métricas Dashboard
@@ -173,19 +188,26 @@ export interface PessoaForm {
 
 export interface TagForm {
   nome: string
-  cor: string
-  descricao?: string
+  cor?: string
+  icone?: string
 }
 
 export interface TransacaoForm {
-  descricao: string
-  valor: number
-  data: string
   tipo: TipoTransacao
-  tagId: number
-  participantes?: ParticipanteTransacao[]
-  parcelas?: ParcelaTransacao[]
+  descricao: string
+  local?: string
+  valor_total?: number
+  valor_recebido?: number
+  data_transacao: string
   observacoes?: string
+  eh_parcelado: boolean
+  total_parcelas?: number
+  participantes: {
+    pessoa_id: number
+    valor_devido?: number
+    valor_recebido?: number
+  }[]
+  tags?: number[]
 }
 
 export interface ParticipanteTransacao {
@@ -201,12 +223,17 @@ export interface ParcelaTransacao {
 }
 
 export interface PagamentoForm {
-  valor: number
-  data: string
-  pessoaId: number
-  metodo: string
-  transacaoIds: number[]
+  pessoa_id?: number
+  valor_pago: number
+  data_pagamento: string
+  forma_pagamento: FormaPagamento
   observacoes?: string
+  transacoes?: {
+    transacao_id: number
+    valor_aplicado: number
+  }[]
+  processar_excedente?: boolean
+  criar_receita_excedente?: boolean
 }
 
 // Componentes
@@ -299,11 +326,23 @@ export interface BreadcrumbItem {
 }
 
 // Theme
-export type Theme = 'light' | 'dark' | 'system'
+export type Theme = 'light' | 'dark' | 'system' | 'blue' | 'green' | 'purple' | 'orange'
 
 export interface ThemeConfig {
   theme: Theme
   setTheme: (theme: Theme) => void
+}
+
+// Configurações de tema disponíveis
+export interface TemaDisponivel {
+  nome: string
+  descricao: string
+  icone: string
+}
+
+export interface ConfiguracaoInterface {
+  theme_interface: Theme
+  temas_disponíveis?: Record<Theme, TemaDisponivel>
 }
 
 // API Response
@@ -444,17 +483,24 @@ export interface TransacaoParticipante {
   id: number
   transacao_id: number
   pessoa_id: number
-  valor_devido: number
-  valor_recebido: number
+  valor_devido?: number
+  valor_recebido?: number
   valor_pago: number
-  eh_proprietario: boolean
-  pessoas: Pessoa // Nome do campo no backend é "pessoas" (plural)
+  criado_em: string
+  atualizado_em: string
+  
+  // Relacionamentos
+  transacoes?: Transacao
+  pessoas: Pessoa
 }
 
 // Tag de transação (backend response)
 export interface TransacaoTag {
   transacao_id: number
   tag_id: number
+  criado_em: string
+  
+  // Relacionamentos
   tag: Tag
 }
 
@@ -640,4 +686,128 @@ export interface LoadingState {
 
 export interface AsyncState<T> extends LoadingState {
   data: T | null
+}
+
+// ============================================================================
+// INTERFACES DE API
+// ============================================================================
+
+// Resposta padrão da API
+export interface ApiResponse<T = any> {
+  success: boolean
+  message: string
+  data?: T
+  error?: {
+    code: string
+    message: string
+    details?: any
+  }
+  pagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+  timestamp: string
+}
+
+// Filtros para listagem
+export interface PessoaFilters {
+  ativo?: boolean
+  proprietario?: boolean
+  page?: number
+  limit?: number
+}
+
+export interface TransacaoFilters {
+  tipo?: TipoTransacao
+  status_pagamento?: StatusPagamento
+  data_inicio?: string
+  data_fim?: string
+  pessoa_id?: number
+  tag_id?: number
+  eh_parcelado?: boolean
+  grupo_parcela?: string
+  page?: number
+  limit?: number
+}
+
+export interface PagamentoFilters {
+  pessoa_id?: number
+  transacao_id?: number
+  data_inicio?: string
+  data_fim?: string
+  forma_pagamento?: FormaPagamento
+  tem_excedente?: boolean
+  valor_min?: number
+  valor_max?: number
+  page?: number
+  limit?: number
+}
+
+// ============================================================================
+// INTERFACES DE RELATÓRIOS
+// ============================================================================
+
+export interface RelatorioSaldos {
+  pessoa: Pessoa
+  total_devido: number
+  total_pago: number
+  saldo_pendente: number
+  ultima_atividade: string
+}
+
+export interface RelatorioPendencias {
+  transacao: Transacao
+  pessoa: Pessoa
+  valor_pendente: number
+  dias_vencido: number
+  prioridade: 'BAIXA' | 'MEDIA' | 'ALTA'
+}
+
+// ============================================================================
+// INTERFACES DE CONTEXTO E ESTADO
+// ============================================================================
+
+// Auth
+export interface User {
+  id: number
+  nome: string
+  email: string
+  telefone?: string
+  eh_proprietario: boolean
+  ativo: boolean
+  avatar?: string
+}
+
+export interface AuthState {
+  user: User | null
+  token: string | null
+  isAuthenticated: boolean
+  isLoading: boolean
+}
+
+// Configurações do sistema
+export interface ConfiguracaoSistema {
+  id: number
+  chave: string
+  valor: string
+  criado_em: string
+  atualizado_em: string
+}
+
+// ============================================================================
+// INTERFACES DE UTILITÁRIOS
+// ============================================================================
+
+// Paginação
+export interface PaginationInfo {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
 } 

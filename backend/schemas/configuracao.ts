@@ -9,7 +9,7 @@ import { z } from 'zod';
  */
 export const configuracaoInterfaceSchema = z.object({
   theme_interface: z
-    .enum(['light', 'dark', 'auto'])
+    .enum(['light', 'dark', 'auto', 'blue', 'green', 'purple', 'orange'])
     .default('light')
     .describe('Tema da interface do sistema')
 });
@@ -82,4 +82,48 @@ export const configuracaoInterfaceResponseSchema = z.object({
   timestamp: z.string()
 });
 
-export type ConfiguracaoInterfaceResponse = z.infer<typeof configuracaoInterfaceResponseSchema>; 
+export type ConfiguracaoInterfaceResponse = z.infer<typeof configuracaoInterfaceResponseSchema>;
+
+// =============================================
+// CONSTANTES DE TEMAS DISPONÍVEIS
+// =============================================
+
+export const TEMAS_DISPONÍVEIS = {
+  light: {
+    nome: 'Claro',
+    descricao: 'Tema claro padrão',
+    icone: 'Sun'
+  },
+  dark: {
+    nome: 'Escuro', 
+    descricao: 'Tema escuro padrão',
+    icone: 'Moon'
+  },
+  auto: {
+    nome: 'Sistema',
+    descricao: 'Segue configuração do sistema',
+    icone: 'Computer'
+  },
+  blue: {
+    nome: 'Azul',
+    descricao: 'Tema azul personalizado',
+    icone: 'Palette'
+  },
+  green: {
+    nome: 'Verde',
+    descricao: 'Tema verde personalizado', 
+    icone: 'Palette'
+  },
+  purple: {
+    nome: 'Roxo',
+    descricao: 'Tema roxo personalizado',
+    icone: 'Palette'
+  },
+  orange: {
+    nome: 'Laranja',
+    descricao: 'Tema laranja personalizado',
+    icone: 'Palette'
+  }
+} as const;
+
+export type TemaDisponivel = keyof typeof TEMAS_DISPONÍVEIS; 

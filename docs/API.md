@@ -781,7 +781,44 @@ Busca configurações da interface.
 {
   "success": true,
   "data": {
-    "theme_interface": "light"
+    "theme_interface": "blue",
+    "temas_disponíveis": {
+      "light": {
+        "nome": "Claro",
+        "descricao": "Tema claro padrão",
+        "icone": "Sun"
+      },
+      "dark": {
+        "nome": "Escuro",
+        "descricao": "Tema escuro padrão", 
+        "icone": "Moon"
+      },
+      "auto": {
+        "nome": "Sistema",
+        "descricao": "Segue configuração do sistema",
+        "icone": "Computer"
+      },
+      "blue": {
+        "nome": "Azul",
+        "descricao": "Tema azul personalizado",
+        "icone": "Palette"
+      },
+      "green": {
+        "nome": "Verde",
+        "descricao": "Tema verde personalizado",
+        "icone": "Palette"
+      },
+      "purple": {
+        "nome": "Roxo", 
+        "descricao": "Tema roxo personalizado",
+        "icone": "Palette"
+      },
+      "orange": {
+        "nome": "Laranja",
+        "descricao": "Tema laranja personalizado",
+        "icone": "Palette"
+      }
+    }
   }
 }
 ```
@@ -795,11 +832,23 @@ Atualiza configurações da interface (apenas proprietário).
 **Request:**
 ```json
 {
-  "theme_interface": "dark"
+  "theme_interface": "blue"
 }
 ```
 
-**Valores aceitos:** `light`, `dark`, `auto`
+**Valores aceitos:** `light`, `dark`, `auto`, `blue`, `green`, `purple`, `orange`
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Tema alterado para \"Azul\" com sucesso!",
+  "data": {
+    "theme_interface": "blue",
+    "temas_disponíveis": { /* objeto completo */ }
+  }
+}
+```
 
 ### **3. GET /api/configuracoes/info**
 Documentação das rotas de configurações.

@@ -1,7 +1,23 @@
-# 🔄 STATUS ATUAL DO PROJETO - PERSONAL EXPENSE HUB
+# 📊 STATUS ATUAL DO PERSONAL EXPENSE HUB - v2.1.0
 
-**Última atualização:** 24/06/2025  
-**Progresso:** 125/125 tarefas (100% COMPLETO!) 🎉
+**Última atualização:** Janeiro 2025  
+**Status:** ✅ **SISTEMA COMPLETO E FUNCIONAL**
+
+## 🏆 **NOVIDADE: MÓDULO DE PESSOAS 100% IMPLEMENTADO! 🎉**
+
+### **✅ FASE 5.7: MÓDULO DE PESSOAS FRONTEND COMPLETO** 
+- ✅ **Página principal** (/pessoas) com listagem, filtros e busca avançada
+- ✅ **Página de detalhes** (/pessoas/[id]) com estatísticas financeiras completas  
+- ✅ **Página de edição** (/pessoas/[id]/editar) com formulário validado
+- ✅ **Modal de nova pessoa** com validação em tempo real
+- ✅ **3 hooks personalizados** (usePessoas, usePessoa, usePessoaMutations)
+- ✅ **Filtros avançados** (status, tipo, busca por nome/email)
+- ✅ **Estatísticas em tempo real** (total, ativas, proprietários, participantes)
+- ✅ **Interface moderna** com avatars coloridos e badges
+- ✅ **Controle de permissões** (apenas proprietários podem criar/editar)
+- ✅ **Estados de loading/error/success** completos
+- ✅ **React Hook Form + Zod** para validação
+- ✅ **Integração perfeita** com backend existente
 
 ## ✅ **FASES COMPLETADAS (100%)**
 
