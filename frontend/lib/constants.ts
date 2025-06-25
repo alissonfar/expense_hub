@@ -321,64 +321,82 @@ export const PERIOD_OPTIONS = [
   { label: "Personalizado", value: "custom" }
 ]
 
-// Endpoints da API
+// Endpoints da API - MAPEAMENTO COMPLETO DOS 42 ENDPOINTS
 export const API_ENDPOINTS = {
+  // AUTENTICAÇÃO (6 endpoints)
   AUTH: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
-    ME: '/auth/me'
+    ME: '/auth/me',
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password',
+    INFO: '/auth/info'
   },
-  DASHBOARD: '/relatorios/dashboard',
-  // Transações
-  TRANSACOES: {
-    LIST: '/transacoes',
-    CREATE: '/transacoes',
-    CREATE_RECEITA: '/transacoes/receita',
-    GET: (id: number) => `/transacoes/${id}`,
-    UPDATE: (id: number) => `/transacoes/${id}`,
-    UPDATE_RECEITA: (id: number) => `/transacoes/receita/${id}`,
-    DELETE: (id: number) => `/transacoes/${id}`,
-    INFO: '/transacoes/info'
-  },
-  // Pessoas
+  
+  // PESSOAS (6 endpoints)
   PESSOAS: {
     LIST: '/pessoas',
     CREATE: '/pessoas',
     GET: (id: number) => `/pessoas/${id}`,
     UPDATE: (id: number) => `/pessoas/${id}`,
-    DELETE: (id: number) => `/pessoas/${id}`
+    DELETE: (id: number) => `/pessoas/${id}`,
+    INFO: '/pessoas/info'
   },
-  // Tags
+  
+  // TAGS (6 endpoints)
   TAGS: {
     LIST: '/tags',
     CREATE: '/tags',
     GET: (id: number) => `/tags/${id}`,
     UPDATE: (id: number) => `/tags/${id}`,
-    DELETE: (id: number) => `/tags/${id}`
+    DELETE: (id: number) => `/tags/${id}`,
+    INFO: '/tags/info'
   },
   
-  // Pagamentos
+  // TRANSAÇÕES (8 endpoints)
+  TRANSACOES: {
+    LIST: '/transacoes',
+    CREATE: '/transacoes',
+    GET: (id: number) => `/transacoes/${id}`,
+    UPDATE: (id: number) => `/transacoes/${id}`,
+    DELETE: (id: number) => `/transacoes/${id}`,
+    CREATE_RECEITA: '/transacoes/receita',
+    UPDATE_RECEITA: (id: number) => `/transacoes/receita/${id}`,
+    INFO: '/transacoes/info'
+  },
+  
+  // PAGAMENTOS (8 endpoints)
   PAGAMENTOS: {
     LIST: '/pagamentos',
     CREATE: '/pagamentos',
     GET: (id: string) => `/pagamentos/${id}`,
     UPDATE: (id: string) => `/pagamentos/${id}`,
     DELETE: (id: string) => `/pagamentos/${id}`,
-    CONFIG_EXCEDENTE: '/pagamentos/configuracoes/excedente'
+    CONFIG_EXCEDENTE_GET: '/pagamentos/configuracoes/excedente',
+    CONFIG_EXCEDENTE_PUT: '/pagamentos/configuracoes/excedente',
+    INFO: '/pagamentos/info'
   },
   
-  // Relatórios
+  // RELATÓRIOS (6 endpoints)
   RELATORIOS: {
+    DASHBOARD: '/relatorios/dashboard',
     SALDOS: '/relatorios/saldos',
     PENDENCIAS: '/relatorios/pendencias',
     TRANSACOES: '/relatorios/transacoes',
-    CATEGORIAS: '/relatorios/categorias'
+    CATEGORIAS: '/relatorios/categorias',
+    INFO: '/relatorios/info'
   },
   
-  // Configurações
+  // CONFIGURAÇÕES (4 endpoints)
   CONFIGURACOES: {
-    TEMA: '/configuracoes/tema'
+    INTERFACE_GET: '/configuracoes/interface',
+    INTERFACE_PUT: '/configuracoes/interface',
+    INFO: '/configuracoes/info',
+    // Endpoints futuros (501)
+    COMPORTAMENTO: '/configuracoes/comportamento',
+    ALERTAS: '/configuracoes/alertas',
+    RELATORIOS_CONFIG: '/configuracoes/relatorios'
   }
 } as const 
 

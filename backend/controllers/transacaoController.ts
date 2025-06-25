@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                    import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { 
   createGastoSchema, 
@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
 export const listTransacoes = async (req: Request, res: Response): Promise<void> => {
   try {
     const { 
-      tipo = 'GASTO',
+      tipo,
       status_pagamento,
       data_inicio,
       data_fim,
@@ -36,9 +36,12 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
     }: TransacaoQueryInput = req.query;
 
     // Construir filtros
-    const where: any = {
-      tipo: tipo // Por padrão, buscar apenas GASTOS
-    };
+    const where: any = {};
+    
+    // Aplicar filtro de tipo apenas se especificado
+    if (tipo) {
+      where.tipo = tipo;
+    }
     
     if (status_pagamento) {
       where.status_pagamento = status_pagamento;
@@ -132,7 +135,17 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       success: true,
       message: 'Transações listadas com sucesso',
       data: {
-        transacoes,
+        transacoes: transacoes.map((t: any) => ({
+          ...t,
+          valor_total: Number(t.valor_total), // Converter Decimal para Number
+          valor_parcela: Number(t.valor_parcela), // Converter Decimal para Number
+          transacao_participantes: t.transacao_participantes.map((p: any) => ({
+            ...p,
+            valor_devido: Number(p.valor_devido), // Converter Decimal para Number
+            valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
+            valor_pago: Number(p.valor_pago) // Converter Decimal para Number
+          }))
+        })),
         paginacao: {
           page,
           limit,
@@ -441,13 +454,13 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
         pessoas_transacoes_criado_porTopessoas: {
           select: { id: true, nome: true }
         },
-                  transacao_participantes: {
-            include: {
-              pessoas: {
-                select: { id: true, nome: true, email: true }
-              }
-            },
-          orderBy: { eh_proprietario: 'desc' }
+        transacao_participantes: {
+          include: {
+            pessoas: {
+              select: { id: true, nome: true, email: true }
+            }
+          },
+          orderBy: { valor_devido: 'desc' }
         },
         transacao_tags: {
           include: {
@@ -509,7 +522,18 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
       message: 'Transação encontrada com sucesso',
       data: {
         ...transacao,
-        parcelas_relacionadas,
+        valor_total: Number(transacao.valor_total), // Converter Decimal para Number
+        valor_parcela: Number(transacao.valor_parcela), // Converter Decimal para Number
+        parcelas_relacionadas: parcelas_relacionadas.map(p => ({
+          ...p,
+          valor_total: Number(p.valor_total) // Converter Decimal para Number
+        })),
+        transacao_participantes: transacao.transacao_participantes.map((p: any) => ({
+          ...p,
+          valor_devido: Number(p.valor_devido), // Converter Decimal para Number
+          valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
+          valor_pago: Number(p.valor_pago) // Converter Decimal para Number
+        })),
         estatisticas: {
           total_devido,
           total_pago,

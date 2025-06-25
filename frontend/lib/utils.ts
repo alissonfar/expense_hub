@@ -14,11 +14,46 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Formatar valor monetário em Real brasileiro
  */
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
+export function formatCurrency(value: number | string | any): string {
+  // Converter para number se necessário
+  let numericValue: number;
+  
+  if (typeof value === 'string') {
+    numericValue = parseFloat(value);
+  } else if (typeof value === 'number') {
+    numericValue = value;
+  } else if (value && typeof value === 'object' && 'toNumber' in value) {
+    // Para objetos Decimal do Prisma
+    numericValue = value.toNumber();
+  } else if (value && typeof value.toString === 'function') {
+    // Tentar converter toString e depois parseFloat
+    numericValue = parseFloat(value.toString());
+  } else {
+    console.warn('[formatCurrency] Valor inválido recebido:', value, 'Tipo:', typeof value)
+    return 'R$ 0,00'
+  }
+
+  // Verificações de segurança
+  if (isNaN(numericValue) || !isFinite(numericValue)) {
+    console.warn('[formatCurrency] Valor não numérico após conversão:', numericValue, 'Original:', value)
+    return 'R$ 0,00'
+  }
+
+  // Limitar valores muito grandes (máximo 999 milhões)
+  if (Math.abs(numericValue) > 999999999) {
+    console.warn('[formatCurrency] Valor muito grande recebido:', numericValue)
+    return numericValue > 0 ? 'R$ 999.999.999,00+' : 'R$ -999.999.999,00+'
+  }
+
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(numericValue)
+  } catch (error) {
+    console.error('[formatCurrency] Erro na formatação:', error, 'Valor:', numericValue)
+    return 'R$ 0,00'
+  }
 }
 
 /**

@@ -83,7 +83,9 @@ export function useTransacoes(
           // Limitar tamanho do cache (últimas 20 consultas)
           if (newCache.size > 20) {
             const firstKey = newCache.keys().next().value
-            newCache.delete(firstKey)
+            if (firstKey) {
+              newCache.delete(firstKey)
+            }
           }
           
           return newCache
@@ -138,13 +140,20 @@ export function useTransacoes(
   const computedStats = useMemo(() => {
     if (!transacoes.length) return null
 
+    // Garantir que os valores sejam números válidos
     const totalGastos = transacoes
       .filter(t => t.tipo === 'GASTO')
-      .reduce((acc, t) => acc + t.valor_total, 0)
+      .reduce((acc, t) => {
+        const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(String(t.valor_total)) || 0
+        return acc + valor
+      }, 0)
 
     const totalReceitas = transacoes
       .filter(t => t.tipo === 'RECEITA')
-      .reduce((acc, t) => acc + t.valor_total, 0)
+      .reduce((acc, t) => {
+        const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(String(t.valor_total)) || 0
+        return acc + valor
+      }, 0)
 
     const pendentes = transacoes.filter(t => t.status_pagamento === 'PENDENTE').length
     const pagas = transacoes.filter(t => t.status_pagamento === 'PAGO_TOTAL').length
