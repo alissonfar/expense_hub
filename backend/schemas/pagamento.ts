@@ -179,10 +179,8 @@ export const updatePagamentoSchema = z.object({
  * Schema para parâmetros de URL (ID do pagamento)
  */
 export const pagamentoParamsSchema = z.object({
-  id: z
-    .string()
-    .regex(/^\d+$/, 'ID deve ser um número válido')
-    .transform(val => parseInt(val))
+  id: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'number' ? val : parseInt(val))
     .refine(val => val > 0, 'ID deve ser maior que zero')
 });
 
@@ -237,16 +235,20 @@ export const pagamentoQuerySchema = z.object({
   
   // Paginação
   page: z
-    .string()
-    .regex(/^\d+$/, 'Página deve ser um número válido')
-    .transform(val => parseInt(val))
+    .union([z.string(), z.number()])
+    .transform(val => {
+      if (typeof val === 'number') return val;
+      return parseInt(val);
+    })
     .refine(val => val >= 1, 'Página deve ser maior ou igual a 1')
     .default('1'),
   
   limit: z
-    .string()
-    .regex(/^\d+$/, 'Limite deve ser um número válido')
-    .transform(val => parseInt(val))
+    .union([z.string(), z.number()])
+    .transform(val => {
+      if (typeof val === 'number') return val;
+      return parseInt(val);
+    })
     .refine(val => val >= 1 && val <= 100, 'Limite deve estar entre 1 e 100')
     .default('20'),
   

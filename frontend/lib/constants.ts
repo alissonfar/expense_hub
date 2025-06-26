@@ -1,3 +1,76 @@
+// ============================================================================
+// 🔥 CONFIGURAÇÃO DA API
+// ============================================================================
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    ME: '/auth/me',
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password'
+  },
+  PESSOAS: {
+    LIST: '/pessoas',
+    CREATE: '/pessoas',
+    GET: (id: number) => `/pessoas/${id}`,
+    UPDATE: (id: number) => `/pessoas/${id}`,
+    DELETE: (id: number) => `/pessoas/${id}`
+  },
+  TAGS: {
+    LIST: '/tags',
+    CREATE: '/tags',
+    GET: (id: number) => `/tags/${id}`,
+    UPDATE: (id: number) => `/tags/${id}`,
+    DELETE: (id: number) => `/tags/${id}`
+  },
+  TRANSACOES: {
+    LIST: '/transacoes',
+    CREATE: '/transacoes',
+    CREATE_RECEITA: '/transacoes/receita',
+    GET: (id: number) => `/transacoes/${id}`,
+    UPDATE: (id: number) => `/transacoes/${id}`,
+    UPDATE_RECEITA: (id: number) => `/transacoes/receita/${id}`,
+    DELETE: (id: number) => `/transacoes/${id}`
+  },
+  PAGAMENTOS: {
+    LIST: '/pagamentos',
+    CREATE: '/pagamentos',
+    GET: (id: number) => `/pagamentos/${id}`,
+    UPDATE: (id: number) => `/pagamentos/${id}`,
+    DELETE: (id: number) => `/pagamentos/${id}`,
+    CONFIG_EXCEDENTE: '/pagamentos/configuracoes/excedente'
+  },
+  RELATORIOS: {
+    DASHBOARD: '/relatorios/dashboard',
+    SALDOS: '/relatorios/saldos',
+    PENDENCIAS: '/relatorios/pendencias',
+    TRANSACOES: '/relatorios/transacoes',
+    CATEGORIAS: '/relatorios/categorias'
+  },
+  CONFIGURACOES: {
+    INTERFACE: '/configuracoes/interface'
+  }
+}
+
+// ============================================================================
+// 🔥 CORES E STATUS
+// ============================================================================
+
+export const STATUS_COLORS = {
+  ATIVO: '#10b981',
+  INATIVO: '#ef4444',
+  PENDENTE: '#f59e0b',
+  PAGO: '#10b981',
+  PAGO_PARCIAL: '#3b82f6',
+  CONFIRMADO: '#10b981',
+  CANCELADO: '#ef4444'
+}
+
+// ============================================================================
+// 🔥 DADOS MOCK PARA DESENVOLVIMENTO
+// ============================================================================
+
 // Dados fictícios para o protótipo
 export const MOCK_METRICS = [
   {
@@ -299,18 +372,6 @@ export const SIDEBAR_NAVIGATION = [
   }
 ]
 
-// Status colors
-export const STATUS_COLORS = {
-  PENDENTE: "text-yellow-600 bg-yellow-50 border-yellow-200",
-  PAGO: "text-green-600 bg-green-50 border-green-200", 
-  PAGO_TOTAL: "text-green-600 bg-green-50 border-green-200",
-  PAGO_PARCIAL: "text-blue-600 bg-blue-50 border-blue-200",
-  CONFIRMADO: "text-green-600 bg-green-50 border-green-200",
-  CANCELADO: "text-red-600 bg-red-50 border-red-200",
-  ATIVO: "text-green-600 bg-green-50 border-green-200",
-  INATIVO: "text-gray-600 bg-gray-50 border-gray-200"
-}
-
 // Periods for filters
 export const PERIOD_OPTIONS = [
   { label: "Últimos 7 dias", value: "7d" },
@@ -320,85 +381,6 @@ export const PERIOD_OPTIONS = [
   { label: "Ano atual", value: "year" },
   { label: "Personalizado", value: "custom" }
 ]
-
-// Endpoints da API - MAPEAMENTO COMPLETO DOS 42 ENDPOINTS
-export const API_ENDPOINTS = {
-  // AUTENTICAÇÃO (6 endpoints)
-  AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    LOGOUT: '/auth/logout',
-    ME: '/auth/me',
-    PROFILE: '/auth/profile',
-    CHANGE_PASSWORD: '/auth/change-password',
-    INFO: '/auth/info'
-  },
-  
-  // PESSOAS (6 endpoints)
-  PESSOAS: {
-    LIST: '/pessoas',
-    CREATE: '/pessoas',
-    GET: (id: number) => `/pessoas/${id}`,
-    UPDATE: (id: number) => `/pessoas/${id}`,
-    DELETE: (id: number) => `/pessoas/${id}`,
-    INFO: '/pessoas/info'
-  },
-  
-  // TAGS (6 endpoints)
-  TAGS: {
-    LIST: '/tags',
-    CREATE: '/tags',
-    GET: (id: number) => `/tags/${id}`,
-    UPDATE: (id: number) => `/tags/${id}`,
-    DELETE: (id: number) => `/tags/${id}`,
-    INFO: '/tags/info'
-  },
-  
-  // TRANSAÇÕES (8 endpoints)
-  TRANSACOES: {
-    LIST: '/transacoes',
-    CREATE: '/transacoes',
-    GET: (id: number) => `/transacoes/${id}`,
-    UPDATE: (id: number) => `/transacoes/${id}`,
-    DELETE: (id: number) => `/transacoes/${id}`,
-    CREATE_RECEITA: '/transacoes/receita',
-    UPDATE_RECEITA: (id: number) => `/transacoes/receita/${id}`,
-    INFO: '/transacoes/info'
-  },
-  
-  // PAGAMENTOS (8 endpoints)
-  PAGAMENTOS: {
-    LIST: '/pagamentos',
-    CREATE: '/pagamentos',
-    GET: (id: string) => `/pagamentos/${id}`,
-    UPDATE: (id: string) => `/pagamentos/${id}`,
-    DELETE: (id: string) => `/pagamentos/${id}`,
-    CONFIG_EXCEDENTE_GET: '/pagamentos/configuracoes/excedente',
-    CONFIG_EXCEDENTE_PUT: '/pagamentos/configuracoes/excedente',
-    INFO: '/pagamentos/info'
-  },
-  
-  // RELATÓRIOS (6 endpoints)
-  RELATORIOS: {
-    DASHBOARD: '/relatorios/dashboard',
-    SALDOS: '/relatorios/saldos',
-    PENDENCIAS: '/relatorios/pendencias',
-    TRANSACOES: '/relatorios/transacoes',
-    CATEGORIAS: '/relatorios/categorias',
-    INFO: '/relatorios/info'
-  },
-  
-  // CONFIGURAÇÕES (4 endpoints)
-  CONFIGURACOES: {
-    INTERFACE_GET: '/configuracoes/interface',
-    INTERFACE_PUT: '/configuracoes/interface',
-    INFO: '/configuracoes/info',
-    // Endpoints futuros (501)
-    COMPORTAMENTO: '/configuracoes/comportamento',
-    ALERTAS: '/configuracoes/alertas',
-    RELATORIOS_CONFIG: '/configuracoes/relatorios'
-  }
-} as const 
 
 // ============================================================================
 // ⚡ CONSTANTES PARA FORMULÁRIO OTIMIZADO

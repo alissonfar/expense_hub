@@ -73,6 +73,36 @@ export function usePessoas() {
     return pessoas.find(p => p.id === id)
   }, [pessoas])
 
+  const getPessoaComTransacoes = useCallback(async (id: number) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await api.get(API_ENDPOINTS.PESSOAS.GET(id))
+
+      if (response.data.success && response.data.data) {
+        return response.data.data
+      } else {
+        throw new Error('Erro ao carregar pessoa')
+      }
+
+    } catch (err: any) {
+      console.error('[usePessoas] Erro ao carregar pessoa com transações:', err)
+      const errorMessage = err.response?.data?.message || err.message || 'Erro ao carregar pessoa'
+      setError(errorMessage)
+      
+      toast({
+        title: "Erro ao carregar pessoa",
+        description: errorMessage,
+        variant: "destructive",
+      })
+      
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const getProprietarios = useCallback(() => {
     return pessoas.filter(p => p.eh_proprietario)
   }, [pessoas])
@@ -101,6 +131,7 @@ export function usePessoas() {
     error,
     refetch: fetchPessoas,
     getPessoaById,
+    getPessoaComTransacoes,
     getProprietarios,
     getParticipantes,
     getPessoasAtivas,

@@ -76,7 +76,7 @@ export interface Transacao {
 export interface Pagamento {
   id: string
   pessoa_id: number
-  valor_pago: number
+  valor_total: number
   data_pagamento: string
   forma_pagamento: FormaPagamento
   observacoes?: string

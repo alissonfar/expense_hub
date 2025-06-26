@@ -218,6 +218,31 @@ export const getPessoa = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Buscar transações da pessoa
+    const transacoes = await req.prisma.transacoes.findMany({
+      where: {
+        transacao_participantes: {
+          some: { pessoa_id: id }
+        }
+      },
+      select: {
+        id: true,
+        descricao: true,
+        valor_total: true,
+        data_transacao: true,
+        tipo: true,
+        status_pagamento: true,
+        transacao_participantes: {
+          where: { pessoa_id: id },
+          select: {
+            valor_devido: true,
+            valor_pago: true
+          }
+        }
+      },
+      orderBy: { data_transacao: 'desc' }
+    });
+
     // Buscar estatísticas da pessoa (transações relacionadas)
     const [totalTransacoes, totalDevendo, totalRecebendo, totalPago] = await Promise.all([
       req.prisma.transacao_participantes.count({
@@ -256,6 +281,7 @@ export const getPessoa = async (req: Request, res: Response): Promise<void> => {
       message: 'Pessoa encontrada com sucesso',
       data: {
         ...pessoa,
+        transacoes,
         estatisticas
       },
       timestamp: new Date().toISOString()
