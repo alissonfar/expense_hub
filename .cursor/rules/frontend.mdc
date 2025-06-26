@@ -1,0 +1,39 @@
+---
+description: Rules para desenvolvimento frontend React/Next.js. Integração com API, autenticação client-side, formulários, validação, UX/UI patterns, performance e gerenciamento de estado
+globs: 
+alwaysApply: false
+---
+---
+description: "Rules para desenvolvimento frontend"
+globs: ["components/**/*", "pages/**/*", "hooks/**/*", "utils/frontend/**/*"]
+priority: 2
+---
+
+# FRONTEND RULES
+
+## INTEGRAÇÃO COM API
+- Validar dados antes de enviar para API
+- Usar tipos TypeScript compatíveis com backend
+- Loading states para UX
+- Tratar erros de forma amigável
+- Cachear dados quando apropriado
+
+## AUTENTICAÇÃO FRONTEND
+- Interceptadores para token automático
+- Refresh token quando possível
+- Logout automático em token inválido
+- Proteção de rotas privadas
+
+## FORMULÁRIOS
+- Validação client-side com mesmos schemas Zod
+- Feedback visual para erros
+- Mensagens em português
+- Debounce em campos de busca
+
+## UX/UI PADRÕES
+- Loading skeletons > spinners genéricos
+- Toast/alerts para feedback
+- Confirmações para ações destrutivas
+- Responsive mobile-first
+
+- Lazy loading para componentes pesados

@@ -68,18 +68,17 @@
 ❌ **Negativas:**
 - Configuração mais complexa que SQLite
 - Requer servidor dedicado
-- Backup e manutenção mais elaborados
 
 **Alternativas Consideradas:**
-- MySQL (menor precisão decimal)
-- SQLite (limitações de concorrência)
-- MongoDB (sem ACID completo)
+- MySQL (menos funcionalidades avançadas)
+- SQLite (limitações para produção)
+- MongoDB (não relacional, inadequado para finanças)
 
 ---
 
-## **003 - Prisma ORM para Abstração de Banco**
+## **003 - Prisma ORM como Camada de Abstração**
 
-**Data:** 2024-12-01  
+**Data:** 2024-12-05  
 **Status:** Aceita  
 **Contexto:** Necessidade de ORM type-safe e produtivo
 
@@ -87,497 +86,222 @@
 
 **Consequências:**
 ✅ **Positivas:**
-- Type safety completa com TypeScript
+- Type safety completa
 - Migrations automáticas
+- Introspection do banco
 - Query builder intuitivo
-- Introspection de schema
-- Performance otimizada
+- Excelente DX (Developer Experience)
 
 ❌ **Negativas:**
 - Curva de aprendizado inicial
-- Dependência de ferramenta externa
-- Algumas queries complexas requerem SQL raw
+- Queries às vezes menos otimizadas que SQL puro
+- Dependency adicional
 
 **Alternativas Consideradas:**
-- TypeORM (mais complexo)
-- Sequelize (menos type-safe)
-- SQL puro (muito verboso)
+- TypeORM (menos type safety)
+- Sequelize (menos moderno)
+- SQL puro (menos produtivo)
 
 ---
 
-## **004 - JWT para Autenticação Stateless**
+## **004 - Zod para Validação com Mensagens em Português**
 
-**Data:** 2024-12-01  
+**Data:** 2024-12-08  
 **Status:** Aceita  
-**Contexto:** Necessidade de autenticação escalável sem sessões
+**Contexto:** Necessidade de validação robusta e mensagens amigáveis
 
-**Decisão:** 
-- JWT com payload: `{user_id, email, nome, eh_proprietario}`
-- Expiração: 7 dias
-- Refresh tokens para renovação
+**Decisão:** Zod como biblioteca de validação com mensagens em português brasileiro
 
 **Consequências:**
 ✅ **Positivas:**
-- Stateless (sem armazenamento servidor)
+- Type inference automática
+- Validação tanto no backend quanto frontend
+- Mensagens de erro amigáveis ao usuário brasileiro
+- Composição e reutilização de schemas
+- Transformações automáticas
+
+❌ **Negativas:**
+- Bundle size ligeiramente maior
+- Necessidade de manter traduções
+
+**Alternativas Consideradas:**
+- Joi (menos type safety)
+- Yup (menos funcionalidades)
+- Validação manual (mais trabalhoso)
+
+---
+
+## **005 - JWT para Autenticação Stateless**
+
+**Data:** 2024-12-10  
+**Status:** Aceita  
+**Contexto:** Necessidade de autenticação escalável e stateless
+
+**Decisão:** JWT + bcrypt para autenticação
+
+**Consequências:**
+✅ **Positivas:**
+- Stateless (não requer armazenamento de sessão)
 - Escalável horizontalmente
-- Funciona com múltiplos frontends
 - Informações do usuário no token
+- Padrão da indústria
+- Integração fácil com frontend
 
 ❌ **Negativas:**
-- Não pode ser revogado facilmente
-- Tamanho maior que session IDs
-- Informações sensíveis no cliente
+- Tokens não podem ser revogados facilmente
+- Payload visível (mesmo que assinado)
+- Renovação requer implementação adicional
 
 **Alternativas Consideradas:**
-- Sessions com Redis
-- OAuth 2.0 completo
-- API Keys simples
+- Sessions com Redis (mais complexo)
+- OAuth2 (desnecessário para aplicação single-tenant)
+- Cookies de sessão (menos flexível)
 
 ---
 
-## **005 - Zod para Validação com Mensagens em Português**
+## **006 - Soft Delete em vez de Exclusão Física**
 
-**Data:** 2024-12-01  
+**Data:** 2024-12-12  
 **Status:** Aceita  
-**Contexto:** Necessidade de validação type-safe e UX em português
+**Contexto:** Necessidade de manter histórico e integridade referencial
 
-**Decisão:** 
-- Zod para todas as validações
-- Mensagens customizadas em português brasileiro
-- Schemas reutilizáveis
-- Transformações automáticas (toLowerCase, trim)
+**Decisão:** Soft delete com campo `ativo: boolean` em todas as tabelas principais
 
 **Consequências:**
 ✅ **Positivas:**
-- Type safety com inferência automática
-- Mensagens amigáveis ao usuário brasileiro
-- Validação consistente em toda aplicação
-- Facilita manutenção de regras
+- Preserva histórico completo
+- Permite restaurar dados
+- Mantém integridade referencial
+- Auditorias e relatórios históricos
+- Não quebra relacionamentos
 
 ❌ **Negativas:**
-- Dependência adicional
-- Necessidade de traduzir todas as mensagens
+- Queries precisam sempre filtrar `ativo: true`
+- Banco cresce mais (dados "deletados" ficam)
+- Complexidade adicional nas consultas
 
 **Alternativas Consideradas:**
-- Joi (menos type-safe)
-- Yup (menos performante)
-- Validação manual (muito trabalhoso)
+- Exclusão física (perde histórico)
+- Tabelas de auditoria separadas (mais complexo)
+- Archive tables (duplicação de estrutura)
 
 ---
 
-## **006 - Sistema de Proprietário Único**
+## **007 - Next.js 14 com App Router**
 
-**Data:** 2024-12-01  
+**Data:** 2024-12-15  
 **Status:** Aceita  
-**Contexto:** Controle centralizado de gastos familiares/compartilhados
+**Contexto:** Necessidade de framework moderno para frontend
 
-**Decisão:** 
-- Um proprietário por sistema
-- Primeiro usuário = proprietário automático
-- Proprietário controla: pessoas, transações, configurações
-- Participantes: apenas visualizam e fazem pagamentos
+**Decisão:** Next.js 14 com App Router para SPA
 
 **Consequências:**
 ✅ **Positivas:**
-- Controle total sobre finanças
-- Evita conflitos de permissões
-- Simplifica regras de negócio
-- Ideal para famílias
+- Server Components para performance
+- App Router mais intuitivo
+- File-based routing
+- Built-in optimizations
+- TypeScript first-class support
+- Excelente DX
 
 ❌ **Negativas:**
-- Menos flexível para grupos
-- Dependência de uma pessoa
-- Não suporta múltiplos administradores
+- Curva de aprendizado App Router
+- Breaking changes entre versões
+- Complexidade para iniciantes
 
 **Alternativas Consideradas:**
-- Sistema de roles complexo
-- Múltiplos proprietários
-- Permissões granulares
+- React puro + React Router (mais verboso)
+- Vite + React (menos funcionalidades)
+- Remix (menos maduro na época)
 
 ---
 
-## **007 - Valores Fixos em vez de Percentuais**
+## **008 - Shadcn/ui como UI Library**
 
-**Data:** 2024-12-01  
+**Data:** 2024-12-18  
 **Status:** Aceita  
-**Contexto:** Divisão de gastos mais precisa e flexível
+**Contexto:** Necessidade de componentes UI consistentes e customizáveis
 
-**Decisão:** 
-- Participantes têm valores fixos específicos
-- Soma deve bater com valor total (±1 centavo)
-- Não usa percentuais automáticos
+**Decisão:** Shadcn/ui + Tailwind CSS para UI
 
 **Consequências:**
 ✅ **Positivas:**
-- Divisão precisa e justa
-- Flexibilidade total na distribuição
-- Evita erros de arredondamento
-- Transparência nos valores
-
-❌ **Negativas:**
-- Mais trabalho para calcular
-- Usuário deve fazer matemática
-
-**Alternativas Consideradas:**
-- Divisão igual automática
-- Percentuais por participante
-- Pesos relativos
-
----
-
-## **008 - Soft Delete para Preservar Histórico**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Necessidade de manter histórico financeiro íntegro
-
-**Decisão:** 
-- Campo `ativo: boolean` em todas as entidades
-- Exclusão = `ativo: false`
-- Queries filtram por `ativo: true` por padrão
-
-**Consequências:**
-✅ **Positivas:**
-- Histórico preservado sempre
-- Auditoria completa
-- Possibilidade de restaurar
-- Integridade referencial mantida
-
-❌ **Negativas:**
-- Banco cresce indefinidamente
-- Queries mais complexas
-- Necessidade de filtros constantes
-
-**Alternativas Consideradas:**
-- Delete físico (perde histórico)
-- Tabelas de auditoria separadas
-- Archive em tabelas específicas
-
----
-
-## **009 - Parcelamento com UUID de Grupo**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Necessidade de agrupar parcelas relacionadas
-
-**Decisão:** 
-- Campo `grupo_parcela: UUID` para agrupar parcelas
-- Cada parcela é uma transação independente
-- Valores podem ser diferentes por parcela
-
-**Consequências:**
-✅ **Positivas:**
-- Flexibilidade total nos valores
-- Parcelas independentes para pagamento
-- Fácil agrupamento e consulta
-- Suporte a parcelas variáveis
-
-❌ **Negativas:**
-- Complexidade adicional
-- Múltiplas transações para um gasto
-
-**Alternativas Consideradas:**
-- Tabela separada de parcelas
-- Valores iguais obrigatórios
-- Sistema de recorrência
-
----
-
-## **010 - Pagamentos Compostos com Excedentes**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Facilitar pagamentos de múltiplas transações
-
-**Decisão:** 
-- Pagamentos podem cobrir múltiplas transações
-- Excedentes viram receitas automaticamente
-- Configuração de valor mínimo para excedente
-
-**Consequências:**
-✅ **Positivas:**
-- UX simplificada para usuário
-- Aproveitamento de excedentes
-- Flexibilidade nos pagamentos
-- Menos transações manuais
-
-❌ **Negativas:**
-- Lógica complexa de distribuição
-- Possibilidade de erros de cálculo
-
-**Alternativas Consideradas:**
-- Pagamentos apenas individuais
-- Excedentes perdidos
-- Créditos em conta
-
----
-
-## **011 - Tags com Limite de 5 por Transação**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Evitar over-tagging e manter organização
-
-**Decisão:** 
-- Máximo 5 tags por transação
-- Tags com cores hexadecimais
-- Sistema N:N entre transações e tags
-
-**Consequências:**
-✅ **Positivas:**
-- Categorização organizada
-- Performance de queries
-- UI mais limpa
-- Força foco nas tags importantes
-
-❌ **Negativas:**
-- Limitação para casos complexos
-- Necessidade de escolher prioridades
-
-**Alternativas Consideradas:**
-- Tags ilimitadas
-- Sistema hierárquico
-- Tags obrigatórias
-
----
-
-## **012 - Next.js 14 com App Router**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Frontend moderno e performático
-
-**Decisão:** 
-- Next.js 14 com App Router
-- Server Components quando possível
-- TypeScript obrigatório
-
-**Consequências:**
-✅ **Positivas:**
-- Performance otimizada
-- SEO melhorado
-- Code splitting automático
-- Developer experience excelente
-
-❌ **Negativas:**
-- Curva de aprendizado
-- Algumas limitações do App Router
-
-**Alternativas Consideradas:**
-- Create React App
-- Vite + React
-- Next.js com Pages Router
-
----
-
-## **013 - Shadcn/ui para Componentes**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Componentes consistentes e customizáveis
-
-**Decisão:** 
-- Shadcn/ui como base de componentes
-- Tailwind CSS para estilização
-- Radix UI como primitivos
-
-**Consequências:**
-✅ **Positivas:**
-- Componentes acessíveis
+- Componentes copy-paste (não dependency)
+- Totalmente customizável
 - Design system consistente
-- Customização total
-- Qualidade profissional
+- Tailwind CSS para styling
+- TypeScript nativo
+- Acessibilidade built-in
 
 ❌ **Negativas:**
-- Dependência de múltiplas libs
-- Tamanho do bundle
+- Necessidade de copiar código
+- Atualizações manuais dos componentes
+- Curva de aprendizado Tailwind
 
 **Alternativas Consideradas:**
-- Material-UI
-- Chakra UI
-- Ant Design
+- Material-UI (menos customizável)
+- Ant Design (muito opinativo)
+- Chakra UI (descontinuado)
+- CSS Modules puros (mais trabalhoso)
 
 ---
 
-## **014 - Logs Estratégicos sem Biblioteca Externa**
+## **009 - Sistema de Parcelamento com UUID**
 
-**Data:** 2024-12-01  
+**Data:** 2025-01-05  
 **Status:** Aceita  
-**Contexto:** Debugging eficiente sem complexidade adicional
+**Contexto:** Necessidade de agrupar parcelas com valores diferentes
 
-**Decisão:** 
-- Console.log nativo para logs
-- Padrão: `[FunctionName] Mensagem { context }`
-- Logs em pontos estratégicos apenas
+**Decisão:** Campo `grupo_parcela` UUID para agrupar parcelas relacionadas
 
 **Consequências:**
 ✅ **Positivas:**
-- Simplicidade máxima
-- Sem dependências extras
-- Debugging eficiente
-- Performance excelente
+- Permite parcelas com valores diferentes
+- Fácil identificação de grupos de parcelas
+- UUID evita conflitos
+- Queries eficientes por grupo
+- Flexibilidade para editores
 
 ❌ **Negativas:**
-- Sem níveis de log avançados
-- Sem persistência automática
-- Menos features que libs dedicadas
+- Complexidade adicional no banco
+- Queries mais complexas
+- UUID ocupa mais espaço
 
 **Alternativas Consideradas:**
-- Winston
-- Pino
-- Morgan
+- ID sequencial simples (menos flexível)
+- Referência ao ID da primeira parcela (confuso)
+- Tabela separada de grupos (over-engineering)
 
 ---
 
-## **015 - Estrutura de Response Padronizada**
+## **010 - Pagamentos Compostos**
 
-**Data:** 2024-12-01  
+**Data:** 2025-01-08  
 **Status:** Aceita  
-**Contexto:** Consistência na API e facilidade de consumo
+**Contexto:** Usuários queriam pagar múltiplas transações de uma vez
 
-**Decisão:** 
-```json
-{
-  "success": boolean,
-  "message": "string",
-  "data": any,
-  "timestamp": "ISO string"
-}
-```
+**Decisão:** Tabela `pagamento_transacoes` para relacionamento M:N
 
 **Consequências:**
 ✅ **Positivas:**
-- Consistência total na API
-- Facilita tratamento no frontend
-- Timestamps para debugging
-- Estrutura previsível
+- Um pagamento pode cobrir múltiplas transações
+- Controle fino de quanto pagar de cada transação
+- Histórico detalhado de pagamentos
+- Suporte a excedentes automáticos
 
 ❌ **Negativas:**
-- Overhead em responses simples
-- Necessidade de wrapper sempre
+- Relacionamento mais complexo
+- Queries de relatório mais elaboradas
+- Interface mais complexa
 
 **Alternativas Consideradas:**
-- Response direto dos dados
-- Diferentes formatos por endpoint
-- Padrão REST puro
+- Apenas pagamentos 1:1 (menos flexível)
+- Pagamentos agrupados simples (menos controle)
+- Sistema de "carteira" interna (over-engineering)
 
 ---
 
-## **016 - Hooks Customizados para Estado**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Reutilização de lógica e estado no frontend
-
-**Decisão:** 
-- Hooks customizados para cada domínio
-- Estados locais com useState/useReducer
-- Sem state management global complexo
-
-**Consequências:**
-✅ **Positivas:**
-- Reutilização de lógica
-- Componentes mais limpos
-- Facilita testes
-- Menos dependências
-
-❌ **Negativas:**
-- Possível duplicação de requests
-- Sem cache global automático
-
-**Alternativas Consideradas:**
-- Redux Toolkit
-- Zustand
-- React Query
-
----
-
-## **017 - Validação Dupla (Frontend + Backend)**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** UX rápida e segurança garantida
-
-**Decisão:** 
-- Validação no frontend para UX
-- Validação obrigatória no backend para segurança
-- Mesmos critérios em ambos
-
-**Consequências:**
-✅ **Positivas:**
-- UX responsiva
-- Segurança garantida
-- Feedback imediato
-
-❌ **Negativas:**
-- Duplicação de código de validação
-- Necessidade de sincronizar regras
-
-**Alternativas Consideradas:**
-- Apenas backend (UX ruim)
-- Apenas frontend (inseguro)
-- Schema compartilhado
-
----
-
-## **018 - Scripts Batch para Windows**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Facilitar desenvolvimento em ambiente Windows
-
-**Decisão:** 
-- Scripts .bat para automação
-- start-dev.bat, stop-dev.bat, reset-dev.bat
-- Verificações automáticas de dependências
-
-**Consequências:**
-✅ **Positivas:**
-- Facilita onboarding
-- Reduz erros de setup
-- Automação completa
-
-❌ **Negativas:**
-- Específico para Windows
-- Manutenção adicional
-
-**Alternativas Consideradas:**
-- Scripts npm apenas
-- Docker Compose
-- Makefile
-
----
-
-## **019 - Conversão Decimal para Number**
-
-**Data:** 2024-12-01  
-**Status:** Aceita  
-**Contexto:** Problemas de formatação com Prisma Decimal
-
-**Decisão:** 
-- Conversão automática no backend: `Number(valor_decimal)`
-- formatCurrency robusta no frontend
-- Suporte a múltiplos tipos
-
-**Consequências:**
-✅ **Positivas:**
-- Valores exibem corretamente
-- Compatibilidade com frontend
-- Performance melhor que strings
-
-❌ **Negativas:**
-- Possível perda de precisão extrema
-- Conversão manual necessária
-
-**Alternativas Consideradas:**
-- Manter como Decimal (problemas de UI)
-- Converter para string (problemas de cálculo)
-- Biblioteca específica para dinheiro
-
----
-
-## **020 - Documentação Completa em docs/**
+## **011 - Estrutura de Documentação Modular**
 
 **Data:** 2025-01-24  
 **Status:** Aceita  

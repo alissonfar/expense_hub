@@ -73,57 +73,52 @@ export const nomeController = async (req: Request, res: Response): Promise<void>
       params: req.params 
     });
 
-    // 2. Validação de usuário (injetado via middleware)
-    const user = req.user; // requireAuth já validou
-    
-    // 3. Validação de permissões (se necessário)
-    if (!user.eh_proprietario) {
+    // 2. Validação de permissões específicas
+    if (req.user?.eh_proprietario !== true) {
       res.status(403).json({
+        success: false,
         error: 'Acesso negado',
-        message: 'Apenas proprietários podem acessar este recurso',
+        message: 'Apenas proprietários podem realizar esta operação',
         timestamp: new Date().toISOString()
       });
       return;
     }
-    
-    // 4. Dados já validados pelo middleware validateSchema
-    const validatedData = req.body;
-    
-    // 5. Log antes da query
-    console.log(`[${nomeController}] Executando operação no banco`, { 
-      operation: 'create/update/delete',
-      data: validatedData 
+
+    // 3. Operação no banco de dados (Prisma)
+    const result = await req.prisma.tabela.findMany({
+      where: { ativo: true },
+      select: {
+        id: true,
+        nome: true,
+        // Selecionar apenas campos necessários
+      },
+      orderBy: { criado_em: 'desc' }
     });
-    
-    // 6. Operação no banco com Prisma
-    const result = await req.prisma.tabela.operacao({
-      data: validatedData,
-      include: {
-        relacionamentos: true
-      }
-    });
-    
-    // 7. Log de sucesso
-    console.log(`[${nomeController}] Operação concluída com sucesso`, { 
-      result_id: result.id 
-    });
-    
-    // 8. Resposta padronizada
+
+    // 4. Transformação de dados (Decimal → Number)
+    const transformedData = result.map(item => ({
+      ...item,
+      valor_total: Number(item.valor_total), // OBRIGATÓRIO para valores monetários
+      valor_parcela: Number(item.valor_parcela)
+    }));
+
+    // 5. Response padronizada (OBRIGATÓRIA)
     res.status(200).json({
       success: true,
       message: 'Operação realizada com sucesso',
-      data: result,
+      data: transformedData,
       timestamp: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    // 9. Log de erro
-    console.error(`[${nomeController}] Erro na operação:`, error);
+    // 6. Log de erro (estratégico)
+    console.error(`[${nomeController}] Erro:`, error);
     
-    // 10. Resposta de erro padronizada
+    // 7. Response de erro padronizada
     res.status(500).json({
+      success: false,
       error: 'Erro interno do servidor',
-      message: 'Não foi possível completar a operação',
+      message: 'Tente novamente em alguns instantes',
       timestamp: new Date().toISOString()
     });
   }
@@ -134,12 +129,12 @@ export const nomeController = async (req: Request, res: Response): Promise<void>
 
 ```typescript
 // Padrão seguido em TODAS as rotas
-import { Router } from 'express';
+import express from 'express';
 import { requireAuth, requireOwner, validateSchema } from '../middleware/auth';
-import { schemaValidacao } from '../schemas/modulo';
-import * as controller from '../controllers/moduloController';
+import * as controller from '../controllers/nomeController';
+import { criarSchema, atualizarSchema, paramsSchema } from '../schemas/nome';
 
-const router = Router();
+const router = express.Router();
 
 // Sequência OBRIGATÓRIA de middlewares
 router.post('/endpoint',

@@ -1,508 +1,396 @@
-# 🎯 CURSOR AI RULES - PERSONAL EXPENSE HUB
+ANTIGA RULE ORIGINAL
 
-**Regras específicas para desenvolvimento com Cursor AI**  
-**Baseadas nos padrões reais implementados no projeto**  
-**Última atualização:** Janeiro 2025
 
-## 🚨 **REGRAS CRÍTICAS - NUNCA IGNORAR**
+# CONFIGURAÇÃO CURSOR AI - API NODE.JS
 
-### **1. DESCOBERTA OBRIGATÓRIA ANTES DE QUALQUER CÓDIGO**
+## STACK TECNOLÓGICA
+- Node.js + Express + TypeScript
+- PostgreSQL + Prisma ORM  
+- JWT + bcrypt para autenticação
+- Zod para validação (mensagens em português BR)
+- Rate limiting, CORS, Helmet para segurança
 
-```bash
-# SEQUÊNCIA OBRIGATÓRIA - SEMPRE EXECUTAR
-@codebase                 # Análise geral do projeto
-@routes                   # Descobrir endpoints existentes  
-@controllers              # Analisar padrões de controller
-@schemas                  # Verificar validações existentes
-@prisma/schema.prisma     # Estrutura atual do banco
-@middleware               # Verificar middlewares disponíveis
-@types                    # Verificar tipos disponíveis
-@utils                    # Verificar utilitários disponíveis
-@docs                     # Consultar documentação existente
-```
+## DIRETRIZES GERAIS
 
-### **2. PERGUNTAS OBRIGATÓRIAS**
+### 1. ANÁLISE E EXPLICAÇÃO DE PROBLEMAS
+- SEMPRE explicar problemas com linguagem simples e didática
+- Detalhar o QUE está acontecendo, POR QUE está acontecendo, e COMO resolver
+- Apresentar múltiplas soluções quando possível, explicando prós e contras
+- Usar analogias do mundo real quando ajudar no entendimento
 
-Antes de implementar QUALQUER funcionalidade, SEMPRE responder:
+### 2. LOGS ESTRATÉGICOS
+- Adicionar logs em TODOS os pontos críticos:
+  - Início e fim de operações importantes
+  - Antes e depois de queries no banco
+  - Entrada e saída de middlewares
+  - Pontos de erro e exceções
+  - Validações de dados
+- Usar níveis apropriados: error, warn, info, debug
+- Logs devem ser informativos mas não verbosos em produção
 
-1. **"O que já existe relacionado a isso no @codebase?"**
-2. **"Como implementações similares são feitas em @controllers?"**
-3. **"Que validações existem em @schemas?"**
-4. **"Que middlewares estão disponíveis em @middleware?"**
-5. **"Como está a estrutura atual em @prisma/schema.prisma?"**
+### 3. ANÁLISE DE ESTRUTURA EXISTENTE
+- SEMPRE analisar a estrutura atual do projeto antes de criar código novo
+- Seguir padrões de nomenclatura já estabelecidos
+- Manter consistência com arquitetura existente
+- Reutilizar componentes, tipos e utilitários já criados
+- Não reinventar funcionalidades que já existem
 
-### **3. NUNCA ASSUMIR - SEMPRE DESCOBRIR**
+## PADRÕES DE CÓDIGO
 
-❌ **PROIBIDO:**
-- Criar código baseado em suposições
-- Assumir estrutura sem verificar
-- Ignorar padrões existentes
-- Reinventar funcionalidades que já existem
+### TypeScript
+- Tipagem estrita sempre
+- Interfaces para contratos de dados
+- Types para unions e primitivos
+- Usar generics quando apropriado
+- Evitar 'any' - preferir 'unknown' quando necessário
 
-✅ **OBRIGATÓRIO:**
-- Usar comandos de descoberta primeiro
-- Seguir padrões encontrados no código
-- Reutilizar componentes existentes
-- Manter consistência arquitetural
+### Express + Middlewares
+- Controllers magros - lógica de negócio em services
+- Middlewares reutilizáveis
+- Tratamento de erro centralizado
+- Request/Response sempre tipados
+- Validação com Zod antes de processar
 
----
+### Prisma ORM
+- Queries otimizadas - usar select quando não precisar de todos os campos
+- Transações para operações relacionadas
+- Tratamento adequado de erros do Prisma
+- Não expor dados sensíveis (senhas, tokens)
 
-## 🏗️ **PADRÕES ARQUITETURAIS OBRIGATÓRIOS**
+### Validação com Zod
+- Schemas reutilizáveis
+- Mensagens de erro em português brasileiro
+- Validação tanto no body quanto em params/query
+- Transform quando necessário (trim, toLowerCase, etc.)
 
-### **Stack Tecnológica Fixa**
+### Segurança
+- Sanitização de dados de entrada
+- Rate limiting em endpoints sensíveis
+- Logs de tentativas de acesso inválidas
+- Headers de segurança com Helmet
+- CORS configurado adequadamente
+
+## CONVENÇÕES DE NOMENCLATURA
+- Arquivos: kebab-case (user-controller.ts)
+- Variáveis/funções: camelCase (getUserById)
+- Classes/Interfaces: PascalCase (UserService, UserInterface)
+- Constantes: UPPER_SNAKE_CASE (MAX_LOGIN_ATTEMPTS)
+- Rotas: kebab-case (/api/users/profile)
+
+## TRATAMENTO DE ERROS
+- Classes de erro customizadas
+- Status codes HTTP apropriados
+- Mensagens de erro claras para o usuário
+- Logs detalhados para debugging
+- Não vazar informações sensíveis
+
+## EXEMPLO DE ESTRUTURA DE RESPOSTA
 ```typescript
-// Backend - NÃO ALTERAR
+// Sucesso
 {
-  "express": "4.21.1",           // Framework web
-  "typescript": "5.7.2",         // Linguagem tipada
-  "@prisma/client": "6.10.1",    // ORM
-  "jsonwebtoken": "8.5.1",       // Autenticação JWT
-  "bcrypt": "6.0.0",             // Hash de senhas
-  "zod": "3.25.67",              // Validação
-  "helmet": "^8.0.0",            // Segurança HTTP
-  "cors": "^2.8.5",              // Cross-Origin
-  "express-rate-limit": "^7.4.1" // Rate limiting
+  success: true,
+  data: {...},
+  message?: string
 }
 
-// Frontend - NÃO ALTERAR
+// Erro
 {
-  "next": "14.2.18",             // Framework React
-  "react": "^18",                // UI Library
-  "typescript": "^5",            // Linguagem tipada
-  "tailwindcss": "^3.4.1",      // CSS Framework
-  "@radix-ui/react-*": "*",     // Componentes base
-  "lucide-react": "^0.462.0",   // Ícones
-  "recharts": "^2.13.3"         // Gráficos
-}
-```
-
-### **Padrão de Controller OBRIGATÓRIO**
-
-```typescript
-export const nomeController = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // 1. Log de entrada OBRIGATÓRIO
-    console.log(`[${nomeController.name}] Iniciando operação`, { 
-      user_id: req.user?.user_id,
-      params: req.params 
-    });
-
-    // 2. Validação de usuário (já injetado via middleware)
-    const user = req.user;
-    
-    // 3. Validação de permissões (se necessário)
-    if (!user.eh_proprietario) {
-      res.status(403).json({
-        error: 'Acesso negado',
-        message: 'Apenas proprietários podem acessar este recurso',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-    
-    // 4. Dados validados (via middleware validateSchema)
-    const validatedData = req.body;
-    
-    // 5. Log antes da query OBRIGATÓRIO
-    console.log(`[${nomeController.name}] Executando operação no banco`, { 
-      operation: 'create/update/delete',
-      data: validatedData 
-    });
-    
-    // 6. Operação Prisma com relacionamentos
-    const result = await req.prisma.tabela.operacao({
-      data: validatedData,
-      include: { relacionamentos: true }
-    });
-    
-    // 7. Log de sucesso OBRIGATÓRIO
-    console.log(`[${nomeController.name}] Operação concluída`, { 
-      result_id: result.id 
-    });
-    
-    // 8. Response padronizada OBRIGATÓRIA
-    res.status(200).json({
-      success: true,
-      message: 'Operação realizada com sucesso',
-      data: result,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    // 9. Log de erro OBRIGATÓRIO
-    console.error(`[${nomeController.name}] Erro na operação:`, error);
-    
-    // 10. Response de erro padronizada OBRIGATÓRIA
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível completar a operação',
-      timestamp: new Date().toISOString()
-    });
+  success: false,
+  error: {
+    code: "VALIDATION_ERROR",
+    message: "Mensagem amigável",
+    details?: [...]
   }
-};
-```
-
-### **Padrão de Rota OBRIGATÓRIO**
-
-```typescript
-import { Router } from 'express';
-import { requireAuth, requireOwner, validateSchema } from '../middleware/auth';
-import { schemaValidacao } from '../schemas/modulo';
-import * as controller from '../controllers/moduloController';
-
-const router = Router();
-
-// Sequência de middlewares OBRIGATÓRIA
-router.post('/endpoint',
-  requireAuth,              // 1. Autenticação JWT
-  requireOwner,             // 2. Permissões (se necessário)
-  validateSchema(schema),   // 3. Validação Zod
-  controller.funcao         // 4. Controller
-);
-
-// Rota /info OBRIGATÓRIA em todos os módulos
-router.get('/info', (req, res) => {
-  res.json({
-    message: '📋 Sistema de [Módulo] - Personal Expense Hub',
-    version: '1.0.0',
-    status: 'Operacional',
-    endpoints: {
-      // Documentação completa dos endpoints
-    }
-  });
-});
-
-export default router;
-```
-
-### **Padrão de Schema Zod OBRIGATÓRIO**
-
-```typescript
-import { z } from 'zod';
-
-// Mensagens em PORTUGUÊS BRASILEIRO - OBRIGATÓRIO
-export const criarSchema = z.object({
-  campo_obrigatorio: z
-    .string()
-    .min(2, 'Campo deve ter pelo menos 2 caracteres')
-    .max(100, 'Campo deve ter no máximo 100 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ\s]+$/, 'Campo deve conter apenas letras e espaços'),
-  
-  email: z
-    .string()
-    .email('Email inválido')
-    .max(255, 'Email deve ter no máximo 255 caracteres')
-    .toLowerCase()
-    .transform(email => email.trim()),
-  
-  telefone: z
-    .string()
-    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (XX) XXXXX-XXXX')
-    .optional()
-    .or(z.literal('')),
-    
-  valor: z
-    .number()
-    .positive('Valor deve ser positivo')
-    .max(999999.99, 'Valor máximo excedido')
-    .multipleOf(0.01, 'Valor deve ter no máximo 2 casas decimais')
-});
-
-// Schema de atualização (partial) OBRIGATÓRIO
-export const atualizarSchema = criarSchema.partial();
-
-// Schema de parâmetros OBRIGATÓRIO
-export const paramsSchema = z.object({
-  id: z
-    .string()
-    .regex(/^\d+$/, 'ID deve ser um número')
-    .transform(id => parseInt(id))
-});
-
-// Tipos inferidos OBRIGATÓRIOS
-export type CriarInput = z.infer<typeof criarSchema>;
-export type AtualizarInput = z.infer<typeof atualizarSchema>;
-export type ParamsInput = z.infer<typeof paramsSchema>;
-```
-
----
-
-## 🔐 **SISTEMA DE AUTENTICAÇÃO OBRIGATÓRIO**
-
-### **JWT Payload Fixo**
-```typescript
-interface JWTPayload {
-  user_id: number;
-  email: string;
-  nome: string;
-  eh_proprietario: boolean;
-  iat: number;
-  exp: number;
 }
 ```
 
-### **Middlewares de Segurança**
+## LOGS PADRÃO
 ```typescript
-// Sequência OBRIGATÓRIA em rotas protegidas
-requireAuth       // 1. Verificar JWT
-requireOwner      // 2. Verificar proprietário (se necessário)
-validateSchema    // 3. Validar dados Zod
-controller        // 4. Executar lógica
+// Entrada de função
+logger.info(`[${funcionName}] Iniciando operação`, { params })
+
+// Query database
+logger.debug(`[${funcionName}] Executando query`, { query })
+
+// Erro
+logger.error(`[${funcionName}] Erro na operação`, { error, context })
+
+// Sucesso
+logger.info(`[${funcionName}] Operação concluída`, { result })
 ```
 
----
+## ARQUITETURA ESPECÍFICA DO PROJETO - PERSONAL EXPENSE HUB
 
-## 🗄️ **PADRÕES DE BANCO OBRIGATÓRIOS**
 
-### **Conversão Decimal OBRIGATÓRIA**
-```typescript
-// SEMPRE converter Decimal para Number no backend
-const resultado = await prisma.tabela.findMany({...});
 
-const resultadoFormatado = resultado.map(item => ({
-  ...item,
-  valor_total: Number(item.valor_total),      // OBRIGATÓRIO
-  valor_parcela: Number(item.valor_parcela)   // OBRIGATÓRIO
-}));
+### DESCOBERTA DINÂMICA DO BANCO
+- SEMPRE usar @prisma/schema.prisma para verificar tabelas atuais
+- NUNCA assumir estrutura de banco estática
+- Analisar relacionamentos existentes antes de criar novos
+
+### PADRÕES DE CONTROLLER ESTABELECIDOS
+- Funções async/await com try/catch
+- Validação: usuário logado → permissões → schema
+- Response: { success, message, data, timestamp }
+- Paginação: { page, limit, total, totalPages, hasNext, hasPrev }
+- Soft delete: ativo: false
+- Agregações para estatísticas
+
+### PADRÕES DE ROTAS ESTABELECIDOS
+- Sequência middlewares: requireAuth → requireOwner → validateSchema → controller
+- Rota /info para documentação automática
+- Validação separada: params, query, body
+- Autenticação obrigatória (exceto login/register)
+
+### VALIDAÇÃO ZOD ESPECÍFICA
+- Mensagens em português brasileiro
+- Telefone: /^\(\d{2}\)\s\d{4,5}-\d{4}$/
+- Email: toLowerCase() + trim()
+- Senhas: 8+ chars, maiúscula, minúscula, número, especial
+- Transformações automáticas (string → number/boolean)
+
+### SISTEMA DE AUTENTICAÇÃO
+- JWT payload: { user_id, email, nome, eh_proprietario }
+- requireAuth: extrai token do Authorization header
+- requireOwner: verifica eh_proprietario
+- bcrypt para hash de senhas
+- Primeiro usuário = proprietário automático
+
+### DESCOBERTA DINÂMICA DE ENDPOINTS
+- SEMPRE usar @codebase ou @routes para descobrir endpoints existentes
+- NUNCA assumir quantos endpoints existem
+- Analisar estrutura atual antes de criar novos
+
+## LIMPEZA PÓS-CORREÇÃO ⚠️ CRÍTICO
+**APÓS CONFIRMAR QUE UM BUG FOI CORRIGIDO:**
+
+1. **PROCURAR E REMOVER "LIXO":**
+   - Código comentado de tentativas que não funcionaram
+   - Console.log e logs de debug temporários
+   - Variáveis não utilizadas
+   - Imports desnecessários
+   - Funções experimentais que não são mais usadas
+   - Arquivos temporários criados para testes
+
+2. **CHECKLIST DE LIMPEZA:**
+   - [ ] Remover todos os console.log de debug
+   - [ ] Apagar código comentado
+   - [ ] Verificar imports não utilizados
+   - [ ] Remover variáveis declaradas mas não usadas
+   - [ ] Limpar funções experimentais
+   - [ ] Verificar se todos os logs são realmente necessários
+   - [ ] Confirmar que não há duplicação de código
+
+3. **MANTER APENAS:**
+   - Logs estratégicos permanentes (error, warn, info)
+   - Código funcional e necessário
+   - Comentários explicativos relevantes
+
+## USO OBRIGATÓRIO DE CONTEXTO CURSOR
+
+### COMANDOS OBRIGATÓRIOS ANTES DE CRIAR CÓDIGO
+1. **@codebase** - Para análise geral do projeto
+2. **@routes** - Para descobrir endpoints existentes  
+3. **@controllers** - Para analisar padrões de controller
+4. **@schemas** - Para verificar validações existentes
+5. **@prisma/schema.prisma** - Para estrutura atual do banco
+6. **@middleware** - Para verificar middlewares disponíveis
+
+### FLUXO OBRIGATÓRIO
+1. **DESCOBRIR PRIMEIRO:** Usar @codebase para entender o que já existe
+2. **ANALISAR PADRÕES:** Verificar como implementações similares são feitas
+3. **SEGUIR ESTRUTURA:** Manter consistência com código existente
+4. **IMPLEMENTAR:** Criar código seguindo padrões descobertos
+5. **LIMPAR:** Remover "lixo" após implementação
+
+### NUNCA ASSUMIR - SEMPRE DESCOBRIR
+- ❌ "Vou criar baseado no que imagino que existe"
+- ✅ "Vou usar @codebase para ver como está implementado"
+- ❌ "Provavelmente tem X endpoints"  
+- ✅ "Vou verificar @routes para ver endpoints existentes"
+- ❌ "Deve ter essas tabelas no banco"
+- ✅ "Vou checar @prisma/schema.prisma para ver estrutura atual"
+
+### PERGUNTAS OBRIGATÓRIAS ANTES DE IMPLEMENTAR
+1. "O que já existe relacionado a isso no @codebase?"
+2. "Como implementações similares são feitas em @controllers?"
+3. "Que validações existem em @schemas?"
+4. "Que middlewares estão disponíveis em @middleware?"
+5. "Como está a estrutura atual em @prisma/schema.prisma?"
+
+## DOCUMENTAÇÃO OBRIGATÓRIA
+
+### ESTRUTURA DE DOCUMENTAÇÃO
+```
+docs/
+├── README.md                 # Visão geral e setup inicial
+├── ARCHITECTURE.md          # Arquitetura e padrões técnicos
+├── API.md                   # Documentação de endpoints
+├── DEVELOPMENT.md           # Guias para desenvolvimento
+├── TROUBLESHOOTING.md       # Problemas conhecidos e soluções
+├── DECISIONS.md             # Decisões arquiteturais e histórico
+└── CURSOR_RULES.md          # Rules específicas do Cursor AI
 ```
 
-### **Queries Otimizadas OBRIGATÓRIAS**
-```typescript
-// SEMPRE usar include/select específicos
-const resultado = await prisma.tabela.findMany({
-  where: { ativo: true },
-  include: {
-    relacionamento1: true,
-    relacionamento2: {
-      select: {
-        id: true,
-        nome: true
-        // Apenas campos necessários
-      }
-    }
-  },
-  orderBy: { criado_em: 'desc' },
-  skip: (page - 1) * limit,
-  take: limit
-});
-```
+### ANTES DE IMPLEMENTAR
+- Verificar @docs para entender decisões anteriores
+- Consultar @docs/README.md para contexto geral e setup
+- Checar @docs/TROUBLESHOOTING.md para problemas conhecidos e soluções
+- Usar @docs/ARCHITECTURE.md para entender padrões técnicos implementados
+- Usar @docs/API.md para ver todos os 42 endpoints existentes
+- Usar @docs/DECISIONS.md para entender o "porquê" das decisões arquiteturais
+- Usar @docs/DEVELOPMENT.md para fluxo de desenvolvimento
+- Usar @docs/CURSOR_RULES.md para rules específicas do Cursor AI
 
----
+### APÓS IMPLEMENTAR ALGO NOVO
+1. **ATUALIZAR DOCUMENTAÇÃO RELEVANTE:**
+   - docs/API.md - Se criou/modificou endpoints
+   - docs/ARCHITECTURE.md - Se mudou estrutura/padrões
+   - docs/DECISIONS.md - Se tomou decisão arquitetural importante
+   - docs/TROUBLESHOOTING.md - Se resolveu problema complexo
 
-## 📝 **LOGS ESTRATÉGICOS OBRIGATÓRIOS**
+2. **FORMATO DE DOCUMENTAÇÃO:**
+   ```markdown
+   ## [Título da Funcionalidade]
+   **Criado em:** [data]
+   **Modificado em:** [data] 
+   **Autor:** Cursor AI
+   
+   ### Problema Resolvido
+   [Explicação clara do problema]
+   
+   ### Solução Implementada
+   [Como foi resolvido]
+   
+   ### Arquivos Modificados
+   - arquivo1.ts - [o que foi feito]
+   - arquivo2.ts - [o que foi feito]
+   
+   ### Impactos
+   [Que outras partes do sistema são afetadas]
+   
+   ### Testes Sugeridos
+   [Como verificar se está funcionando]
+   ```
 
-### **Pontos de Log OBRIGATÓRIOS**
-```typescript
-// 1. Entrada de função
-console.log(`[${funcaoName}] Iniciando operação`, { params });
+### DOCUMENTAÇÃO COMO CONTEXTO
+- Usar @docs/ARCHITECTURE.md para entender padrões técnicos implementados
+- Usar @docs/API.md para ver todos os 42 endpoints mapeados
+- Usar @docs/DECISIONS.md para entender decisões arquiteturais
+- Usar @docs/TROUBLESHOOTING.md para evitar problemas conhecidos
+- Usar @docs/DEVELOPMENT.md para fluxo de desenvolvimento com Cursor AI
+- Usar @docs/CURSOR_RULES.md para rules específicas e padrões obrigatórios
 
-// 2. Antes de query no banco
-console.log(`[${funcaoName}] Executando query`, { query });
+## ANTES DE CRIAR CÓDIGO NOVO
+1. **@codebase** - Analisar estrutura existente do Personal Expense Hub
+2. **@routes** - Verificar se já existe funcionalidade similar
+3. **@controllers @schemas** - Seguir padrões estabelecidos
+4. **@middleware** - Usar middlewares existentes (requireAuth, requireOwner, validateSchema)
+5. **@types** - Verificar interfaces disponíveis
+6. **@utils** - Verificar utilitários disponíveis
+7. **@docs** - Consultar documentação existente para contexto
+8. Manter consistência com sistema de autenticação JWT descoberto
+9. Seguir padrões de validação Zod encontrados
+10. Respeitar arquitetura MVC e estrutura de pastas descoberta
 
-// 3. Sucesso da operação
-console.log(`[${funcaoName}] Operação concluída`, { result });
+## DIRETRIZES PARA FRONTEND
 
-// 4. Erros e exceções
-console.error(`[${funcaoName}] Erro na operação`, { error, context });
-```
+### INTEGRAÇÃO COM API
+- **Sempre validar dados** antes de enviar para API
+- **Usar tipos TypeScript** compatíveis com backend
+- **Implementar loading states** para UX
+- **Tratar erros da API** de forma amigável ao usuário
+- **Cachear dados** quando apropriado para performance
 
-### **Formato de Log OBRIGATÓRIO**
-```typescript
-console.log(`[${FunctionName}] Mensagem descritiva`, { 
-  contextObject: 'dados relevantes'
-});
-```
+### AUTENTICAÇÃO FRONTEND
+- **Interceptadores** para adicionar token automaticamente
+- **Refresh token** automático quando possível
+- **Logout automático** em caso de token inválido
+- **Proteção de rotas** privadas
+- **Persistir estado** de autenticação de forma segura
 
----
+### FORMULÁRIOS E VALIDAÇÃO
+- **Validação client-side** usando mesmos schemas Zod do backend
+- **Feedback visual** para erros de validação
+- **Mensagens em português** consistentes com backend
+- **Sanitização** de dados de entrada
+- **Debounce** em campos de busca
 
-## 🧹 **LIMPEZA PÓS-CORREÇÃO (CRÍTICO)**
+### GERENCIAMENTO DE ESTADO
+- **Estados globais** para dados compartilhados (user, auth)
+- **Estados locais** para componentes específicos
+- **Sincronização** com backend quando necessário
+- **Otimistic updates** onde faz sentido
 
-### **APÓS CORRIGIR QUALQUER BUG - OBRIGATÓRIO:**
+### UX/UI PADRÕES
+- **Loading skeletons** em vez de spinners genéricos
+- **Feedback visual** para ações (toast, alerts)
+- **Confirmações** para ações destrutivas
+- **Breadcrumbs** para navegação complexa
+- **Responsive design** mobile-first
 
-```typescript
-// 1. PROCURAR E REMOVER:
-const lixoParaRemover = [
-  'console.log de debug temporários',
-  'código comentado de tentativas',
-  'variáveis não utilizadas',
-  'imports desnecessários',
-  'funções experimentais',
-  'arquivos temporários'
-];
+### PERFORMANCE FRONTEND
+- **Lazy loading** de componentes pesados
+- **Virtualization** para listas grandes
+- **Memoização** de cálculos custosos
+- **Code splitting** por rotas
+- **Otimização de imagens** e assets
 
-// 2. CHECKLIST OBRIGATÓRIO:
-const checklist = [
-  '[ ] Remover console.log de debug',
-  '[ ] Apagar código comentado',
-  '[ ] Verificar imports não utilizados',
-  '[ ] Remover variáveis não usadas',
-  '[ ] Limpar funções experimentais',
-  '[ ] Confirmar logs necessários apenas'
-];
+### TRATAMENTO DE ERROS FRONTEND
+- **Boundary components** para capturar erros
+- **Fallbacks** elegantes quando algo falha
+- **Logs** de erros para debugging
+- **Mensagens amigáveis** ao usuário
+- **Retry mechanisms** quando apropriado
 
-// 3. MANTER APENAS:
-const manter = [
-  'Logs estratégicos permanentes',
-  'Código funcional necessário',
-  'Comentários explicativos relevantes'
-];
-```
+### TESTES FRONTEND
+- **Testes unitários** para lógica de negócio
+- **Testes de integração** com mocks da API
+- **Testes de acessibilidade** básicos
+- **Testes visuais** para componentes críticos
 
----
+## VALIDAÇÃO FINAL OBRIGATÓRIA
 
-## ✅ **VALIDAÇÃO FINAL OBRIGATÓRIA**
+### CHECKLIST ANTES DE ENTREGAR SOLUÇÃO
+1. **FUNCIONALIDADE:** Testei se realmente funciona?
+2. **CONSISTÊNCIA:** Segue padrões descobertos no @codebase?
+3. **LOGS:** Adicionei logs estratégicos apropriados?
+4. **VALIDAÇÃO:** Usei schemas Zod com mensagens em português?
+5. **SEGURANÇA:** Apliquei middlewares de auth necessários?
+6. **TIPOS:** TypeScript está tipado corretamente?
+7. **LIMPEZA:** Removi todo código experimental/debug?
+8. **DOCUMENTAÇÃO:** Atualizei documentação relevante em docs/?
 
-### **CHECKLIST ANTES DE FINALIZAR QUALQUER IMPLEMENTAÇÃO**
+### DOCUMENTAÇÃO AUTOMÁTICA
+- Sempre explicar MUDANÇAS feitas no código existente
+- Listar ARQUIVOS criados/modificados
+- Destacar IMPACTOS em outras partes do sistema
+- Sugerir TESTES que devem ser feitos
+- **ATUALIZAR docs/ relevantes com nova implementação**
 
-```typescript
-const checklistFinal = [
-  // Funcionalidade
-  '[ ] Testei se funciona completamente?',
-  
-  // Consistência  
-  '[ ] Segue padrões do @codebase?',
-  '[ ] Usa middlewares corretos?',
-  '[ ] Mantém estrutura de response?',
-  
-  // Validação
-  '[ ] Schemas Zod em português?',
-  '[ ] Tipos TypeScript corretos?',
-  
-  // Logs
-  '[ ] Logs estratégicos adicionados?',
-  '[ ] Removido logs de debug?',
-  
-  // Segurança
-  '[ ] Autenticação aplicada?',
-  '[ ] Permissões verificadas?',
-  
-  // Limpeza
-  '[ ] Código experimental removido?',
-  '[ ] Imports desnecessários removidos?',
-  
-  // Documentação
-  '[ ] docs/ atualizada se necessário?'
-];
-```
+## TRATAMENTO DE CONFLITOS
+- Se encontrar código inconsistente no @codebase, perguntar qual padrão seguir
+- Se houver múltiplas implementações similares, escolher a mais recente/robusta
+- Sempre explicar DECISÕES tomadas quando houver ambiguidade
 
----
+## PERFORMANCE E OTIMIZAÇÃO
+- Considerar ÍNDICES de banco para queries novas
+- Avaliar necessidade de PAGINAÇÃO em listagens
+- Verificar se precisa de CACHE para dados frequentes
+- Usar SELECT específicos no Prisma (não buscar tudo)
 
-## 🚨 **REGRAS ESPECÍFICAS DO PROJETO**
+## PRINCÍPIOS FUNDAMENTAIS
+- Código limpo e legível
+- Responsabilidade única  
+- DRY (Don't Repeat Yourself)
+- Fail fast - validar cedo
+- Logs úteis para debugging (mas limpar depois)
+- Segurança em primeiro lugar
+- Performance consciente
+- SEMPRE limpar "lixo" após correções
+- SEMPRE usar contexto dinâmico (@codebase, @routes, etc.)
+- SEMPRE manter documentação atualizada em docs/
 
-### **Sistema de Proprietário**
-- **SEMPRE** verificar `eh_proprietario` para operações sensíveis
-- **NUNCA** permitir múltiplos proprietários
-- **Primeiro usuário** = proprietário automático
 
-### **Valores Monetários**
-- **SEMPRE** usar `Decimal` no Prisma
-- **SEMPRE** converter para `Number` no response
-- **SEMPRE** validar com 2 casas decimais máximo
-- **FORMATO:** `999999.99` (máximo R$ 999.999,99)
 
-### **Validações Específicas**
-```typescript
-// Senha OBRIGATÓRIA
-senha: z.string()
-  .min(8, 'Senha deve ter pelo menos 8 caracteres')
-  .regex(/[a-z]/, 'Deve conter minúscula')
-  .regex(/[A-Z]/, 'Deve conter maiúscula')
-  .regex(/\d/, 'Deve conter número')
-  .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Deve conter especial')
-
-// Telefone brasileiro OBRIGATÓRIO
-telefone: z.string()
-  .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Formato: (XX) XXXXX-XXXX')
-
-// Cor hexadecimal OBRIGATÓRIA
-cor: z.string()
-  .regex(/^#[0-9A-Fa-f]{6}$/, 'Formato: #RRGGBB')
-```
-
-### **Soft Delete OBRIGATÓRIO**
-- **NUNCA** deletar fisicamente
-- **SEMPRE** usar `ativo: false`
-- **SEMPRE** filtrar por `ativo: true` em queries
-
-### **Paginação OBRIGATÓRIA**
-```typescript
-// Em todas as listagens
-const paginacao = {
-  page: parseInt(page) || 1,
-  limit: Math.min(parseInt(limit) || 20, 100),
-  total: count,
-  totalPages: Math.ceil(count / limit),
-  hasNext: page < Math.ceil(count / limit),
-  hasPrev: page > 1
-};
-```
-
----
-
-## 🔧 **COMANDOS ESPECÍFICOS WINDOWS**
-
-### **Scripts Batch OBRIGATÓRIOS**
-```batch
-# Desenvolvimento
-start-dev.bat     # Iniciar backend + frontend
-stop-dev.bat      # Parar todos os processos
-reset-dev.bat     # Reset completo com limpeza
-```
-
-### **Verificação de Processos**
-```batch
-# SEMPRE verificar antes de iniciar
-tasklist | findstr "node.exe"
-tasklist | findstr "postgres"
-```
-
----
-
-## 📚 **DOCUMENTAÇÃO OBRIGATÓRIA**
-
-### **Após QUALQUER implementação significativa:**
-
-1. **Atualizar docs/ relevantes:**
-   - `docs/API.md` - Se criou/modificou endpoints
-   - `docs/ARCHITECTURE.md` - Se mudou estrutura
-   - `docs/DECISIONS.md` - Se tomou decisão importante
-   - `docs/TROUBLESHOOTING.md` - Se resolveu problema
-
-2. **Formato de documentação:**
-```markdown
-## [Funcionalidade]
-**Criado em:** [data]
-**Arquivos modificados:** [lista]
-**Impactos:** [outras partes afetadas]
-**Testes sugeridos:** [como verificar]
-```
-
----
-
-## ⚠️ **AVISOS CRÍTICOS**
-
-### **NUNCA FAZER - PROIBIDO:**
-❌ Criar código sem @codebase primeiro  
-❌ Assumir estrutura sem verificar @routes/@schemas  
-❌ Deixar console.log de debug no código final  
-❌ Ignorar padrões de middleware existentes  
-❌ Criar validações sem usar Zod  
-❌ Não documentar mudanças importantes  
-❌ Quebrar estrutura de response padronizada  
-❌ Modificar stack tecnológica sem aprovação  
-
-### **SEMPRE FAZER - OBRIGATÓRIO:**
-✅ Usar comandos de descoberta primeiro  
-✅ Seguir padrões descobertos rigorosamente  
-✅ Adicionar logs estratégicos apropriados  
-✅ Limpar código experimental após correções  
-✅ Testar funcionamento antes de finalizar  
-✅ Atualizar documentação quando relevante  
-✅ Manter consistência arquitetural  
-✅ Validar com Zod em português brasileiro  
-
----
-
-**ESTAS REGRAS SÃO BASEADAS NO CÓDIGO REAL DO PERSONAL EXPENSE HUB.**  
-**SEGUIR RIGOROSAMENTE PARA MANTER QUALIDADE E CONSISTÊNCIA.**  
-**QUALQUER DESVIO DEVE SER JUSTIFICADO E DOCUMENTADO.** 
+- SEMPRE explicar problemas de forma didática

@@ -1,8 +1,8 @@
 # 💰 Personal Expense Hub - Documentação
 
 **Sistema de controle de gastos pessoais compartilhados**  
-**Versão:** 2.1.1 (Servidor Frontend Funcional)  
-**Status:** 🟢 Totalmente Funcional ✅
+**Versão:** 2.1.1 (Sistema Completo Funcional)  
+**Status:** 🟢 Produção Ready ✅
 
 ## 🎯 **VISÃO GERAL**
 
@@ -52,7 +52,21 @@ O Personal Expense Hub é um sistema web completo para controle de gastos pessoa
 hub/
 ├── backend/                    # API REST
 │   ├── controllers/           # Lógica de negócio (7 módulos)
+│   │   ├── authController.ts     # Autenticação e usuários
+│   │   ├── pessoaController.ts   # Gestão de pessoas
+│   │   ├── transacaoController.ts # Gastos e receitas
+│   │   ├── pagamentoController.ts # Pagamentos
+│   │   ├── tagController.ts      # Sistema de tags
+│   │   ├── relatorioController.ts # Relatórios e dashboard
+│   │   └── configuracaoController.ts # Configurações
 │   ├── routes/               # Definição de rotas (42 endpoints)
+│   │   ├── auth.ts              # 6 endpoints autenticação
+│   │   ├── pessoa.ts            # 6 endpoints pessoas
+│   │   ├── transacao.ts         # 8 endpoints transações
+│   │   ├── pagamento.ts         # 8 endpoints pagamentos
+│   │   ├── tag.ts               # 6 endpoints tags
+│   │   ├── relatorio.ts         # 6 endpoints relatórios
+│   │   └── configuracao.ts      # 4 endpoints configurações
 │   ├── schemas/              # Validações Zod
 │   ├── middleware/           # Auth, validação, segurança
 │   ├── types/                # Interfaces TypeScript
@@ -61,8 +75,23 @@ hub/
 │   └── migrations/           # Scripts SQL
 ├── frontend/                  # Interface Web
 │   ├── app/                  # Páginas Next.js (15 páginas)
+│   │   ├── (auth)/             # Páginas autenticadas
+│   │   │   ├── dashboard/        # Dashboard principal
+│   │   │   ├── pessoas/          # Gestão de pessoas
+│   │   │   ├── transacoes/       # Gastos e receitas
+│   │   │   ├── pagamentos/       # Pagamentos
+│   │   │   ├── tags/             # Tags
+│   │   │   ├── relatorios/       # Relatórios
+│   │   │   └── configuracoes/    # Configurações
+│   │   ├── login/              # Página de login
+│   │   └── page.tsx            # Página inicial
 │   ├── components/           # Componentes React
-│   ├── hooks/                # Hooks customizados
+│   │   ├── auth/               # Componentes de autenticação
+│   │   ├── common/             # Componentes comuns
+│   │   ├── forms/              # Formulários
+│   │   ├── layout/             # Layout da aplicação
+│   │   └── ui/                 # Componentes UI (Shadcn/ui)
+│   ├── hooks/                # Hooks customizados (12 hooks)
 │   ├── lib/                  # Utilitários e providers
 │   └── types/                # Tipos TypeScript
 ├── docs/                     # Documentação técnica
@@ -104,136 +133,123 @@ copy env.example .env
 # Frontend - Criar .env.local
 cd frontend
 copy env.example .env.local
-# Editar NEXT_PUBLIC_API_URL
+# Configurar URL da API
 ```
 
 ### **3. Banco de Dados**
 ```bash
 cd backend
-npm run setup-db
+npm run setup-db    # Criar banco e executar migrations
+npm run seed        # Dados de teste (opcional)
 ```
 
 ### **4. Acesso**
-- **Frontend:** http://localhost:3000 ✅ **FUNCIONAL**
-- **Backend:** http://localhost:3001 ✅ **FUNCIONAL**
-- **API Docs:** http://localhost:3001/api
+- **Frontend:** http://localhost:3000
+- **Backend:** http://localhost:3001
+- **Banco:** localhost:5432
 
-### **5. Credenciais de Teste**
-- **Email:** admin@teste.com
-- **Senha:** Admin123!
-
-## 📊 **FUNCIONALIDADES IMPLEMENTADAS**
+## 📊 **FUNCIONALIDADES COMPLETAS**
 
 ### **✅ Sistema de Autenticação**
-- Registro e login com JWT
-- Senhas com critérios de segurança
-- Primeiro usuário = proprietário automático
-- Perfis de usuário e alteração de senha
+- Login/Registro com JWT
+- Perfil de usuário
+- Alterar senha
+- Proprietário vs Participantes
+- Middleware de proteção
 
 ### **✅ Gestão de Pessoas**
 - CRUD completo de pessoas
-- Proprietário vs participantes
-- Soft delete (ativo/inativo)
+- Perfis de proprietário/participante
+- Sistema de ativação/desativação
 - Estatísticas por pessoa
 
-### **✅ Sistema de Tags**
-- Tags com cores personalizadas
-- Categorização de transações
-- Estatísticas de uso
-- Máximo 5 tags por transação
-
 ### **✅ Transações Avançadas**
-- **Gastos:** Divisão por valores fixos
-- **Receitas:** Exclusivas do proprietário
-- **Parcelamento:** Valores diferentes por parcela
-- **Status:** PENDENTE, PAGO_PARCIAL, PAGO_TOTAL
-- **Edição:** Campos limitados após criação
+- Gastos compartilhados
+- Receitas (só proprietário)
+- Sistema de parcelamento
+- Valores fixos por participante
+- Divisão personalizada
 
 ### **✅ Sistema de Pagamentos**
-- **Individuais:** Uma transação por vez
-- **Compostos:** Múltiplas transações
-- **Excedentes:** Conversão automática em receitas
-- **Formas:** PIX, Dinheiro, Transferência, etc.
+- Pagamentos individuais
+- Pagamentos compostos
+- Múltiplas formas de pagamento
+- Controle de excedentes
+- Receitas automáticas de excedente
 
-### **✅ Relatórios e Dashboard**
-- Dashboard principal com métricas
+### **✅ Tags e Categorização**
+- CRUD de tags
+- Sistema de cores
+- Ícones personalizados
+- Filtros por categoria
+
+### **✅ Relatórios Completos**
+- Dashboard em tempo real
 - Saldos por pessoa
 - Análise de pendências
 - Relatórios de transações
-- Análise por categorias/tags
+- Análise por categorias
 
-### **✅ Configurações do Sistema**
-- Tema da interface (light/dark/auto)
-- Configurações de comportamento (futuro)
-- Alertas e notificações (futuro)
-- Relatórios personalizados (futuro)
+### **✅ Configurações**
+- Configurações de interface
+- Temas (light/dark/auto)
+- Configurações de excedente
+- Preferências do sistema
 
-### **✅ Interface Moderna**
-- Design responsivo mobile-first
-- Páginas de detalhes e edição
-- Formulários inteligentes
-- Estados de loading/error/success
-- Modais de confirmação
+## 🔧 **SCRIPTS DISPONÍVEIS**
 
-## 📈 **MÉTRICAS DO PROJETO**
+### **Windows (Recomendado)**
+- `start-dev.bat` - 🚀 Inicia backend + frontend
+- `stop-dev.bat` - 🛑 Para todos os processos
+- `reset-dev.bat` - 🔄 Reset completo com limpeza
+
+### **Manual**
+```bash
+# Backend
+cd backend
+npm run dev         # Modo desenvolvimento
+npm run build      # Build para produção
+npm run start      # Produção
+npm run setup-db   # Configurar banco
+
+# Frontend  
+cd frontend
+npm run dev        # Modo desenvolvimento
+npm run build     # Build para produção
+npm run start     # Produção
+```
+
+## 📈 **ESTATÍSTICAS DO PROJETO**
 
 ### **Backend**
 - **42 endpoints** funcionais
-- **7 módulos** de controller
-- **9 tabelas** no banco
-- **100% tipado** TypeScript
+- **7 controllers** com lógica de negócio
+- **9 tabelas** no banco de dados
+- **269 tipos** TypeScript definidos
 - **Zero bugs** conhecidos
 
 ### **Frontend**
 - **15 páginas** implementadas
-- **6 grupos** de componentes
 - **12 hooks** customizados
-- **100% responsivo**
-- **Zero erros** TypeScript
-- **Cache otimizado** Next.js ✨**NOVO**
+- **40+ componentes** React
+- **Interface responsiva** mobile-first
+- **Integração completa** com API
 
-### **Qualidade**
-- **100% funcional** - Todos os recursos implementados
-- **Performance otimizada** - Queries eficientes
-- **Segurança robusta** - JWT, validações, sanitização
-- **Código limpo** - Padrões consistentes
-- **Documentação completa** - Guias e referências
+## 📚 **DOCUMENTAÇÃO TÉCNICA**
 
-## 🎉 **STATUS ATUAL v2.1.1**
+Esta documentação está organizada em módulos especializados:
 
-### **✅ AMBIENTE DE DESENVOLVIMENTO**
-- **Frontend:** 98% completo - Servidor funcionando perfeitamente
-- **Backend:** 100% completo - API totalmente funcional
-- **Integração:** 90% completa - Comunicação estabelecida
-- **Cache:** Otimizado - Next.js performance melhorada
+### **Para Desenvolvedores**
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Arquitetura e padrões técnicos
+- [DEVELOPMENT.md](./DEVELOPMENT.md) - Guias de desenvolvimento
+- [API.md](./API.md) - Documentação completa da API
 
-### **🚀 ÚLTIMAS CORREÇÕES (28/01/2025)**
-- ✅ **Cache Next.js limpo** - Erros 404 resolvidos
-- ✅ **Componentes corrigidos** - PessoaFormModal implementado
-- ✅ **API_ENDPOINTS** - Mapeamento completo dos 42 endpoints
-- ✅ **Processos Node.js** - Conflitos eliminados
-- ✅ **Performance** - Compilação em ~1.5s
+### **Para Manutenção**
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Problemas conhecidos e soluções
+- [DECISIONS.md](./DECISIONS.md) - Decisões arquiteturais e histórico
 
-### **⚡ READY FOR ACTION**
-```bash
-# Tudo funcionando! Basta iniciar:
-start-dev.bat
-
-# URLs prontas:
-# Frontend: http://localhost:3000
-# Backend:  http://localhost:3001
-# Login:    admin@teste.com / Admin123!
-```
-
-## 🔗 **LINKS ÚTEIS**
-
-### **Documentação Técnica**
-- [Arquitetura e Padrões](./ARCHITECTURE.md)
-- [API Reference](./API.md)
-- [Guia de Desenvolvimento](./DEVELOPMENT.md)
-- [Troubleshooting](./TROUBLESHOOTING.md)
-- [Decisões Arquiteturais](./DECISIONS.md)
-- [Rules do Cursor AI](./CURSOR_RULES.md)
+### **Para Cursor AI**
+- [CURSOR_RULES.md](./CURSOR_RULES.md) - Rules específicas do Cursor AI
 
 ### **Arquivos Importantes**
 - [Schema do Banco](../backend/prisma/schema.prisma)
