@@ -378,7 +378,7 @@ export default function PessoaDetalhesPage() {
             </Button>
 
             <Button variant="outline" asChild>
-              <Link href={`/relatorios/saldos?pessoa_id=${pessoa.id}`}>
+              <Link href={`/relatorios/saldos?pessoa_id=${pessoa.id}` as any}>
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Relatório de Saldos
               </Link>

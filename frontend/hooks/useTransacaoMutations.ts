@@ -78,6 +78,28 @@ export function useTransacaoMutations(options: UseTransacaoMutationsOptions = {}
         throw new Error('Deve haver pelo menos um participante')
       }
 
+      // ✅ CORREÇÃO: Validação de data no frontend
+      const dataRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dataRegex.test(data.data_transacao)) {
+        throw new Error('Data deve estar no formato YYYY-MM-DD')
+      }
+      
+      const inputDate = new Date(data.data_transacao)
+      if (isNaN(inputDate.getTime())) {
+        throw new Error('Data inválida')
+      }
+      
+      const year = inputDate.getFullYear()
+      if (year < 2000 || year > 2050) {
+        throw new Error('Data deve estar entre os anos 2000 e 2050')
+      }
+      
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      if (inputDate > today) {
+        throw new Error('Data não pode ser futura')
+      }
+
       // Verificar se soma dos participantes confere
       const somaParticipantes = data.participantes.reduce((acc, p) => acc + p.valor_devido, 0)
       const diferenca = Math.abs(data.valor_total - somaParticipantes)
@@ -91,7 +113,8 @@ export function useTransacaoMutations(options: UseTransacaoMutationsOptions = {}
         message: string
       }>(API_ENDPOINTS.TRANSACOES.CREATE, data)
 
-      if (response.data.success && response.data.data) {
+      // ✅ CORREÇÃO: Verificar se a requisição HTTP foi bem-sucedida E se o response indica sucesso
+      if (response.status >= 200 && response.status < 300 && response.data.success && response.data.data) {
         const novaTransacao = response.data.data
 
         setCreateGastoState({ loading: false, error: null, success: true })
@@ -109,7 +132,9 @@ export function useTransacaoMutations(options: UseTransacaoMutationsOptions = {}
         onSuccess?.(novaTransacao)
         return novaTransacao
       } else {
-        throw new Error(response.data.message || 'Erro ao criar gasto')
+        // ✅ CORREÇÃO: Melhor tratamento quando response não indica sucesso
+        const errorMsg = response.data?.message || `Erro HTTP ${response.status}: Falha ao criar gasto`
+        throw new Error(errorMsg)
       }
 
     } catch (err: any) {
@@ -143,13 +168,36 @@ export function useTransacaoMutations(options: UseTransacaoMutationsOptions = {}
         throw new Error('Valor deve ser maior que zero')
       }
 
+      // ✅ CORREÇÃO: Validação de data no frontend (igual ao createGasto)
+      const dataRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dataRegex.test(data.data_transacao)) {
+        throw new Error('Data deve estar no formato YYYY-MM-DD')
+      }
+      
+      const inputDate = new Date(data.data_transacao)
+      if (isNaN(inputDate.getTime())) {
+        throw new Error('Data inválida')
+      }
+      
+      const year = inputDate.getFullYear()
+      if (year < 2000 || year > 2050) {
+        throw new Error('Data deve estar entre os anos 2000 e 2050')
+      }
+      
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      if (inputDate > today) {
+        throw new Error('Data não pode ser futura')
+      }
+
       const response = await apiPost<{
         success: boolean
         data: Transacao
         message: string
       }>(API_ENDPOINTS.TRANSACOES.CREATE_RECEITA, data)
 
-      if (response.data.success && response.data.data) {
+      // ✅ CORREÇÃO: Verificar status HTTP e response success
+      if (response.status >= 200 && response.status < 300 && response.data.success && response.data.data) {
         const novaReceita = response.data.data
 
         setCreateReceitaState({ loading: false, error: null, success: true })
@@ -167,7 +215,9 @@ export function useTransacaoMutations(options: UseTransacaoMutationsOptions = {}
         onSuccess?.(novaReceita)
         return novaReceita
       } else {
-        throw new Error(response.data.message || 'Erro ao criar receita')
+        // ✅ CORREÇÃO: Melhor tratamento de erro
+        const errorMsg = response.data?.message || `Erro HTTP ${response.status}: Falha ao criar receita`
+        throw new Error(errorMsg)
       }
 
     } catch (err: any) {

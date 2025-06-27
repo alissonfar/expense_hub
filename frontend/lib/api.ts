@@ -35,6 +35,16 @@ api.interceptors.request.use(
 // Interceptor para tratamento de respostas e erros
 api.interceptors.response.use(
   (response) => {
+    // ✅ CORREÇÃO: Verificar se response tem status de erro cliente (400-499)
+    if (response.status >= 400 && response.status < 500) {
+      const errorMessage = getErrorMessage(response as any)
+      return Promise.reject({
+        response,
+        message: errorMessage,
+        isAxiosError: true
+      })
+    }
+    
     return response
   },
   (error: AxiosError) => {

@@ -80,7 +80,7 @@ export default function EditarTransacaoPage() {
             descricao: transacaoData.descricao || '',
             local: transacaoData.local || '',
             observacoes: transacaoData.observacoes || '',
-            tags: transacaoData.transacao_tags?.map(t => t.tag_id) || []
+            tags: (transacaoData as any).transacao_tags?.map((t: any) => t.tag_id) || []
           })
         } else {
           throw new Error(response.data.message || 'Transação não encontrada')
@@ -130,7 +130,7 @@ export default function EditarTransacaoPage() {
     }
     
     // Tags (sempre enviar para comparação no backend)
-    const tagsOriginais = transacao.transacao_tags?.map(t => t.tag_id) || []
+    const tagsOriginais = (transacao as any).transacao_tags?.map((t: any) => t.tag_id) || []
     const tagsAtuais = formData.tags || []
     
     if (JSON.stringify(tagsOriginais.sort()) !== JSON.stringify(tagsAtuais.sort())) {
@@ -234,7 +234,7 @@ export default function EditarTransacaoPage() {
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(transacao.valor_total)}
+              }).format(transacao.valor_total || 0)}
             </div>
             <div>
               <span className="font-medium">Data:</span>{' '}

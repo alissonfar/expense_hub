@@ -36,8 +36,8 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; color: string }[
   { value: 'PIX', label: 'PIX', color: 'bg-blue-100 text-blue-800' },
   { value: 'DINHEIRO', label: 'Dinheiro', color: 'bg-green-100 text-green-800' },
   { value: 'TRANSFERENCIA', label: 'Transferência', color: 'bg-purple-100 text-purple-800' },
-  { value: 'DEBITO', label: 'Cartão Débito', color: 'bg-orange-100 text-orange-800' },
-  { value: 'CREDITO', label: 'Cartão Crédito', color: 'bg-red-100 text-red-800' },
+  { value: 'CARTAO_DEBITO', label: 'Cartão Débito', color: 'bg-orange-100 text-orange-800' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão Crédito', color: 'bg-red-100 text-red-800' },
   { value: 'OUTROS', label: 'Outros', color: 'bg-gray-100 text-gray-800' }
 ]
 

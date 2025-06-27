@@ -28,7 +28,10 @@ import {
   AlertCircle,
   Check,
   TrendingUp,
-  Keyboard
+  Keyboard,
+  Settings,
+  RotateCcw,
+  ArrowLeft
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/lib/auth'
@@ -53,7 +56,6 @@ export function TransacaoFormAvancado({
 }: TransacaoFormAvancadoProps) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const { createGasto, createReceita } = useTransacaoMutations()
   const { pessoas, loading: loadingPessoas } = usePessoas()
   const { tags, loading: loadingTags } = useTags()
   
@@ -61,6 +63,79 @@ export function TransacaoFormAvancado({
   const [showSuccess, setShowSuccess] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [activeTab, setActiveTab] = useState('basico')
+  
+  // ✅ CORREÇÃO: Novos estados para feedback visual detalhado
+  const [processStage, setProcessStage] = useState<'idle' | 'validating' | 'preparing' | 'sending' | 'processing' | 'success' | 'error'>('idle')
+  const [processMessage, setProcessMessage] = useState('')
+  const [countdownTime, setCountdownTime] = useState(6)
+  
+  // ✅ CORREÇÃO: Novo estado para controlar comportamento pós-salvamento
+  const [postSaveAction, setPostSaveAction] = useState<'stay' | 'redirect'>('stay')
+  
+  // ✅ CORREÇÃO: Efeito para countdown visual no sucesso
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    
+    if (processStage === 'success' && countdownTime > 0 && postSaveAction === 'stay') {
+      interval = setInterval(() => {
+        setCountdownTime(prev => {
+          if (prev <= 1) {
+            resetFormulario()
+            setShowSuccess(false)
+            setProcessStage('idle')
+            return 6
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [processStage, countdownTime, postSaveAction])
+  
+  const { createGasto, createReceita } = useTransacaoMutations({
+    autoToast: false, // Desabilitar toast automático para controlar manualmente
+    onSuccess: () => {
+      // ✅ CORREÇÃO: Feedback visual robusto de sucesso
+      setShowSuccess(true)
+      
+      // ✅ CORREÇÃO: Toast customizado mais informativo e atrativo
+      toast({
+        title: "🎉 Transação Salva com Sucesso!",
+        description: (
+          <div className="space-y-1">
+            <p className="font-medium">{`${tipo === 'GASTO' ? 'Gasto' : 'Receita'}: ${formData.descricao}`}</p>
+            <p className="text-sm opacity-90">{formatCurrency(formData.valor_total)} • {new Date(formData.data_transacao + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+            {tipo === 'GASTO' && formData.participantes.length > 1 && (
+              <p className="text-xs opacity-75">{formData.participantes.length} participante{formData.participantes.length > 1 ? 's' : ''}</p>
+            )}
+          </div>
+        ),
+        duration: 8000,
+      })
+
+      // ✅ CORREÇÃO: Comportamento baseado na preferência do usuário
+      if (postSaveAction === 'stay') {
+        // Permanecer no formulário - iniciar countdown
+        setProcessStage('success')
+        setProcessMessage('Transação salva com sucesso!')
+        setCountdownTime(6)
+      } else {
+        // Redirecionar após um breve delay para mostrar sucesso
+        setTimeout(() => {
+          onSuccess?.()
+        }, 2000)
+      }
+    },
+    onError: (error) => {
+      // Log estratégico para depuração
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[TransacaoFormAvancado] Erro detalhado:', error)
+      }
+    }
+  })
   
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -155,8 +230,6 @@ export function TransacaoFormAvancado({
       }))
     }
   }, [tipo, formData.valor_total, formData.participantes.length])
-
-
 
   // Atalhos de teclado
   useEffect(() => {
@@ -370,8 +443,30 @@ export function TransacaoFormAvancado({
       newErrors.valor_total = 'Valor deve ser maior que zero'
     }
 
+    // ✅ CORREÇÃO: Validação robusta de data
     if (!formData.data_transacao) {
       newErrors.data_transacao = 'Data é obrigatória'
+    } else {
+      const dataRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dataRegex.test(formData.data_transacao)) {
+        newErrors.data_transacao = 'Data deve estar no formato YYYY-MM-DD'
+      } else {
+        const inputDate = new Date(formData.data_transacao)
+        if (isNaN(inputDate.getTime())) {
+          newErrors.data_transacao = 'Data inválida'
+        } else {
+          const year = inputDate.getFullYear()
+          if (year < 2000 || year > 2050) {
+            newErrors.data_transacao = 'Data deve estar entre os anos 2000 e 2050'
+          } else {
+            const today = new Date()
+            today.setHours(23, 59, 59, 999)
+            if (inputDate > today) {
+              newErrors.data_transacao = 'Data não pode ser futura'
+            }
+          }
+        }
+      }
     }
 
     // Validações específicas para gastos
@@ -393,30 +488,82 @@ export function TransacaoFormAvancado({
       newErrors.tags = 'Máximo de 5 tags por transação'
     }
 
+    // ✅ CORREÇÃO: Atualizar estado e retornar resultado
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const isValid = Object.keys(newErrors).length === 0
+    
+    // Log estratégico apenas para depuração
+    if (!isValid && process.env.NODE_ENV === 'development') {
+      console.log('[TransacaoFormAvancado] Validação falhou:', newErrors)
+    }
+    
+    return isValid
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('[TransacaoFormAvancado] handleSubmit iniciado')
+    
+    // ✅ CORREÇÃO: Etapa 1 - Validação com feedback visual
+    setProcessStage('validating')
+    setProcessMessage('Validando dados do formulário...')
+    
+    // Delay artificial para usuário ver a validação
+    await new Promise(resolve => setTimeout(resolve, 800))
     
     if (!validateForm()) {
-      console.log('[TransacaoFormAvancado] Validação falhou:', errors)
-      // Ir para a aba com erro
-      if (errors.descricao || errors.valor_total || errors.data_transacao) {
-        setActiveTab('basico')
-      } else if (errors.participantes) {
-        setActiveTab('participantes')
-      } else if (errors.tags) {
-        setActiveTab('tags')
-      }
+      setProcessStage('error')
+      setProcessMessage('Erro de validação encontrado')
+      
+      // ✅ CORREÇÃO: Aguardar um tick para que o estado errors seja atualizado
+      setTimeout(() => {
+        const primeiroErro = Object.values(errors)[0] || 'Verifique os campos obrigatórios'
+        const totalErros = Object.keys(errors).length
+        
+        // ✅ CORREÇÃO: Feedback visual imediato com toast
+        toast({
+          title: "⚠️ Erro de Validação",
+          description: totalErros > 1 
+            ? `${primeiroErro} (e mais ${totalErros - 1} erro${totalErros > 2 ? 's' : ''})`
+            : primeiroErro || 'Verifique os campos obrigatórios',
+          variant: "destructive",
+          duration: 5000,
+        })
+        
+        // Ir para a aba com erro
+        if (errors.descricao || errors.valor_total || errors.data_transacao) {
+          setActiveTab('basico')
+        } else if (errors.participantes) {
+          setActiveTab('participantes')
+        } else if (errors.tags) {
+          setActiveTab('tags')
+        }
+        
+        // Reset estado do processo
+        setTimeout(() => {
+          setProcessStage('idle')
+          setProcessMessage('')
+        }, 2000)
+      }, 0)
+      
       return
     }
 
     try {
       setIsSubmitting(true)
-      console.log('[TransacaoFormAvancado] Iniciando criação da transação:', { tipo, formData })
+      
+      // ✅ CORREÇÃO: Etapa 2 - Preparação dos dados
+      setProcessStage('preparing')
+      setProcessMessage(`Preparando dados do ${tipo.toLowerCase()}...`)
+      await new Promise(resolve => setTimeout(resolve, 600))
+
+      // ✅ CORREÇÃO: Etapa 3 - Enviando para servidor
+      setProcessStage('sending')
+      setProcessMessage('Enviando dados para o servidor...')
+      await new Promise(resolve => setTimeout(resolve, 400))
+
+      // ✅ CORREÇÃO: Etapa 4 - Processamento
+      setProcessStage('processing')
+      setProcessMessage('Processando transação...')
 
       if (tipo === 'GASTO') {
         const gastoData: CreateGastoForm = {
@@ -431,9 +578,7 @@ export function TransacaoFormAvancado({
           tags: formData.tags
         }
 
-        console.log('[TransacaoFormAvancado] Dados do gasto:', gastoData)
-        const resultado = await createGasto(gastoData)
-        console.log('[TransacaoFormAvancado] Resultado createGasto:', resultado)
+        await createGasto(gastoData)
       } else {
         const receitaData: CreateReceitaForm = {
           descricao: formData.descricao,
@@ -444,44 +589,40 @@ export function TransacaoFormAvancado({
           tags: formData.tags
         }
 
-        console.log('[TransacaoFormAvancado] Dados da receita:', receitaData)
-        const resultado = await createReceita(receitaData)
-        console.log('[TransacaoFormAvancado] Resultado createReceita:', resultado)
+        await createReceita(receitaData)
       }
 
-      console.log('[TransacaoFormAvancado] Transação criada com sucesso!')
-      
-      // Feedback visual de sucesso
-      setShowSuccess(true)
-      
-      toast({
-        title: "✅ Sucesso!",
-        description: `${tipo === 'GASTO' ? 'Gasto' : 'Receita'} de ${formatCurrency(formData.valor_total)} criado com sucesso`,
-        duration: 4000,
-      })
-
-      // Reset form para nova transação após 3 segundos
-      setTimeout(() => {
-        resetFormulario()
-      }, 3000)
-
-      onSuccess?.()
+      // ✅ CORREÇÃO: Sucesso é tratado no callback onSuccess do hook
 
     } catch (error: any) {
-      console.error('[TransacaoFormAvancado] Erro ao criar transação:', error)
+      setProcessStage('error')
+      setProcessMessage('Erro ao salvar transação')
+      
+      // Log estratégico para depuração
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[TransacaoFormAvancado] Erro ao criar transação:', error)
+      }
+      
+      // ✅ CORREÇÃO: Toast de erro mais amigável
       toast({
-        title: "❌ Erro",
-        description: error.message || "Erro ao salvar transação",
+        title: "❌ Erro ao Salvar",
+        description: error.message || "Não foi possível salvar a transação. Tente novamente.",
         variant: "destructive",
         duration: 6000,
       })
+      
+      // Reset estado do processo após erro
+      setTimeout(() => {
+        setProcessStage('idle')
+        setProcessMessage('')
+      }, 3000)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-7xl mx-auto space-y-6">
       {/* Painel de Atalhos */}
       {showShortcuts && (
         <Card className="border-blue-200 bg-blue-50">
@@ -539,31 +680,236 @@ export function TransacaoFormAvancado({
         </Card>
       )}
 
-      {/* Feedback de Sucesso */}
+      {/* ✅ CORREÇÃO: Feedback de Sucesso Melhorado */}
       {showSuccess && (
-        <Card className="border-green-200 bg-green-50">
+        <Card className="border-green-200 bg-gradient-to-r from-green-50 to-green-100 shadow-lg animate-in slide-in-from-top-4 duration-500">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <Check className="h-5 w-5 text-green-600" />
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500 rounded-full animate-pulse">
+                  <Check className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-green-800">Transação salva com sucesso!</h3>
-                  <p className="text-sm text-green-600">
-                    Formulário será resetado em alguns segundos...
-                  </p>
+                  <h3 className="text-lg font-semibold text-green-800 mb-1">
+                    🎉 {tipo === 'GASTO' ? 'Gasto' : 'Receita'} Salvo com Sucesso!
+                  </h3>
+                  <div className="space-y-1 text-sm text-green-700">
+                    <p className="font-medium">{formData.descricao}</p>
+                    <p>{formatCurrency(formData.valor_total)} • {new Date(formData.data_transacao + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                    <p className="text-green-600">Formulário será limpo em 4 segundos...</p>
+                  </div>
                 </div>
               </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetFormulario}
+                  className="border-green-300 text-green-700 hover:bg-green-200 transition-colors"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Transação
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSuccess(false)}
+                  className="text-green-600 hover:bg-green-200"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ✅ CORREÇÃO: Painel de Preferências de Comportamento */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Settings className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-blue-800">Após Salvar a Transação</h3>
+                <p className="text-sm text-blue-600">Escolha o que acontece depois de salvar</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
               <Button
-                variant="outline"
+                type="button"
+                variant={postSaveAction === 'stay' ? 'default' : 'outline'}
                 size="sm"
-                onClick={resetFormulario}
-                className="border-green-300 text-green-700 hover:bg-green-100"
+                onClick={() => setPostSaveAction('stay')}
+                className={`transition-all ${
+                  postSaveAction === 'stay' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'border-blue-300 text-blue-700 hover:bg-blue-100'
+                }`}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Agora
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Limpar e Continuar
               </Button>
+              <Button
+                type="button"
+                variant={postSaveAction === 'redirect' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPostSaveAction('redirect')}
+                className={`transition-all ${
+                  postSaveAction === 'redirect' 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'border-blue-300 text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar à Lista
+              </Button>
+            </div>
+          </div>
+          
+          <div className="mt-3 text-xs text-blue-600">
+            {postSaveAction === 'stay' ? (
+              '💡 Ideal para lançar várias transações seguidas - formulário será limpo automaticamente'
+            ) : (
+              '💡 Ideal para lançamentos únicos - você voltará para a lista de transações'
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ✅ CORREÇÃO: Painel de Processo em Tempo Real */}
+      {processStage !== 'idle' && (
+        <Card className={`border-2 transition-all duration-300 ${
+          processStage === 'success' ? 'border-green-300 bg-green-50' :
+          processStage === 'error' ? 'border-red-300 bg-red-50' :
+          'border-blue-300 bg-blue-50'
+        }`}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-full ${
+                processStage === 'success' ? 'bg-green-500' :
+                processStage === 'error' ? 'bg-red-500' :
+                'bg-blue-500'
+              }`}>
+                {processStage === 'success' ? (
+                  <Check className="h-6 w-6 text-white" />
+                ) : processStage === 'error' ? (
+                  <X className="h-6 w-6 text-white" />
+                ) : (
+                  <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className={`text-lg font-semibold ${
+                    processStage === 'success' ? 'text-green-800' :
+                    processStage === 'error' ? 'text-red-800' :
+                    'text-blue-800'
+                  }`}>
+                    {processStage === 'validating' && '🔍 Validando Dados'}
+                    {processStage === 'preparing' && '📋 Preparando Transação'}
+                    {processStage === 'sending' && '📤 Enviando para Servidor'}
+                    {processStage === 'processing' && '⚙️ Processando'}
+                    {processStage === 'success' && '✅ Concluído!'}
+                    {processStage === 'error' && '❌ Erro Encontrado'}
+                  </h3>
+                  
+                  {/* Progress steps */}
+                  <div className="flex gap-1">
+                    {['validating', 'preparing', 'sending', 'processing', 'success'].map((stage, index) => (
+                      <div
+                        key={stage}
+                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                          ['validating', 'preparing', 'sending', 'processing', 'success'].indexOf(processStage) >= index
+                            ? processStage === 'error' 
+                              ? 'bg-red-400'
+                              : processStage === 'success' 
+                                ? 'bg-green-400' 
+                                : 'bg-blue-400'
+                            : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                <p className={`text-sm ${
+                  processStage === 'success' ? 'text-green-700' :
+                  processStage === 'error' ? 'text-red-700' :
+                  'text-blue-700'
+                }`}>
+                  {processMessage}
+                </p>
+                
+                                 {processStage === 'success' && (
+                                        <div className="mt-3 space-y-2">
+                       {postSaveAction === 'stay' ? (
+                         <>
+                           <div className="flex items-center gap-2 text-xs text-green-600">
+                             <div className="flex items-center gap-1">
+                               <span>Formulário será limpo em:</span>
+                               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-800 font-bold text-xs">
+                                 {countdownTime}
+                               </div>
+                               <span>segundo{countdownTime !== 1 ? 's' : ''}</span>
+                             </div>
+                           </div>
+                           
+                           {/* Barra de progresso do countdown */}
+                           <div className="w-full bg-green-200 rounded-full h-1.5">
+                             <div 
+                               className="bg-green-500 h-1.5 rounded-full transition-all duration-1000 ease-linear"
+                               style={{ width: `${(countdownTime / 6) * 100}%` }}
+                             />
+                           </div>
+                         </>
+                       ) : (
+                         <div className="text-xs text-green-600">
+                           🔄 Redirecionando para a lista de transações...
+                         </div>
+                       )}
+                     </div>
+                 )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ✅ CORREÇÃO: Painel de Erros Visível */}
+      {Object.keys(errors).length > 0 && processStage === 'idle' && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-red-800 mb-2">
+                  Corrija os erros abaixo para continuar:
+                </h3>
+                <ul className="space-y-1 text-sm text-red-700">
+                  {Object.entries(errors).map(([field, message]) => (
+                    <li key={field} className="flex items-center gap-2">
+                      <div className="w-1 h-1 bg-red-400 rounded-full"></div>
+                      <span className="font-medium capitalize">
+                        {field === 'descricao' ? 'Descrição' :
+                         field === 'valor_total' ? 'Valor' :
+                         field === 'data_transacao' ? 'Data' :
+                         field === 'participantes' ? 'Participantes' :
+                         field === 'total_parcelas' ? 'Parcelas' :
+                         field === 'tags' ? 'Tags' : field}:
+                      </span>
+                      <span>{message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -661,9 +1007,9 @@ export function TransacaoFormAvancado({
             <form onSubmit={handleSubmit}>
               {/* Aba Básico */}
               <TabsContent value="basico" className="space-y-4 mt-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-6 lg:grid-cols-3 md:grid-cols-2">
                   {/* Descrição */}
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2 lg:col-span-3 md:col-span-2">
                     <Label htmlFor="descricao" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
                       Descrição *
@@ -744,7 +1090,7 @@ export function TransacaoFormAvancado({
 
                   {/* Parcelamento (apenas para gastos) */}
                   {tipo === 'GASTO' && (
-                    <div className="space-y-4 md:col-span-2">
+                    <div className="space-y-4 lg:col-span-3 md:col-span-2">
                       <Separator />
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -793,7 +1139,7 @@ export function TransacaoFormAvancado({
                   )}
 
                   {/* Observações */}
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2 lg:col-span-3 md:col-span-2">
                     <Label htmlFor="observacoes">Observações</Label>
                     <Textarea
                       id="observacoes"
@@ -843,7 +1189,7 @@ export function TransacaoFormAvancado({
                           Dividir Igualmente
                         </Button>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Valor Total:</span>
                           <div className="font-semibold">{formatCurrency(formData.valor_total)}</div>
@@ -888,7 +1234,7 @@ export function TransacaoFormAvancado({
                                 </AvatarFallback>
                               </Avatar>
                               
-                              <div className="flex-1 grid gap-4 md:grid-cols-3">
+                              <div className="flex-1 grid gap-4 lg:grid-cols-4 md:grid-cols-3">
                                 <div className="space-y-2">
                                   <Label>Pessoa *</Label>
                                   <Select
@@ -1082,7 +1428,7 @@ export function TransacaoFormAvancado({
                   </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-6 lg:grid-cols-3 md:grid-cols-2">
                   {/* Informações Básicas */}
                   <Card>
                     <CardHeader>
@@ -1125,31 +1471,53 @@ export function TransacaoFormAvancado({
                     </CardContent>
                   </Card>
 
-                  {/* Participantes e Tags */}
+                  {/* Participantes (apenas para gastos) */}
+                  {tipo === 'GASTO' && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Participantes ({formData.participantes.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {formData.participantes.map((p, i) => (
+                            <div key={i} className="flex justify-between text-sm py-1">
+                              <span className="truncate flex-1">{p.nome}</span>
+                              <span className="font-medium ml-2">{formatCurrency(p.valor_devido)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-2 border-t">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Total calculado:</span>
+                            <span className={`font-medium ${calculosAutomaticos.isBalanceado ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(calculosAutomaticos.totalParticipantes)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Diferença:</span>
+                            <span className={`font-medium ${calculosAutomaticos.isBalanceado ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(calculosAutomaticos.diferenca)}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Tags e Detalhes */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Participantes e Tags
+                        <Tag className="h-4 w-4" />
+                        Tags e Detalhes
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {tipo === 'GASTO' && (
-                        <div>
-                          <span className="text-sm text-muted-foreground">Participantes:</span>
-                          <div className="space-y-1 mt-1">
-                            {formData.participantes.map((p, i) => (
-                              <div key={i} className="flex justify-between text-sm">
-                                <span>{p.nome}</span>
-                                <span className="font-medium">{formatCurrency(p.valor_devido)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
                       <div>
-                        <span className="text-sm text-muted-foreground">Tags:</span>
+                        <span className="text-sm text-muted-foreground">Tags ({formData.tags.length}):</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {formData.tags.length > 0 ? (
                             formData.tags.map(tagId => {
@@ -1165,7 +1533,7 @@ export function TransacaoFormAvancado({
                               ) : null
                             })
                           ) : (
-                            <span className="text-sm text-muted-foreground">Nenhuma tag selecionada</span>
+                            <span className="text-sm text-muted-foreground">Nenhuma tag</span>
                           )}
                         </div>
                       </div>
@@ -1173,8 +1541,17 @@ export function TransacaoFormAvancado({
                       {formData.observacoes && (
                         <div>
                           <span className="text-sm text-muted-foreground">Observações:</span>
-                          <div className="text-sm bg-muted p-2 rounded mt-1">
+                          <div className="text-sm bg-muted p-2 rounded mt-1 max-h-20 overflow-y-auto">
                             {formData.observacoes}
+                          </div>
+                        </div>
+                      )}
+
+                      {tipo === 'GASTO' && formData.eh_parcelado && (
+                        <div>
+                          <span className="text-sm text-muted-foreground">Parcelamento:</span>
+                          <div className="text-sm font-medium bg-blue-50 p-2 rounded mt-1">
+                            {formData.total_parcelas}× de {formatCurrency(formData.valor_total / formData.total_parcelas)}
                           </div>
                         </div>
                       )}
@@ -1203,7 +1580,7 @@ export function TransacaoFormAvancado({
               </TabsContent>
 
               {/* Botões de ação */}
-              <div className="flex justify-end space-x-3 pt-6 border-t">
+              <div className="flex flex-col sm:flex-row justify-between sm:justify-end gap-3 pt-6 border-t">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -1215,23 +1592,48 @@ export function TransacaoFormAvancado({
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={isSubmitting || (!calculosAutomaticos.isBalanceado && tipo === 'GASTO')}
-                  className={`min-w-[140px] ${showSuccess ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                  disabled={isSubmitting || (!calculosAutomaticos.isBalanceado && tipo === 'GASTO') || processStage !== 'idle'}
+                  className={`min-w-[160px] transition-all duration-300 ${
+                    processStage === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                    processStage === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                    processStage !== 'idle' ? 'bg-blue-600 hover:bg-blue-700' :
+                    ''
+                  }`}
                 >
-                  {isSubmitting ? (
+                  {processStage === 'validating' ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Salvando...
+                      Validando...
                     </>
-                  ) : showSuccess ? (
+                  ) : processStage === 'preparing' ? (
+                    <>
+                      <div className="animate-pulse h-4 w-4 bg-white rounded mr-2" />
+                      Preparando...
+                    </>
+                  ) : processStage === 'sending' ? (
+                    <>
+                      <div className="animate-bounce h-4 w-4 bg-white rounded mr-2" />
+                      Enviando...
+                    </>
+                  ) : processStage === 'processing' ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Processando...
+                    </>
+                  ) : processStage === 'success' ? (
                     <>
                       <Check className="h-4 w-4 mr-2" />
-                      Salvo!
+                      Salvo! ({countdownTime}s)
+                    </>
+                  ) : processStage === 'error' ? (
+                    <>
+                      <X className="h-4 w-4 mr-2" />
+                      Erro!
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
-                      Salvar Transação
+                      Salvar {tipo === 'GASTO' ? 'Gasto' : 'Receita'}
                       <kbd className="ml-2 px-1 py-0.5 bg-white/20 rounded text-xs">
                         Ctrl+↵
                       </kbd>

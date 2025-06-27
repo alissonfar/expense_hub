@@ -287,17 +287,17 @@ export default function TransacaoDetalhesPage() {
       </Card>
 
       {/* Participantes (apenas para gastos) */}
-      {transacao.tipo === 'GASTO' && transacao.transacao_participantes && transacao.transacao_participantes.length > 0 && (
+      {transacao.tipo === 'GASTO' && (transacao as any).transacao_participantes && (transacao as any).transacao_participantes.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Participantes ({transacao.transacao_participantes.length})
+              Participantes ({(transacao as any).transacao_participantes.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {transacao.transacao_participantes.map((participante) => (
+              {(transacao as any).transacao_participantes.map((participante: any) => (
                 <div key={participante.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -315,7 +315,7 @@ export default function TransacaoDetalhesPage() {
                   <div className="text-right">
                     <div className="font-medium">{formatCurrency(participante.valor_devido)}</div>
                     <div className="text-sm text-muted-foreground">
-                      {((participante.valor_devido / transacao.valor_total) * 100).toFixed(1)}%
+                      {((participante.valor_devido / (transacao.valor_total || 1)) * 100).toFixed(1)}%
                     </div>
                   </div>
                 </div>

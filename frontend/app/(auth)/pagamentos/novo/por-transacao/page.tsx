@@ -22,8 +22,8 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
   { value: 'PIX', label: 'PIX' },
   { value: 'DINHEIRO', label: 'Dinheiro' },
   { value: 'TRANSFERENCIA', label: 'Transferência' },
-  { value: 'DEBITO', label: 'Cartão Débito' },
-  { value: 'CREDITO', label: 'Cartão Crédito' },
+  { value: 'CARTAO_DEBITO', label: 'Cartão Débito' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão Crédito' },
   { value: 'OUTROS', label: 'Outros' }
 ]
 
@@ -32,7 +32,7 @@ export default function PagarPorTransacaoPage() {
   
   // Hooks
   const { createPagamento, createState } = usePagamentos({ autoFetch: false })
-  const { transacoes, loading: transacoesLoading } = useTransacoes({ autoFetch: true })
+  const { transacoes, loading: transacoesLoading } = useTransacoes()
 
   // Estados do formulário
   const [formData, setFormData] = useState<Partial<PagamentoForm>>({
@@ -160,7 +160,7 @@ export default function PagarPorTransacaoPage() {
     }
 
     try {
-      let dadosPagamento: PagamentoForm
+      let dadosPagamento: any
 
       if (tipoPagamento === 'individual') {
         const transacao = transacoes.find(t => t.id === transacaoSelecionada)

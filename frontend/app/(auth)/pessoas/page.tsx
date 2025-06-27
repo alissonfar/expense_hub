@@ -252,7 +252,7 @@ export default function PessoasPage() {
               </div>
 
               {/* Status */}
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <Select value={filtroStatus} onValueChange={(value: any) => setFiltroStatus(value)}>
                 <SelectTrigger className="w-full md:w-32">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -264,7 +264,7 @@ export default function PessoasPage() {
               </Select>
 
               {/* Tipo */}
-              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <Select value={filtroTipo} onValueChange={(value: any) => setFiltroTipo(value)}>
                 <SelectTrigger className="w-full md:w-40">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>

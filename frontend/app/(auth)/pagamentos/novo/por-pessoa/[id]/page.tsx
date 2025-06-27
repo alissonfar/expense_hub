@@ -22,8 +22,8 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
   { value: 'PIX', label: 'PIX' },
   { value: 'DINHEIRO', label: 'Dinheiro' },
   { value: 'TRANSFERENCIA', label: 'Transferência' },
-  { value: 'DEBITO', label: 'Cartão Débito' },
-  { value: 'CREDITO', label: 'Cartão Crédito' },
+  { value: 'CARTAO_DEBITO', label: 'Cartão Débito' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão Crédito' },
   { value: 'OUTROS', label: 'Outros' }
 ]
 
@@ -80,7 +80,7 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
   // Calcular valores
   const valorTotalAplicado = transacoesSelecionadas.reduce((acc, t) => acc + t.valor_aplicado, 0)
   const valorExcedente = Math.max(0, valorTotalPago - valorTotalAplicado)
-  const saldoPendenteTotal = transacoesPendentes.reduce((total, t) => {
+  const saldoPendenteTotal = transacoesPendentes.reduce((total: number, t: any) => {
     if (t.status_pagamento === 'PENDENTE') {
       return total + (t.transacao_participantes?.[0]?.valor_devido ?? 0)
     } else if (t.status_pagamento === 'PAGO_PARCIAL') {
@@ -93,8 +93,8 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
   
   // Selecionar/deselecionar transação
   const toggleTransacao = (transacao: Transacao) => {
-    const valorRestante = transacao.transacao_participantes?.[0]?.valor_devido ?? 0
-    const valorJaPago = transacao.transacao_participantes?.[0]?.valor_pago ?? 0
+    const valorRestante = (transacao as any).transacao_participantes?.[0]?.valor_devido ?? 0
+    const valorJaPago = (transacao as any).transacao_participantes?.[0]?.valor_pago ?? 0
     const valorDisponivel = valorRestante - valorJaPago
     
     const jaSelecionada = transacoesSelecionadas.some(t => t.transacao_id === transacao.id)
@@ -121,7 +121,7 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
   
   // Selecionar todas as transações
   const selecionarTodas = () => {
-    const todasTransacoes = transacoesPendentes.map(transacao => {
+    const todasTransacoes = transacoesPendentes.map((transacao: any) => {
       const valorRestante = transacao.transacao_participantes?.[0]?.valor_devido ?? 0
       const valorJaPago = transacao.transacao_participantes?.[0]?.valor_pago ?? 0
       const valorDisponivel = valorRestante - valorJaPago
@@ -174,7 +174,7 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     }
     
     try {
-      const dadosPagamento: PagamentoForm = {
+      const dadosPagamento: any = {
         transacoes: transacoesSelecionadas.map(t => ({
           transacao_id: t.transacao_id,
           valor_aplicado: t.valor_aplicado
@@ -333,7 +333,7 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
               </div>
             ) : (
               <div className="space-y-4">
-                {transacoesPendentes.map((transacao) => {
+                {transacoesPendentes.map((transacao: any) => {
                   const valorRestante = transacao.transacao_participantes?.[0]?.valor_devido ?? 0
                   const valorJaPago = transacao.transacao_participantes?.[0]?.valor_pago ?? 0
                   const valorDisponivel = valorRestante - valorJaPago

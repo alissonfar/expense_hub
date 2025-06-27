@@ -20,15 +20,15 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
   { value: 'PIX', label: 'PIX' },
   { value: 'DINHEIRO', label: 'Dinheiro' },
   { value: 'TRANSFERENCIA', label: 'Transferência' },
-  { value: 'DEBITO', label: 'Cartão Débito' },
-  { value: 'CREDITO', label: 'Cartão Crédito' },
+  { value: 'CARTAO_DEBITO', label: 'Cartão Débito' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão Crédito' },
   { value: 'OUTROS', label: 'Outros' }
 ]
 
 export default function EditarPagamentoPage() {
   const router = useRouter()
   const params = useParams()
-  const pagamentoId = parseInt(params.id as string)
+  const pagamentoId = parseInt(params?.id as string)
 
   const { 
     fetchPagamento, 

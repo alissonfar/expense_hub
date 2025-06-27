@@ -5,6 +5,29 @@ import { z } from 'zod';
 // =============================================
 
 /**
+ * Função utilitária para validação robusta de datas
+ */
+const validarDataTransacao = (date: string): boolean => {
+  const inputDate = new Date(date);
+  
+  // Verificar se a data é válida (não é NaN)
+  if (isNaN(inputDate.getTime())) {
+    return false;
+  }
+  
+  // Verificar se está dentro de uma faixa razoável (2000-2050)
+  const year = inputDate.getFullYear();
+  if (year < 2000 || year > 2050) {
+    return false;
+  }
+  
+  // Verificar se não é futura
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return inputDate <= today;
+};
+
+/**
  * Schema para participante na transação (GASTOS)
  */
 export const participanteSchema = z.object({
@@ -47,13 +70,8 @@ export const createGastoSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
-      (date) => {
-        const inputDate = new Date(date);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // Final do dia
-        return inputDate <= today;
-      },
-      'Data da transação não pode ser futura'
+      validarDataTransacao,
+      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
     ),
   
   observacoes: z
@@ -138,13 +156,8 @@ export const createReceitaSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
-      (date) => {
-        const inputDate = new Date(date);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // Final do dia
-        return inputDate <= today;
-      },
-      'Data da transação não pode ser futura'
+      validarDataTransacao,
+      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
     ),
   
   observacoes: z
@@ -222,13 +235,8 @@ export const updateReceitaSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
-      (date) => {
-        const inputDate = new Date(date);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        return inputDate <= today;
-      },
-      'Data da transação não pode ser futura'
+      validarDataTransacao,
+      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
     )
     .optional(),
   

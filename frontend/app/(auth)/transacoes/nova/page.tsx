@@ -23,9 +23,9 @@ export default function NovaTransacaoPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full max-w-none space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mb-6">
         <Button
           variant="outline"
           size="sm"
@@ -43,9 +43,9 @@ export default function NovaTransacaoPage() {
         </div>
       </div>
 
-      {/* Seletor de Tipo */}
-      <div className="space-y-4">
-        <div>
+      {/* Seletor de Tipo - Centralizado */}
+      <div className="max-w-5xl mx-auto space-y-4">
+        <div className="text-center">
           <h2 className="text-xl font-semibold">Escolha o Tipo de Transação</h2>
           <p className="text-sm text-muted-foreground">
             Selecione se você quer registrar um gasto ou uma receita
@@ -58,12 +58,14 @@ export default function NovaTransacaoPage() {
         />
       </div>
 
-      {/* Formulário */}
-      <TransacaoFormAvancado
-        tipo={tipoSelecionado}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-      />
+      {/* Formulário - Ocupando todo espaço disponível */}
+      <div className="w-full">
+        <TransacaoFormAvancado
+          tipo={tipoSelecionado}
+          onSuccess={handleSuccess}
+          onCancel={handleCancel}
+        />
+      </div>
     </div>
   )
 } 
