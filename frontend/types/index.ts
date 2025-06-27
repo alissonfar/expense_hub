@@ -64,10 +64,16 @@ export interface Transacao {
   criado_por: number
   criado_em: string
   atualizado_em: string
+  criado_por_pessoa_id: number
+  criado_por?: {
+    nome: string
+    eh_proprietario: boolean
+  }
+  tags: Tag[]
+  participantes?: TransacaoParticipante[]
+  transacao_participantes?: TransacaoParticipante[]
   
   // Relacionamentos
-  participantes?: TransacaoParticipante[]
-  tags?: TransacaoTag[]
   pagamentos?: PagamentoTransacao[]
   pessoas?: Pessoa // Para joins específicos
 }
@@ -223,15 +229,14 @@ export interface ParcelaTransacao {
 }
 
 export interface PagamentoForm {
+  transacao_id?: number
+  transacoes?: Array<{ transacao_id: number; valor_aplicado: number }>
   pessoa_id?: number
-  valor_pago: number
+  valor_pago?: number
+  valor_total?: number
   data_pagamento: string
   forma_pagamento: FormaPagamento
   observacoes?: string
-  transacoes?: {
-    transacao_id: number
-    valor_aplicado: number
-  }[]
   processar_excedente?: boolean
   criar_receita_excedente?: boolean
 }

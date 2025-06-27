@@ -253,7 +253,7 @@ export default function PagarPorPessoaPage() {
                 <div className="text-2xl font-bold text-green-600">
                   {formatCurrency(
                     pessoasFiltradas.reduce((total, pessoa) => 
-                      total + calcularSaldoPendente(pessoa), 0
+                      total + Number(calcularSaldoPendente(pessoa) || 0), 0
                     )
                   )}
                 </div>

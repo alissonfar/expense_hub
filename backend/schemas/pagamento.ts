@@ -24,6 +24,13 @@ export const detalhePagamentoSchema = z.object({
  * Schema para criação de pagamento individual (compatibilidade)
  */
 export const createPagamentoIndividualSchema = z.object({
+  pessoa_id: z
+    .number()
+    .int('ID da pessoa deve ser um número inteiro')
+    .positive('ID da pessoa deve ser maior que zero')
+    .optional()
+    .describe('ID da pessoa que está realizando o pagamento. Se não fornecido, usa o usuário logado.'),
+  
   transacao_id: z
     .number()
     .int('ID da transação deve ser um número inteiro')
@@ -65,6 +72,13 @@ export const createPagamentoIndividualSchema = z.object({
  * Schema para criação de pagamento composto (múltiplas transações)
  */
 export const createPagamentoCompostoSchema = z.object({
+  pessoa_id: z
+    .number()
+    .int('ID da pessoa deve ser um número inteiro')
+    .positive('ID da pessoa deve ser maior que zero')
+    .optional()
+    .describe('ID da pessoa que está realizando o pagamento. Se não fornecido, usa o usuário logado.'),
+  
   transacoes: z
     .array(detalhePagamentoSchema)
     .min(1, 'Deve haver pelo menos uma transação para pagar')

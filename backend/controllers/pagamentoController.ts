@@ -14,6 +14,9 @@ import {
   ConfiguracaoExcedenteInput
 } from '../schemas/pagamento';
 import { z } from 'zod';
+import { getLogger } from '../utils/logger';
+
+const logger = getLogger('pagamentoController');
 
 // =============================================
 // CONTROLLER DE PAGAMENTOS COMPOSTOS
@@ -375,9 +378,14 @@ export const getPagamento = async (req: Request, res: Response): Promise<void> =
  * POST /api/pagamentos
  */
 export const createPagamento = async (req: Request, res: Response): Promise<void> => {
+  const log = logger.child({ function: 'createPagamento' });
+  
   try {
     const userId = (req as any).user?.user_id;
+    log.info('Iniciando criação de pagamento', { userId, body: req.body });
+
     if (!userId) {
+      log.warn('Tentativa de criação sem autenticação');
       res.status(401).json({
         error: 'Usuário não autenticado',
         message: 'Token de autenticação é obrigatório',
@@ -388,18 +396,27 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
 
     // Validar dados de entrada (schema unificado)
     const dadosValidados: CreatePagamentoInput = createPagamentoSchema.parse(req.body);
+    log.debug('Dados validados com sucesso', { dadosValidados });
 
     // Determinar tipo de pagamento
     const ehPagamentoComposto = 'transacoes' in dadosValidados && dadosValidados.transacoes;
+    log.info(`Tipo de pagamento determinado: ${ehPagamentoComposto ? 'Composto' : 'Individual'}`);
     
+    // Determinar o ID do pagador. Prioriza o ID vindo do corpo da requisição.
+    // Se não vier, assume que o usuário logado está pagando por si mesmo.
+    const pagadorId = (dadosValidados as any).pessoa_id || userId;
+    log.info('ID do pagador definido', { pagadorId, userId, bodyPessoaId: (dadosValidados as any).pessoa_id });
+
     // Executar transação no banco
     const resultado = await req.prisma.$transaction(async (prisma) => {
+      log.info('Iniciando transação no banco de dados');
       
       if (ehPagamentoComposto) {
         // ====================================
         // PAGAMENTO COMPOSTO (MÚLTIPLAS TRANSAÇÕES)
         // ====================================
         const dadosCompostos = dadosValidados as any; // Cast necessário devido ao union type
+        log.info('Processando pagamento composto', { transacoes: dadosCompostos.transacoes.length });
         
         // 1. Validar se todas as transações existem e pessoa participa
         const transacoesIds = dadosCompostos.transacoes.map((t: any) => t.transacao_id);
@@ -411,7 +428,7 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
           include: {
             transacao_participantes: {
               where: {
-                pessoa_id: dadosCompostos.pessoa_id || userId // Usar pessoa do body ou usuário logado
+                pessoa_id: pagadorId // USA A VARIÁVEL `pagadorId`
               }
             }
           }
@@ -462,11 +479,19 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
         
         const valorTotalPago = Number(dadosCompostos.valor_total || valorTotalAplicado);
         const valorExcedente = Math.max(0, valorTotalPago - valorTotalAplicado);
+        log.info('Cálculo de valores para pagamento composto', { valorTotalAplicado, valorTotalPago, valorExcedente });
 
         // 4. Criar pagamento principal
+        log.debug('Criando registro principal de pagamento', {
+          pessoa_id: pagadorId,
+          valor_total: valorTotalPago,
+          valor_excedente: valorExcedente > 0 ? valorExcedente : null,
+          data_pagamento: new Date(dadosCompostos.data_pagamento),
+          processar_excedente: dadosCompostos.processar_excedente,
+        });
         const pagamento = await prisma.pagamentos.create({
           data: {
-            pessoa_id: dadosCompostos.pessoa_id || userId,
+            pessoa_id: pagadorId, // USA A VARIÁVEL `pagadorId`
             valor_total: valorTotalPago,
             valor_excedente: valorExcedente > 0 ? valorExcedente : null,
             data_pagamento: new Date(dadosCompostos.data_pagamento),
@@ -478,18 +503,22 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
         });
 
         // 5. Criar detalhes do pagamento (pagamento_transacoes)
-        const detalhesData = dadosCompostos.transacoes.map((t: any) => ({
-          pagamento_id: pagamento.id,
-          transacao_id: t.transacao_id,
-          valor_aplicado: t.valor_aplicado
-        }));
-
-        await prisma.pagamento_transacoes.createMany({
-          data: detalhesData
-        });
+        const detalhesData = [];
+        for (const t of dadosCompostos.transacoes) {
+          log.debug('Criando detalhe de pagamento (pagamento_transacoes)', { pagamento_id: pagamento.id, transacao_id: t.transacao_id, valor_aplicado: t.valor_aplicado });
+          const detalhe = await prisma.pagamento_transacoes.create({
+            data: {
+              pagamento_id: pagamento.id,
+              transacao_id: t.transacao_id,
+              valor_aplicado: t.valor_aplicado
+            }
+          });
+          detalhesData.push(detalhe);
+        }
 
         // 6. Triggers do banco processarão excedente automaticamente
-        // Trigger 'processar_excedente_pagamento' será executado após inserção
+        log.info('Detalhes do pagamento criados. Trigger de excedente deve ser acionado pelo banco.');
+        // O trigger 'processar_excedente_pagamento' é executado após cada inserção acima
 
         return { pagamento, receitaExcedente: null, detalhes: detalhesData };
         
@@ -498,6 +527,7 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
         // PAGAMENTO INDIVIDUAL (COMPATIBILIDADE)
         // ====================================
         const dadosIndividuais = dadosValidados as any; // Cast necessário devido ao union type
+        log.info('Processando pagamento individual', { transacao_id: dadosIndividuais.transacao_id });
         
         // 1. Validar se transação existe e pessoa participa
         const transacao = await prisma.transacoes.findFirst({
@@ -508,7 +538,7 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
           include: {
             transacao_participantes: {
               where: {
-                pessoa_id: dadosIndividuais.pessoa_id || userId
+                pessoa_id: pagadorId // USA A VARIÁVEL `pagadorId`
               }
             }
           }
@@ -533,11 +563,18 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
 
         // 2. Permitir excedente - será processado pelos triggers do banco
         const valorExcedente = Math.max(0, dadosIndividuais.valor_pago - valorRestante);
+        log.info('Cálculo de valores para pagamento individual', { valor_pago: dadosIndividuais.valor_pago, valorRestante, valorExcedente });
 
         // 3. Criar pagamento
+        log.debug('Criando registro principal de pagamento (individual)', {
+          pessoa_id: pagadorId,
+          valor_total: dadosIndividuais.valor_pago,
+          valor_excedente: valorExcedente > 0 ? valorExcedente : null,
+          data_pagamento: new Date(dadosIndividuais.data_pagamento)
+        });
         const pagamento = await prisma.pagamentos.create({
           data: {
-            pessoa_id: dadosIndividuais.pessoa_id || userId,
+            pessoa_id: pagadorId, // USA A VARIÁVEL `pagadorId`
             valor_total: dadosIndividuais.valor_pago,
             valor_excedente: valorExcedente > 0 ? valorExcedente : null,
             data_pagamento: new Date(dadosIndividuais.data_pagamento),
@@ -549,6 +586,7 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
         });
 
         // 4. Criar detalhe do pagamento
+        log.debug('Criando detalhe de pagamento (individual)', { pagamento_id: pagamento.id, transacao_id: dadosIndividuais.transacao_id, valor_aplicado: Math.min(dadosIndividuais.valor_pago, valorRestante) });
         // O trigger 'processar_excedente_pagamento' será executado automaticamente
         const detalhe = await prisma.pagamento_transacoes.create({
           data: {
@@ -557,10 +595,14 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
             valor_aplicado: Math.min(dadosIndividuais.valor_pago, valorRestante)
           }
         });
+        
+        log.info('Detalhe do pagamento individual criado. Trigger de excedente deve ser acionado.');
 
         return { pagamento, receitaExcedente: null, detalhes: [detalhe] };
       }
     });
+
+    log.info('Transação do banco de dados concluída com sucesso', { pagamentoId: resultado.pagamento.id });
 
     // Buscar dados completos do pagamento criado
     const pagamentoCriado = await req.prisma.pagamentos.findUnique({

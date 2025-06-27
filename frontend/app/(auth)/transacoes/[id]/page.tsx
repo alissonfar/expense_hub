@@ -37,6 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 export default function TransacaoDetalhesPage() {
   const params = useParams()
@@ -294,33 +295,53 @@ export default function TransacaoDetalhesPage() {
               <Users className="w-5 h-5" />
               Participantes ({(transacao as any).transacao_participantes.length})
             </CardTitle>
+            <CardDescription>
+              Abaixo estão as pessoas que dividiram este gasto com você.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {(transacao as any).transacao_participantes.map((participante: any) => (
-                <div key={participante.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-700">
-                        {participante.pessoas.nome.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="font-medium">{participante.pessoas.nome}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {participante.pessoas.email}
+            <ul className="space-y-4">
+              {(transacao as any).transacao_participantes.map((p: any) => {
+                const valorDevido = p.valor_devido || 0;
+                const valorPago = p.valor_pago || 0;
+                const valorPendente = valorDevido - valorPago;
+                const percentualPago = valorDevido > 0 ? (valorPago / valorDevido) * 100 : 0;
+
+                return (
+                  <li key={p.pessoa_id} className="flex items-center justify-between gap-4 p-3 rounded-lg border">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={`https://avatar.vercel.sh/${p.pessoas.email}.png`} alt={p.pessoas.nome} />
+                        <AvatarFallback>{p.pessoas.nome.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-sm">{p.pessoas.nome}</p>
+                        <p className="text-xs text-muted-foreground">{p.pessoas.email}</p>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">{formatCurrency(participante.valor_devido)}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {((participante.valor_devido / (transacao.valor_total || 1)) * 100).toFixed(1)}%
+                    <div className="text-right flex-grow max-w-xs">
+                      <p className="font-semibold text-sm">{formatCurrency(valorDevido)}</p>
+                      {valorPago > 0 && (
+                        <p className="text-xs text-green-600">
+                          Pago: {formatCurrency(valorPago)}
+                        </p>
+                      )}
+                      {valorPendente > 0 && (
+                        <p className="text-xs text-red-600 font-medium">
+                          Pendente: {formatCurrency(valorPendente)}
+                        </p>
+                      )}
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                        <div
+                          className="h-1.5 rounded-full bg-green-500"
+                          style={{ width: `${percentualPago}%` }}
+                        ></div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  </li>
+                );
+              })}
+            </ul>
           </CardContent>
         </Card>
       )}

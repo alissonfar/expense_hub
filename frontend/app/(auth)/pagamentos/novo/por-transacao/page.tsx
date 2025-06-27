@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,11 +11,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Plus, Save, CreditCard, AlertCircle, Info } from 'lucide-react'
+import { ArrowLeft, Plus, Save, CreditCard, AlertCircle, Info, Trash2, Loader2 } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 import { toast } from '@/hooks/use-toast'
 import { usePagamentos } from '@/hooks/usePagamentos'
 import { useTransacoes } from '@/hooks/useTransacoes'
-import { PagamentoForm, FormaPagamento, Transacao } from '@/types'
+import { usePessoas } from '@/hooks/usePessoas'
+import { PagamentoForm, FormaPagamento, Transacao, TransacaoParticipante } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
@@ -33,6 +35,7 @@ export default function PagarPorTransacaoPage() {
   // Hooks
   const { createPagamento, createState } = usePagamentos({ autoFetch: false })
   const { transacoes, loading: transacoesLoading } = useTransacoes()
+  const { pessoas, loading: pessoasLoading } = usePessoas()
 
   // Estados do formulário
   const [formData, setFormData] = useState<Partial<PagamentoForm>>({
@@ -44,6 +47,7 @@ export default function PagarPorTransacaoPage() {
   })
 
   // Estados de controle
+  const [pessoaIdPagador, setPessoaIdPagador] = useState<number | null>(null)
   const [tipoPagamento, setTipoPagamento] = useState<'individual' | 'composto'>('individual')
   const [transacaoSelecionada, setTransacaoSelecionada] = useState<number | null>(null)
   const [transacoesSelecionadas, setTransacoesSelecionadas] = useState<{
@@ -52,11 +56,64 @@ export default function PagarPorTransacaoPage() {
     transacao: Transacao
   }[]>([])
   const [valorTotalPago, setValorTotalPago] = useState<number>(0)
+  const [minPaymentDate, setMinPaymentDate] = useState<string | undefined>(undefined);
 
-  // Filtrar transações pendentes
-  const transacoesPendentes = transacoes.filter(t => 
-    t.status_pagamento === 'PENDENTE' || t.status_pagamento === 'PAGO_PARCIAL'
-  )
+  useEffect(() => {
+    // Zera o valor se a transação for desmarcada ou o pagador removido
+    if (!transacaoSelecionada || !pessoaIdPagador) {
+      setValorTotalPago(0)
+      return
+    }
+
+    const transacao = transacoes.find(t => t.id === transacaoSelecionada)
+    if (transacao) {
+      const participante = transacao.transacao_participantes.find(p => p.pessoa_id === pessoaIdPagador)
+      if (participante) {
+        const valorPendente = (participante.valor_devido || 0) - (participante.valor_pago || 0)
+        // Preenche automaticamente o campo de valor com o total pendente
+        setValorTotalPago(Number(valorPendente.toFixed(2)))
+      } else {
+        // Pessoa não é participante, zera o valor
+        setValorTotalPago(0)
+      }
+    }
+  }, [transacaoSelecionada, pessoaIdPagador, transacoes])
+
+  // Efeito para ajustar a data mínima de pagamento permitida
+  useEffect(() => {
+    let newMinDate: string | undefined = undefined;
+
+    if (tipoPagamento === 'individual' && transacaoSelecionada) {
+      const transacao = transacoes.find(t => t.id === transacaoSelecionada);
+      if (transacao) {
+        newMinDate = new Date(transacao.data_transacao).toISOString().split('T')[0];
+      }
+    } else if (tipoPagamento === 'composto' && transacoesSelecionadas.length > 0) {
+      const latestTimestamp = Math.max(...transacoesSelecionadas.map(t => new Date(t.transacao.data_transacao).getTime()));
+      newMinDate = new Date(latestTimestamp).toISOString().split('T')[0];
+    }
+
+    setMinPaymentDate(newMinDate);
+
+    if (newMinDate && formData.data_pagamento && formData.data_pagamento < newMinDate) {
+      setFormData(prev => ({ ...prev, data_pagamento: newMinDate }));
+      toast({
+        title: "Data do Pagamento Ajustada",
+        description: `A data foi ajustada para não ser anterior à data da transação mais recente.`,
+        variant: "default"
+      });
+    }
+  }, [transacaoSelecionada, transacoesSelecionadas, tipoPagamento, transacoes]);
+
+  // Filtrar transações pendentes com base na pessoa selecionada
+  const transacoesPendentes = transacoes.filter(t => {
+    const isPendente = t.status_pagamento === 'PENDENTE' || t.status_pagamento === 'PAGO_PARCIAL';
+    if (!isPendente) return false;
+    if (!pessoaIdPagador) return true; // Mostra todas se nenhuma pessoa selecionada
+    
+    // Mostra a transação se a pessoa selecionada for participante dela
+    return t.transacao_participantes.some(p => p.pessoa_id === pessoaIdPagador);
+  });
 
   // Calcular valor total aplicado
   const valorTotalAplicado = transacoesSelecionadas.reduce((acc, t) => acc + t.valor_aplicado, 0)
@@ -64,6 +121,15 @@ export default function PagarPorTransacaoPage() {
 
   // Adicionar transação ao pagamento composto
   const adicionarTransacao = () => {
+    if (!pessoaIdPagador) {
+      toast({
+        title: 'Selecione um pagador',
+        description: 'Você precisa selecionar quem está pagando antes de adicionar transações.',
+        variant: 'destructive'
+      })
+      return;
+    }
+
     if (!transacaoSelecionada) return
 
     const transacao = transacoes.find(t => t.id === transacaoSelecionada)
@@ -79,14 +145,22 @@ export default function PagarPorTransacaoPage() {
       return
     }
 
-    // Calcular valor restante da transação
-    const valorRestante = transacao.participantes?.[0]?.valor_devido || 0
-    const valorJaPago = transacao.participantes?.[0]?.valor_pago || 0
-    const valorDisponivel = valorRestante - valorJaPago
+    // Encontrar o participante específico
+    const participante = transacao.transacao_participantes.find(p => p.pessoa_id === pessoaIdPagador);
+    if (!participante) {
+      toast({
+        title: 'Pagador não é participante',
+        description: 'A pessoa selecionada como pagadora não participa desta transação.',
+        variant: 'destructive'
+      })
+      return;
+    }
+
+    const valorPendente = (participante.valor_devido || 0) - (participante.valor_pago || 0);
 
     setTransacoesSelecionadas(prev => [...prev, {
       transacao_id: transacaoSelecionada,
-      valor_aplicado: valorDisponivel,
+      valor_aplicado: Number(valorPendente.toFixed(2)),
       transacao
     }])
 
@@ -106,6 +180,48 @@ export default function PagarPorTransacaoPage() {
         : t
     ))
   }
+
+  // Achar transação para pagamento individual
+  const transacaoParaPagamentoIndividual = useMemo(() => {
+    if (tipoPagamento !== 'individual' || !transacaoSelecionada) return null;
+    return transacoes.find((t: Transacao) => t.id === transacaoSelecionada);
+  }, [transacoes, tipoPagamento, transacaoSelecionada]);
+
+  // Achar participante na transação individual
+  const participanteNaTransacaoIndividual = useMemo(() => {
+    if (!transacaoParaPagamentoIndividual || !pessoaIdPagador) return null;
+    return transacaoParaPagamentoIndividual.transacao_participantes?.find((p: TransacaoParticipante) => p.pessoa_id === pessoaIdPagador);
+  }, [transacaoParaPagamentoIndividual, pessoaIdPagador]);
+
+  // Calcular valor devido na transação individual
+  const valorTotalPagoIndividual = useMemo(() => {
+    if (tipoPagamento === 'individual') {
+      const valor = parseFloat(formData.valor_pago || '0');
+      return isNaN(valor) ? 0 : valor;
+    }
+    return 0;
+  }, [formData.valor_pago, tipoPagamento]);
+
+  // Efeito para recalcular dívida total quando pagador ou transações mudam
+  useEffect(() => {
+    if (!pessoaIdPagador) {
+      setValorTotalPago(0);
+      return;
+    }
+
+    const total = transacoes
+      .filter((t: Transacao) => t.transacao_participantes?.some((p: TransacaoParticipante) => p.pessoa_id === pessoaIdPagador))
+      .reduce((acc, t) => {
+        const participante = t.transacao_participantes?.find((p: TransacaoParticipante) => p.pessoa_id === pessoaIdPagador);
+        if (participante) {
+          const valorPendente = parseFloat(participante.valor_devido) - parseFloat(participante.valor_pago);
+          return acc + (valorPendente > 0 ? valorPendente : 0);
+        }
+        return acc;
+      }, 0);
+
+    setValorTotalPago(total);
+  }, [pessoaIdPagador, transacoes]);
 
   // Submeter formulário
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,33 +276,27 @@ export default function PagarPorTransacaoPage() {
     }
 
     try {
-      let dadosPagamento: any
+      const dadosPagamento: PagamentoForm = {
+        data_pagamento: formData.data_pagamento!,
+        forma_pagamento: formData.forma_pagamento!,
+        observacoes: formData.observacoes,
+        processar_excedente: formData.processar_excedente,
+        criar_receita_excedente: formData.criar_receita_excedente,
+        pessoa_id: pessoaIdPagador,
+      };
 
       if (tipoPagamento === 'individual') {
-        const transacao = transacoes.find(t => t.id === transacaoSelecionada)
-        if (!transacao) throw new Error('Transação não encontrada')
+        if (!transacaoSelecionada) throw new Error('Transação não selecionada');
+        dadosPagamento.transacao_id = transacaoSelecionada;
+        dadosPagamento.valor_pago = valorTotalPago;
 
-        dadosPagamento = {
-          transacao_id: transacaoSelecionada,
-          valor_pago: valorTotalPago,
-          data_pagamento: formData.data_pagamento!,
-          forma_pagamento: formData.forma_pagamento!,
-          observacoes: formData.observacoes,
-          processar_excedente: formData.processar_excedente,
-          criar_receita_excedente: formData.criar_receita_excedente
-        }
-      } else {
-        dadosPagamento = {
-          transacoes: transacoesSelecionadas.map(t => ({
-            transacao_id: t.transacao_id,
-            valor_aplicado: t.valor_aplicado
-          })),
-          data_pagamento: formData.data_pagamento!,
-          forma_pagamento: formData.forma_pagamento!,
-          observacoes: formData.observacoes,
-          processar_excedente: formData.processar_excedente,
-          criar_receita_excedente: formData.criar_receita_excedente
-        }
+      } else { // Pagamento Composto
+        if (transacoesSelecionadas.length === 0) throw new Error('Nenhuma transação selecionada');
+        dadosPagamento.transacoes = transacoesSelecionadas.map(t => ({
+          transacao_id: t.transacao_id,
+          valor_aplicado: t.valor_aplicado
+        }));
+        dadosPagamento.valor_total = valorTotalPago;
       }
 
       console.log('[PagarPorTransacao] Criando pagamento:', dadosPagamento)
@@ -249,43 +359,60 @@ export default function PagarPorTransacaoPage() {
         {/* Tipo de Pagamento */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Tipo de Pagamento
-            </CardTitle>
+            <CardTitle>Tipo de Pagamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
               <Button
                 type="button"
-                variant={tipoPagamento === 'individual' ? 'default' : 'outline'}
+                variant={tipoPagamento === 'individual' ? 'default' : 'ghost'}
                 onClick={() => setTipoPagamento('individual')}
-                className="h-auto p-4 flex flex-col items-start gap-2"
               >
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4" />
-                  <span className="font-medium">Individual</span>
-                </div>
-                <span className="text-sm text-muted-foreground text-left">
-                  Pagar uma transação específica
-                </span>
+                Individual
               </Button>
-
               <Button
                 type="button"
-                variant={tipoPagamento === 'composto' ? 'default' : 'outline'}
+                variant={tipoPagamento === 'composto' ? 'default' : 'ghost'}
                 onClick={() => setTipoPagamento('composto')}
-                className="h-auto p-4 flex flex-col items-start gap-2"
               >
-                <div className="flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  <span className="font-medium">Composto</span>
-                </div>
-                <span className="text-sm text-muted-foreground text-left">
-                  Pagar múltiplas transações
-                </span>
+                Composto
               </Button>
             </div>
+             <p className="text-sm text-muted-foreground mt-2">
+              {tipoPagamento === 'individual' 
+                ? 'Ideal para pagar uma única transação específica.'
+                : 'Ideal para pagar múltiplas transações de uma só vez com um único valor.'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Pagador */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Informações do Pagador</CardTitle>
+          </CardHeader>
+          <CardContent>
+             <div className="grid gap-2">
+                <Label htmlFor="pagador">Quem está pagando?</Label>
+                <Select
+                  onValueChange={(value) => setPessoaIdPagador(Number(value))}
+                  defaultValue={pessoaIdPagador?.toString()}
+                >
+                  <SelectTrigger id="pagador">
+                    <SelectValue placeholder="Selecione a pessoa que está realizando o pagamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pessoas.map((pessoa) => (
+                      <SelectItem key={pessoa.id} value={pessoa.id.toString()}>
+                        {pessoa.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                 <p className="text-sm text-muted-foreground">
+                  Este campo define em nome de quem o pagamento será registrado.
+                </p>
+              </div>
           </CardContent>
         </Card>
 
@@ -302,10 +429,8 @@ export default function PagarPorTransacaoPage() {
                 id="data_pagamento"
                 type="date"
                 value={formData.data_pagamento}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  data_pagamento: e.target.value 
-                }))}
+                min={minPaymentDate}
+                onChange={(e) => setFormData({ ...formData, data_pagamento: e.target.value })}
                 required
               />
             </div>
@@ -388,200 +513,237 @@ export default function PagarPorTransacaoPage() {
                   onChange={(e) => setValorTotalPago(parseFloat(e.target.value) || 0)}
                   placeholder="0,00"
                   required
+                  disabled={!transacaoSelecionada}
                 />
               </div>
 
-              {/* Informações da Transação Selecionada */}
-              {transacaoSelecionada && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Informações da Transação</h4>
-                  {(() => {
-                    const transacao = transacoes.find(t => t.id === transacaoSelecionada)
-                    if (!transacao) return null
+              {transacaoSelecionada && pessoaIdPagador && (() => {
+                const transacao = transacoes.find(t => t.id === transacaoSelecionada)
+                const pessoa = pessoas.find(p => p.id === pessoaIdPagador)
+                if (!transacao || !pessoa) return null
 
-                    const valorRestante = transacao.participantes?.[0]?.valor_devido || 0
-                    const valorJaPago = transacao.participantes?.[0]?.valor_pago || 0
-                    const valorDisponivel = valorRestante - valorJaPago
+                const participante = transacao.transacao_participantes.find(p => p.pessoa_id === pessoaIdPagador)
 
-                    return (
-                      <div className="space-y-2 text-sm">
-                        <p><strong>Descrição:</strong> {transacao.descricao}</p>
-                        <p><strong>Valor Total:</strong> {formatCurrency(transacao.valor_total)}</p>
-                        <p><strong>Valor Restante:</strong> {formatCurrency(valorDisponivel)}</p>
-                        <p><strong>Data:</strong> {formatDate(transacao.data_transacao)}</p>
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
+                if (!participante) {
+                  return (
+                    <div className="p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-center">
+                      <p>
+                        <strong>Atenção:</strong> {pessoa.nome} não participa da transação selecionada.
+                      </p>
+                    </div>
+                  )
+                }
+
+                const valorDevido = participante.valor_devido || 0
+                const valorPago = participante.valor_pago || 0
+                const valorPendente = valorDevido - valorPago
+
+                return (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-2">
+                    <h4 className="font-semibold text-center mb-2">
+                      Detalhes da Dívida de {pessoa.nome}
+                    </h4>
+                    <div className="flex justify-between">
+                      <span>Valor devido na transação:</span>
+                      <span className="font-medium">{formatCurrency(valorDevido)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Valor já pago:</span>
+                      <span className="font-medium text-green-600">{formatCurrency(valorPago)}</span>
+                    </div>
+                    <Separator className="my-1"/>
+                    <div className="flex justify-between font-bold text-base">
+                      <span>Pendente:</span>
+                      <span className="text-red-600">{formatCurrency(valorPendente)}</span>
+                    </div>
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Transações a Pagar</CardTitle>
+              <CardTitle>Pagamento Composto</CardTitle>
+              <CardDescription>Adicione as transações e informe o valor total do pagamento.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Adicionar Transação */}
-              <div className="flex gap-2">
-                <Select 
-                  value={transacaoSelecionada?.toString() || ''} 
-                  onValueChange={(value) => setTransacaoSelecionada(parseInt(value))}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Escolha uma transação pendente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {transacoesPendentes
-                      .filter(t => !transacoesSelecionadas.some(ts => ts.transacao_id === t.id))
-                      .map(transacao => (
-                        <SelectItem key={transacao.id} value={transacao.id.toString()}>
-                          {transacao.descricao} - {formatCurrency(transacao.valor_total)}
+            <CardContent>
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="transacao-composto">Selecionar Transação</Label>
+                   <Select
+                    value={transacaoSelecionada?.toString() || ''}
+                    onValueChange={(value) => setTransacaoSelecionada(Number(value))}
+                    disabled={!pessoaIdPagador}
+                  >
+                    <SelectTrigger id="transacao-composto">
+                      <SelectValue placeholder={!pessoaIdPagador ? "Selecione um pagador primeiro" : "Selecione uma transação"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transacoesPendentes.map(t => (
+                        <SelectItem key={t.id} value={t.id.toString()}>
+                          {t.descricao} - {formatCurrency(t.valor_total)}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  type="button" 
-                  onClick={adicionarTransacao}
-                  disabled={!transacaoSelecionada}
-                >
-                  <Plus className="w-4 h-4" />
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="button" onClick={adicionarTransacao} disabled={!transacaoSelecionada}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Transação
                 </Button>
               </div>
+              
+              <Separator className="my-6" />
 
-              {/* Lista de Transações Selecionadas */}
-              {transacoesSelecionadas.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Transações Selecionadas:</h4>
-                  {transacoesSelecionadas.map((item, index) => (
-                    <div key={item.transacao_id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.transacao.descricao}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(item.transacao.data_transacao)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          value={item.valor_aplicado}
-                          onChange={(e) => atualizarValorAplicado(item.transacao_id, parseFloat(e.target.value) || 0)}
-                          className="w-24"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removerTransacao(item.transacao_id)}
-                        >
-                          Remover
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+              {transacoesSelecionadas.length > 0 ? (
+                <>
+                  <h4 className="font-medium text-lg mb-4">Transações Adicionadas</h4>
+                  <ul className="space-y-4">
+                    {transacoesSelecionadas.map(t => {
+                      const participante = t.transacao.transacao_participantes.find(p => p.pessoa_id === pessoaIdPagador);
+                      const valorDevido = participante?.valor_devido || 0;
+                      const valorPago = participante?.valor_pago || 0;
+                      const valorPendente = valorDevido - valorPago;
+                      
+                      return (
+                      <li key={t.transacao_id} className="p-4 border rounded-lg space-y-4 bg-white dark:bg-gray-800 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="font-semibold text-base">{t.transacao.descricao}</p>
+                            <p className="text-sm text-muted-foreground">Data: {formatDate(t.transacao.data_transacao)}</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => removerTransacao(t.transacao_id)}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+
+                        <div className="text-sm space-y-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
+                          <div className="flex justify-between">
+                            <span>Devido por {pessoas.find(p => p.id === pessoaIdPagador)?.nome?.split(' ')[0] || 'Pagador'}:</span>
+                            <span className="font-medium">{formatCurrency(valorDevido)}</span>
+                          </div>
+                          <div className="flex justify-between text-green-600">
+                             <span>Já Pago:</span>
+                            <span className="font-medium">{formatCurrency(valorPago)}</span>
+                          </div>
+                          <Separator/>
+                          <div className="flex justify-between font-bold">
+                            <span>Pendente:</span>
+                            <span>{formatCurrency(valorPendente)}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor={`valor-aplicado-${t.transacao_id}`} className="font-medium">Valor a Pagar nesta Transação</Label>
+                          <Input
+                            id={`valor-aplicado-${t.transacao_id}`}
+                            type="number"
+                            step="0.01"
+                            value={t.valor_aplicado}
+                            onChange={(e) => atualizarValorAplicado(t.transacao_id, parseFloat(e.target.value) || 0)}
+                            className="mt-1"
+                          />
+                        </div>
+                      </li>
+                    )})}
+                  </ul>
+                </>
+              ) : (
+                <div className="text-center text-sm text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                  <p>Nenhuma transação adicionada.</p>
+                  <p className="text-xs">Use o seletor acima para começar.</p>
                 </div>
               )}
 
-              {/* Valor Total Pago */}
-              <div>
-                <Label htmlFor="valor_total_pago">Valor Total Pago *</Label>
-                <Input
-                  id="valor_total_pago"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={valorTotalPago || ''}
-                  onChange={(e) => setValorTotalPago(parseFloat(e.target.value) || 0)}
-                  placeholder="0,00"
-                  required
-                />
-              </div>
+               {transacoesSelecionadas.length > 0 && (
+                <div className="mt-8 pt-6 border-t">
+                  <CardTitle className="mb-4">Resumo do Pagamento</CardTitle>
+                  
+                  <div className="space-y-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800 border">
+                    <div className="flex justify-between items-center text-lg">
+                      <span className="font-medium">Total Aplicado nas Transações:</span>
+                      <span className="font-bold">{formatCurrency(valorTotalAplicado)}</span>
+                    </div>
 
-              {/* Resumo */}
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <h4 className="font-medium mb-2">Resumo do Pagamento</h4>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Valor Aplicado:</strong> {formatCurrency(valorTotalAplicado)}</p>
-                  <p><strong>Valor Pago:</strong> {formatCurrency(valorTotalPago)}</p>
-                  <p><strong>Excedente:</strong> {formatCurrency(valorExcedente)}</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="valor-total-pago" className="text-lg font-medium">Valor Total do Pagamento*</Label>
+                      <Input
+                        id="valor-total-pago"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={valorTotalPago || ''}
+                        onChange={(e) => setValorTotalPago(parseFloat(e.target.value) || 0)}
+                        placeholder="0,00"
+                        required
+                        className="h-12 text-xl"
+                      />
+                    </div>
+                    
+                    <Separator />
+
+                    <div className="flex justify-between items-center text-lg">
+                      <span className="font-medium">Diferença:</span>
+                      <span className={`font-bold ${
+                        (valorTotalPago - valorTotalAplicado) < 0 ? 'text-red-500' : 'text-green-500'
+                      }`}>
+                        {formatCurrency(valorTotalPago - valorTotalAplicado)}
+                        {(valorTotalPago - valorTotalAplicado) > 0 && " (Excedente)"}
+                        {(valorTotalPago - valorTotalAplicado) < 0 && " (Faltante)"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                      <div className="flex items-start space-x-3 rounded-md border p-4">
+                        <Checkbox id="processar_excedente" checked={formData.processar_excedente} onCheckedChange={(checked) => setFormData(prev => ({...prev, processar_excedente: !!checked}))} />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="processar_excedente"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            Processar excedente automaticamente
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                            Se o valor pago for maior que o aplicado, o sistema tentará usar o excedente em outras dívidas.
+                          </p>
+                        </div>
+                      </div>
+                       <div className="flex items-start space-x-3 rounded-md border p-4">
+                        <Checkbox id="criar_receita_excedente" checked={formData.criar_receita_excedente} onCheckedChange={(checked) => setFormData(prev => ({...prev, criar_receita_excedente: !!checked}))} />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor="criar_receita_excedente"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            Criar receita para valores excedentes
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                             Se houver excedente, uma nova transação de receita será criada com o valor restante.
+                          </p>
+                        </div>
+                      </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Configurações de Excedente */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="w-5 h-5" />
-              Configurações de Excedente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="processar_excedente"
-                checked={formData.processar_excedente}
-                onCheckedChange={(checked) => 
-                  setFormData(prev => ({ ...prev, processar_excedente: checked as boolean }))
-                }
-              />
-              <Label htmlFor="processar_excedente">
-                Processar excedente automaticamente
-              </Label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="criar_receita_excedente"
-                checked={formData.criar_receita_excedente}
-                onCheckedChange={(checked) => 
-                  setFormData(prev => ({ ...prev, criar_receita_excedente: checked as boolean }))
-                }
-              />
-              <Label htmlFor="criar_receita_excedente">
-                Criar receita para valores excedentes
-              </Label>
-            </div>
-
-            {valorExcedente > 0 && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-800">
-                  <strong>Excedente detectado:</strong> {formatCurrency(valorExcedente)}
-                  {formData.criar_receita_excedente && (
-                    <span className="block mt-1">
-                      Uma receita será criada automaticamente para este valor.
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Ações */}
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" asChild>
-            <Link href="/pagamentos/novo">
-              Cancelar
-            </Link>
+        {/* Botões de Ação */}
+        <div className="flex justify-end gap-2 mt-6">
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={createState.loading}>
+            Cancelar
           </Button>
-          <Button 
-            type="submit" 
-            disabled={createState.loading}
-            className="min-w-[120px]"
-          >
+          <Button type="submit" disabled={createState.loading || (tipoPagamento === 'composto' && valorTotalAplicado <= 0)}>
             {createState.loading ? (
-              'Criando...'
-            ) : (
               <>
-                <Save className="w-4 h-4 mr-2" />
-                Criar Pagamento
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
               </>
+            ) : (
+              'Criar Pagamento'
             )}
           </Button>
         </div>

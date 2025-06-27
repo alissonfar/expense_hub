@@ -59,6 +59,7 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     transacao: Transacao
   }[]>([])
   const [valorTotalPago, setValorTotalPago] = useState<number>(0)
+  const [minPaymentDate, setMinPaymentDate] = useState<string | undefined>(undefined);
   
   // Carregar pessoa com transações
   useEffect(() => {
@@ -71,6 +72,27 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     
     carregarPessoa()
   }, [pessoaId, getPessoaComTransacoes])
+  
+  // Efeito para ajustar a data mínima de pagamento permitida
+  useEffect(() => {
+    if (transacoesSelecionadas.length > 0) {
+      const latestTimestamp = Math.max(...transacoesSelecionadas.map(t => new Date(t.transacao.data_transacao).getTime()));
+      const newMinDate = new Date(latestTimestamp).toISOString().split('T')[0];
+      
+      setMinPaymentDate(newMinDate);
+
+      if (formData.data_pagamento && formData.data_pagamento < newMinDate) {
+        setFormData(prev => ({ ...prev, data_pagamento: newMinDate }));
+        toast({
+            title: "Data do Pagamento Ajustada",
+            description: `A data foi ajustada para não ser anterior à data da transação mais recente.`,
+            variant: "default"
+        });
+      }
+    } else {
+      setMinPaymentDate(undefined);
+    }
+  }, [transacoesSelecionadas]);
   
   // Filtrar transações pendentes da pessoa
   const transacoesPendentes = pessoa?.transacoes?.filter((t: any) => 
@@ -174,10 +196,12 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     }
     
     try {
-      const dadosPagamento: any = {
+      const dadosPagamento = {
+        pessoa_id: Number(pessoaId),
+        valor_total: valorTotalPago,
         transacoes: transacoesSelecionadas.map(t => ({
           transacao_id: t.transacao_id,
-          valor_aplicado: t.valor_aplicado
+          valor_aplicado: t.valor_aplicado,
         })),
         data_pagamento: formData.data_pagamento!,
         forma_pagamento: formData.forma_pagamento!,
@@ -409,16 +433,14 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Data do Pagamento */}
-                <div>
+                <div className="grid gap-2">
                   <Label htmlFor="data_pagamento">Data do Pagamento *</Label>
                   <Input
                     id="data_pagamento"
                     type="date"
                     value={formData.data_pagamento}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      data_pagamento: e.target.value 
-                    }))}
+                    min={minPaymentDate}
+                    onChange={(e) => setFormData({ ...formData, data_pagamento: e.target.value })}
                     required
                   />
                 </div>

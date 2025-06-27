@@ -563,16 +563,15 @@ CREATE TRIGGER trigger_atualizar_status_transacao_composta
     FOR EACH ROW EXECUTE FUNCTION atualizar_status_transacao_composta();
 
 -- =============================================
--- 12. TRIGGER DE PROCESSAMENTO DE EXCEDENTE
+-- 9. FUNÇÕES DE PROCESSAMENTO DE PAGAMENTO (EXCEDENTE)
 -- =============================================
 
--- Trigger 8: Processar excedente automaticamente
 CREATE OR REPLACE FUNCTION processar_excedente_pagamento()
 RETURNS TRIGGER AS $$
 DECLARE
     total_devido_pessoa DECIMAL(10,2) := 0;
-    valor_excedente DECIMAL(10,2) := 0;
-    valor_minimo_excedente DECIMAL(10,2);
+    valor_excedente_calc DECIMAL(10,2) := 0;
+    valor_minimo_config DECIMAL(10,2);
     auto_criar_receita BOOLEAN;
     descricao_receita TEXT;
     receita_id INTEGER;
@@ -580,9 +579,10 @@ DECLARE
     data_pagamento_ref DATE;
     forma_pagamento_ref VARCHAR(15);
     proprietario_id_ref INTEGER;
+    processar_excedente_flag BOOLEAN;
 BEGIN
     -- Buscar configurações
-    SELECT valor::DECIMAL INTO valor_minimo_excedente
+    SELECT valor::DECIMAL INTO valor_minimo_config
     FROM configuracoes_sistema WHERE chave = 'valor_minimo_excedente';
     
     SELECT valor::BOOLEAN INTO auto_criar_receita
@@ -592,40 +592,31 @@ BEGIN
     FROM configuracoes_sistema WHERE chave = 'descricao_receita_excedente';
     
     -- Buscar dados do pagamento
-    SELECT pessoa_id, data_pagamento, forma_pagamento
-    INTO pessoa_pagamento, data_pagamento_ref, forma_pagamento_ref
-    FROM pagamentos WHERE id = NEW.pagamento_id;
+    SELECT p.pessoa_id, p.data_pagamento, p.forma_pagamento, p.processar_excedente
+    INTO pessoa_pagamento, data_pagamento_ref, forma_pagamento_ref, processar_excedente_flag
+    FROM pagamentos p WHERE p.id = NEW.pagamento_id;
     
     -- Buscar proprietário do sistema
     SELECT id INTO proprietario_id_ref
     FROM pessoas WHERE eh_proprietario = TRUE LIMIT 1;
     
-    -- Calcular total devido por esta pessoa em todas as transações deste pagamento
-    SELECT COALESCE(SUM(tp.valor_devido - tp.valor_pago), 0)
-    INTO total_devido_pessoa
-    FROM pagamento_transacoes pt
-    JOIN transacao_participantes tp ON tp.transacao_id = pt.transacao_id 
-        AND tp.pessoa_id = pessoa_pagamento
-    WHERE pt.pagamento_id = NEW.pagamento_id;
-    
-    -- Calcular excedente
-    SELECT valor_total - (
-        SELECT COALESCE(SUM(valor_aplicado), 0) 
-        FROM pagamento_transacoes 
-        WHERE pagamento_id = NEW.pagamento_id
-    ) INTO valor_excedente
-    FROM pagamentos WHERE id = NEW.pagamento_id;
+    -- Calcular excedente atual
+    SELECT p.valor_total - (
+        SELECT COALESCE(SUM(pt.valor_aplicado), 0) 
+        FROM pagamento_transacoes pt
+        WHERE pt.pagamento_id = NEW.pagamento_id
+    ) INTO valor_excedente_calc
+    FROM pagamentos p WHERE p.id = NEW.pagamento_id;
     
     -- Se há excedente significativo
-    IF valor_excedente >= COALESCE(valor_minimo_excedente, 1.00) THEN
+    IF valor_excedente_calc >= COALESCE(valor_minimo_config, 1.00) THEN
         -- Atualizar campo de excedente no pagamento
         UPDATE pagamentos 
-        SET valor_excedente = valor_excedente
+        SET valor_excedente = valor_excedente_calc
         WHERE id = NEW.pagamento_id;
         
         -- Se deve criar receita automaticamente
-        IF COALESCE(auto_criar_receita, TRUE) AND 
-           (SELECT processar_excedente FROM pagamentos WHERE id = NEW.pagamento_id) THEN
+        IF COALESCE(auto_criar_receita, TRUE) AND COALESCE(processar_excedente_flag, TRUE) THEN
             
             -- Criar receita do excedente
             INSERT INTO transacoes (
@@ -637,11 +628,11 @@ BEGIN
                 proprietario_id_ref,
                 COALESCE(descricao_receita, 'Excedente de pagamento') || ' - ' || (SELECT nome FROM pessoas WHERE id = pessoa_pagamento),
                 'Pagamento ID #' || NEW.pagamento_id,
-                valor_excedente,
+                valor_excedente_calc,
                 data_pagamento_ref,
-                valor_excedente,
+                valor_excedente_calc,
                 'PAGO_TOTAL',
-                'Receita gerada automaticamente do excedente de R$ ' || valor_excedente || ' do pagamento via ' || forma_pagamento_ref,
+                'Receita gerada automaticamente do excedente de R$ ' || valor_excedente_calc || ' do pagamento via ' || forma_pagamento_ref,
                 pessoa_pagamento
             ) RETURNING id INTO receita_id;
             
@@ -650,8 +641,8 @@ BEGIN
             SET receita_excedente_id = receita_id
             WHERE id = NEW.pagamento_id;
             
-            RAISE NOTICE 'Receita automática criada: R$ % (Pagamento #%, Receita #%)', 
-                        valor_excedente, NEW.pagamento_id, receita_id;
+            RAISE NOTICE 'Receita automatica criada: R$ % (Pagamento #%, Receita #%)', 
+                        valor_excedente_calc, NEW.pagamento_id, receita_id;
         END IF;
     END IF;
     
@@ -664,25 +655,18 @@ CREATE TRIGGER trigger_processar_excedente
     FOR EACH ROW EXECUTE FUNCTION processar_excedente_pagamento();
 
 -- =============================================
--- 13. TRIGGERS DE LIMPEZA E MANUTENÇÃO
+-- 10. FUNÇÕES DE LIMPEZA
 -- =============================================
 
--- Trigger 9: Limpeza automática de pagamentos órfãos
 CREATE OR REPLACE FUNCTION limpar_pagamentos_orfaos()
 RETURNS TRIGGER AS $$
-DECLARE
-    count_detalhes INTEGER;
 BEGIN
-    -- Contar quantos detalhes restam para este pagamento
-    SELECT COUNT(*) INTO count_detalhes
-    FROM pagamento_transacoes
-    WHERE pagamento_id = OLD.pagamento_id;
-    
-    -- Se não há mais detalhes, excluir o pagamento principal
-    IF count_detalhes = 0 THEN
-        DELETE FROM pagamentos WHERE id = OLD.pagamento_id;
-        RAISE NOTICE 'Pagamento % excluído automaticamente por ficar sem detalhes', OLD.pagamento_id;
-    END IF;
+    DELETE FROM pagamentos
+    WHERE id = OLD.pagamento_id
+    AND NOT EXISTS (
+        SELECT 1 FROM pagamento_transacoes
+        WHERE pagamento_id = OLD.pagamento_id
+    );
     
     RETURN OLD;
 END;
