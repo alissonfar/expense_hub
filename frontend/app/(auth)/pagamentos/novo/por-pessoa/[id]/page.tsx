@@ -108,10 +108,10 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
   const valorExcedente = Math.max(0, valorTotalPago - valorTotalAplicado)
   const saldoPendenteTotal = transacoesPendentes.reduce((total: number, t: any) => {
     if (t.status_pagamento === 'PENDENTE') {
-      return total + (t.transacao_participantes?.[0]?.valor_devido ?? 0)
+      return total + (parseFloat(t.transacao_participantes?.[0]?.valor_devido) || 0)
     } else if (t.status_pagamento === 'PAGO_PARCIAL') {
-      const valorDevido = t.transacao_participantes?.[0]?.valor_devido ?? 0
-      const valorPago = t.transacao_participantes?.[0]?.valor_pago ?? 0
+      const valorDevido = parseFloat(t.transacao_participantes?.[0]?.valor_devido) || 0
+      const valorPago = parseFloat(t.transacao_participantes?.[0]?.valor_pago) || 0
       return total + (valorDevido - valorPago)
     }
     return total

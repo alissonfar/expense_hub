@@ -46,7 +46,8 @@ export const API_ENDPOINTS = {
     SALDOS: '/relatorios/saldos',
     PENDENCIAS: '/relatorios/pendencias',
     TRANSACOES: '/relatorios/transacoes',
-    CATEGORIAS: '/relatorios/categorias'
+    CATEGORIAS: '/relatorios/categorias',
+    SALDO_HISTORICO: (pessoaId: number) => `/relatorios/saldo-historico/${pessoaId}`
   },
   CONFIGURACOES: {
     INTERFACE: '/configuracoes/interface'

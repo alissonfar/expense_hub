@@ -1,373 +1,187 @@
-# 📡 API REFERENCE - PERSONAL EXPENSE HUB
+# Documentação da API (Endpoints)
 
-**Documentação completa da API REST**  
-**Base URL:** `http://localhost:3001/api`  
-**Versão:** 2.0.0  
-**Total de Endpoints:** 42
+Este documento detalha todos os endpoints da API do Personal Expense Hub.
 
-## 🔐 **AUTENTICAÇÃO**
+## Autenticação
 
-### **Sistema JWT**
-```http
-Authorization: Bearer <jwt_token>
-```
+A autenticação é feita via **JWT (JSON Web Token)**. Para todas as rotas protegidas, você deve incluir o token no header `Authorization`:
 
-**Payload JWT:**
-```json
-{
-  "user_id": 1,
-  "email": "user@example.com",
-  "nome": "Nome do Usuário",
-  "eh_proprietario": true,
-  "iat": 1640995200,
-  "exp": 1641600000
-}
-```
+`Authorization: Bearer <seu-token-jwt>`
+
+## Respostas Padrão
+
+-   **Sucesso (2xx):** `{ "success": true, "data": {...}, "message": "...", "timestamp": "..." }`
+-   **Erro do Cliente (4xx):** `{ "success": false, "error": "...", "message": "...", "details"?: [...], "timestamp": "..." }`
+-   **Erro do Servidor (5xx):** `{ "success": false, "error": "...", "message": "...", "timestamp": "..." }`
 
 ---
 
-## 🚪 **AUTENTICAÇÃO (/api/auth)** - 6 endpoints
-
-### **1. POST /api/auth/register**
-Registra um novo usuário no sistema.
-
-**Request:**
-```json
-{
-  "nome": "João Silva",
-  "email": "joao@example.com",
-  "senha": "MinhaSenh@123",
-  "telefone": "(11) 99999-9999"
-}
-```
-
-**Response (201):**
-```json
-{
-  "success": true,
-  "message": "Usuário registrado com sucesso!",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": 1,
-      "nome": "João Silva",
-      "email": "joao@example.com",
-      "eh_proprietario": true
-    }
-  },
-  "refreshToken": "refresh_token_here",
-  "timestamp": "2025-01-24T10:30:00.000Z"
-}
-```
-
-### **2. POST /api/auth/login**
-**Request:** `{ "email": "user@email.com", "senha": "senha123" }`
-**Response:** JWT token + dados do usuário
-
-### **3. GET /api/auth/me**
-**Headers:** `Authorization: Bearer <token>`
-**Response:** Dados do usuário logado
-
-### **4. PUT /api/auth/profile**
-Atualizar perfil do usuário
-
-### **5. PUT /api/auth/change-password**
-Alterar senha do usuário
-
-### **6. GET /api/auth/info**
-Documentação dos endpoints de autenticação
-
----
-
-## 👥 **PESSOAS (/api/pessoas)** - 6 endpoints
-
-### **1. GET /api/pessoas**
-Lista todas as pessoas do sistema.
-
-**Query Parameters:**
-- `ativo` - boolean (filtrar por status)
-- `proprietario` - boolean (filtrar proprietários)
-- `page` - number (página, padrão: 1)
-- `limit` - number (itens por página, padrão: 20)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "nome": "João Silva",
-      "email": "joao@email.com",
-      "telefone": "(11) 99999-9999",
-      "eh_proprietario": false,
-      "ativo": true,
-      "data_cadastro": "2025-01-20T10:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 45,
-    "totalPages": 3,
-    "hasNext": true,
-    "hasPrev": false
-  }
-}
-```
-
-### **2. POST /api/pessoas**
-**Auth:** Proprietário apenas
-**Body:** `{ "nome", "email", "telefone?", "eh_proprietario?" }`
-
-### **3. GET /api/pessoas/:id**
-Detalhes de uma pessoa específica
-
-### **4. PUT /api/pessoas/:id**
-Editar dados de uma pessoa
-
-### **5. DELETE /api/pessoas/:id**
-Desativar pessoa (soft delete)
+## Endpoints
 
-### **6. GET /api/pessoas/info**
-Documentação dos endpoints
-
----
-
-## 🏷️ **TAGS (/api/tags)** - 6 endpoints
-
-### **1. GET /api/tags**
-Lista todas as tags do sistema
-
-### **2. POST /api/tags**
-**Body:** `{ "nome", "cor?", "icone?" }`
-**Validação:** Cor formato #RRGGBB
-
-### **3. GET /api/tags/:id**
-Detalhes da tag + estatísticas de uso
-
-### **4. PUT /api/tags/:id**
-Editar tag
-
-### **5. DELETE /api/tags/:id**
-Desativar tag
-
-### **6. GET /api/tags/info**
-Documentação dos endpoints
-
----
-
-## 💳 **TRANSAÇÕES (/api/transacoes)** - 8 endpoints
-
-### **1. GET /api/transacoes**
-Lista transações com filtros avançados
-
-**Query Parameters:**
-- `tipo` - 'GASTO' | 'RECEITA'
-- `status_pagamento` - 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL'
-- `data_inicio` - YYYY-MM-DD
-- `data_fim` - YYYY-MM-DD
-- `pessoa_id` - number
-- `tag_id` - number
-- `eh_parcelado` - boolean
+[[memory:6830135959561837192]]
 
-### **2. POST /api/transacoes**
-Criar novo gasto compartilhado
+A lista a seguir foi gerada com base no mapeamento completo do sistema e representa o estado atual de todos os 42 endpoints.
 
-**Request:**
-```json
-{
-  "descricao": "Jantar no restaurante",
-  "local": "Restaurante Italiano",
-  "valor_total": 240.00,
-  "data_transacao": "2025-01-24",
-  "eh_parcelado": false,
-  "participantes": [
-    {
-      "pessoa_id": 1,
-      "valor_devido": 60.00
-    },
-    {
-      "pessoa_id": 2,
-      "valor_devido": 60.00
-    }
-  ],
-  "tags": [1, 3]
-}
-```
-
-### **3. GET /api/transacoes/:id**
-Detalhes completos da transação
-
-### **4. PUT /api/transacoes/:id**
-Editar transação (campos limitados)
-
-### **5. DELETE /api/transacoes/:id**
-Excluir transação
-
-### **6. POST /api/transacoes/receita**
-Criar receita (apenas proprietário)
-
-### **7. PUT /api/transacoes/receita/:id**
-Editar receita
-
-### **8. GET /api/transacoes/info**
-Documentação dos endpoints
-
----
-
-## 💰 **PAGAMENTOS (/api/pagamentos)** - 8 endpoints
-
-### **1. GET /api/pagamentos**
-Lista pagamentos com filtros
-
-### **2. POST /api/pagamentos**
-Criar pagamento (individual ou composto)
-
-**Individual:**
-```json
-{
-  "transacao_id": 1,
-  "valor_pago": 60.00,
-  "data_pagamento": "2025-01-24",
-  "forma_pagamento": "PIX"
-}
-```
-
-**Composto:**
-```json
-{
-  "transacoes": [
-    { "transacao_id": 1, "valor_aplicado": 60.00 },
-    { "transacao_id": 2, "valor_aplicado": 40.00 }
-  ],
-  "data_pagamento": "2025-01-24",
-  "forma_pagamento": "PIX",
-  "processar_excedente": true
-}
-```
-
-### **3. GET /api/pagamentos/:id**
-Detalhes do pagamento
-
-### **4. PUT /api/pagamentos/:id**
-Atualizar pagamento
-
-### **5. DELETE /api/pagamentos/:id**
-Excluir pagamento
-
-### **6. GET /api/pagamentos/configuracoes/excedente**
-Configurações de excedente
-
-### **7. PUT /api/pagamentos/configuracoes/excedente**
-Atualizar configurações de excedente
-
-### **8. GET /api/pagamentos/info**
-Documentação dos endpoints
-
----
-
-## 📊 **RELATÓRIOS (/api/relatorios)** - 6 endpoints
-
-### **1. GET /api/relatorios/dashboard**
-Dashboard principal com métricas
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "resumo": {
-      "total_gastos": 12450.00,
-      "total_receitas": 8720.00,
-      "pendencias": 3280.00,
-      "pagamentos_mes": 23
-    },
-    "graficos": {
-      "gastos_por_mes": [...],
-      "categorias": [...]
-    }
-  }
-}
-```
-
-### **2. GET /api/relatorios/saldos**
-Saldos por pessoa
-
-### **3. GET /api/relatorios/pendencias**
-Análise de pendências
-
-### **4. GET /api/relatorios/transacoes**
-Relatório detalhado de transações
-
-### **5. GET /api/relatorios/categorias**
-Análise por categorias/tags
-
-### **6. GET /api/relatorios/info**
-Documentação dos endpoints
-
----
-
-## ⚙️ **CONFIGURAÇÕES (/api/configuracoes)** - 4 endpoints
-
-### **1. GET /api/configuracoes/interface**
-Configurações de interface
-
-### **2. PUT /api/configuracoes/interface**
-Atualizar configurações de interface
-
-### **3. GET /api/configuracoes/info**
-Documentação dos endpoints
-
-### **4. Futuros endpoints**
-- `/comportamento` (501 - Não implementado)
-- `/alertas` (501 - Não implementado)
-- `/relatorios` (501 - Não implementado)
-
----
-
-## 📋 **PADRÕES GLOBAIS**
-
-### **Response Padrão**
-```json
-{
-  "success": boolean,
-  "message": "string",
-  "data": any,
-  "timestamp": "ISO 8601 string"
-}
-```
-
-### **Paginação**
-```json
-{
-  "page": number,
-  "limit": number,
-  "total": number,
-  "totalPages": number,
-  "hasNext": boolean,
-  "hasPrev": boolean
-}
-```
-
-### **Códigos de Status HTTP**
-- `200` - Sucesso
-- `201` - Criado
-- `400` - Dados inválidos
-- `401` - Não autenticado
-- `403` - Sem permissão
-- `404` - Não encontrado
-- `409` - Conflito
-- `500` - Erro interno
-- `501` - Não implementado
-
-### **Formatos**
-- **Datas:** YYYY-MM-DD
-- **Timestamps:** ISO 8601
-- **Valores:** Decimal 2 casas
-- **Telefone:** (XX) XXXXX-XXXX
-
----
-
-**API Personal Expense Hub - 42 endpoints funcionais**  
-**Documentação baseada na implementação real do sistema** 
+### 🏛️ Autenticação (`/api/auth`)
+
+1.  **`POST /api/auth/register`**: Registrar novo usuário.
+    -   **Body:** `{ nome, email, senha, telefone? }`
+    -   **Validação:** Senha forte (8+, maiúscula, minúscula, número, especial).
+    -   **Response (201):** `{ token, user, refreshToken }`
+
+2.  **`POST /api/auth/login`**: Autenticar um usuário.
+    -   **Body:** `{ email, senha }`
+    -   **Response (200):** `{ token, user, refreshToken }`
+
+3.  **`GET /api/auth/me`**: Obter perfil do usuário logado.
+    -   **Auth:** `requireAuth`
+    -   **Response (200):** `{ userProfile }`
+
+4.  **`PUT /api/auth/profile`**: Atualizar perfil do usuário logado.
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ nome?, email?, telefone? }`
+
+5.  **`PUT /api/auth/change-password`**: Alterar a senha.
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ senhaAtual, novaSenha, confirmarSenha }`
+
+6.  **`GET /api/auth/info`**: Documentação das rotas de autenticação.
+
+### 👥 Pessoas (`/api/pessoas`)
+
+1.  **`GET /api/pessoas`**: Listar pessoas com filtros e paginação.
+    -   **Auth:** `requireAuth`
+    -   **Query:** `{ ativo?, proprietario?, page?, limit? }`
+    -   **Response (200):** `{ pessoas[], pagination }`
+
+2.  **`POST /api/pessoas`**: Criar uma nova pessoa.
+    -   **Auth:** `requireAuth`, `requireOwner`
+    -   **Body:** `{ nome, email, telefone?, eh_proprietario? }`
+
+3.  **`GET /api/pessoas/:id`**: Detalhes de uma pessoa e suas estatísticas.
+    -   **Auth:** `requireAuth`
+    -   **Params:** `id` (numérico)
+    -   **Response (200):** `{ pessoa, estatisticas }`
+
+4.  **`PUT /api/pessoas/:id`**: Editar uma pessoa.
+    -   **Auth:** `requireAuth`, `requireOwner`
+    -   **Body:** `{ nome?, email?, telefone? }`
+
+5.  **`DELETE /api/pessoas/:id`**: Desativar uma pessoa (soft delete).
+    -   **Auth:** `requireAuth`, `requireOwner`
+
+6.  **`GET /api/pessoas/info`**: Documentação das rotas de pessoas.
+
+### 🏷️ Tags (`/api/tags`)
+
+1.  **`GET /api/tags`**: Listar tags com filtros.
+    -   **Auth:** `requireAuth`
+    -   **Query:** `{ ativo?, criado_por?, page?, limit? }`
+
+2.  **`POST /api/tags`**: Criar uma nova tag.
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ nome, cor?, icone? }`
+    -   **Validação:** Cor em formato HEX (`/^#[0-9A-Fa-f]{6}$/`).
+
+3.  **`GET /api/tags/:id`**: Detalhes e estatísticas de uma tag.
+    -   **Auth:** `requireAuth`
+
+4.  **`PUT /api/tags/:id`**: Editar uma tag.
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ nome?, cor?, icone? }`
+
+5.  **`DELETE /api/tags/:id`**: Desativar uma tag (soft delete).
+    -   **Auth:** `requireAuth`
+
+6.  **`GET /api/tags/info`**: Documentação das rotas de tags.
+
+### 💸 Transações (`/api/transacoes`)
+
+1.  **`GET /api/transacoes`**: Listar transações com filtros avançados.
+    -   **Auth:** `requireAuth`
+    -   **Query:** Múltiplos filtros disponíveis (tipo, status, data, etc.).
+
+2.  **`POST /api/transacoes`**: Criar um novo gasto (despesa).
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ descricao, valor_total, data_transacao, participantes[], ... }`
+    -   **Validação:** Soma dos valores dos participantes deve ser igual ao valor total.
+
+3.  **`POST /api/transacoes/receita`**: Criar uma nova receita.
+    -   **Auth:** `requireAuth`
+    -   **Body:** `{ descricao, valor_recebido, data_transacao, ... }`
+
+4.  **`GET /api/transacoes/:id`**: Detalhes completos de uma transação.
+    -   **Auth:** `requireAuth`
+    -   **Response (200):** `{ transacao, participantes, tags, pagamentos, parcelas }`
+
+5.  **`PUT /api/transacoes/:id`**: Editar um gasto.
+    -   **Auth:** `requireAuth`
+
+6.  **`PUT /api/transacoes/receita/:id`**: Editar uma receita.
+    -   **Auth:** `requireAuth`
+
+7.  **`DELETE /api/transacoes/:id`**: Excluir uma transação.
+    -   **Auth:** `requireAuth`
+    -   **Restrição:** Não pode ser excluída se tiver pagamentos associados.
+
+8.  **`GET /api/transacoes/info`**: Documentação das rotas de transações.
+
+### 💳 Pagamentos (`/api/pagamentos`)
+
+1.  **`GET /api/pagamentos`**: Listar pagamentos com filtros.
+    -   **Auth:** `requireAuth`
+
+2.  **`POST /api/pagamentos`**: Criar um pagamento (simples ou composto).
+    -   **Auth:** `requireAuth`
+    -   **Body (Simples):** `{ transacao_id, valor_pago, ... }`
+    -   **Body (Composto):** `{ transacoes: [{ transacao_id, valor_aplicado }], ... }`
+
+3.  **`GET /api/pagamentos/:id`**: Detalhes de um pagamento.
+    -   **Auth:** `requireAuth`
+
+4.  **`PUT /api/pagamentos/:id`**: Atualizar um pagamento.
+    -   **Auth:** `requireAuth` (próprio usuário ou proprietário).
+
+5.  **`DELETE /api/pagamentos/:id`**: Excluir um pagamento.
+    -   **Auth:** `requireAuth` (próprio usuário ou proprietário).
+
+6.  **`GET /api/pagamentos/configuracoes/excedente`**: Obter configurações de valor excedente.
+    -   **Auth:** `requireAuth`
+
+7.  **`PUT /api/pagamentos/configuracoes/excedente`**: Atualizar configurações de valor excedente.
+    -   **Auth:** `requireAuth`, `requireOwner`
+
+8.  **`GET /api/pagamentos/info`**: Documentação das rotas de pagamentos.
+
+### 📊 Relatórios (`/api/relatorios`)
+
+1.  **`GET /api/relatorios/dashboard`**: Dados para o dashboard principal.
+    -   **Auth:** `requireAuth`
+    -   **Query:** `{ periodo?, data_inicio?, data_fim?, ... }`
+
+2.  **`GET /api/relatorios/saldos`**: Saldos devedores/credores por pessoa.
+    -   **Auth:** `requireAuth`
+
+3.  **`GET /api/relatorios/pendencias`**: Listar todas as pendências financeiras.
+    -   **Auth:** `requireAuth`
+
+4.  **`GET /api/relatorios/transacoes`**: Relatório avançado de transações.
+    -   **Auth:** `requireAuth`
+
+5.  **`GET /api/relatorios/categorias`**: Análise de gastos por categoria (tag).
+    -   **Auth:** `requireAuth`
+
+6.  **`GET /api/relatorios/info`**: Documentação das rotas de relatórios.
+
+### ⚙️ Configurações (`/api/configuracoes`)
+
+1.  **`GET /api/configuracoes/interface`**: Buscar configuração de tema da interface.
+    -   **Auth:** `requireAuth`
+
+2.  **`PUT /api/configuracoes/interface`**: Atualizar tema da interface.
+    -   **Auth:** `requireAuth`, `requireOwner`
+    -   **Body:** `{ theme_interface: 'light' | 'dark' | 'auto' }`
+
+3.  **`GET /api/configuracoes/info`**: Documentação das rotas de configurações.
+
+4.  **`GET /api/configuracoes/{comportamento|alertas|relatorios}`**: Rotas futuras (retornam 501 Not Implemented). 

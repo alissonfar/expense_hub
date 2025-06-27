@@ -70,10 +70,10 @@ export default function PagarPorPessoaPage() {
       const participantes = transacao.transacao_participantes ?? [];
       return total + participantes.reduce((acc: number, p: any) => {
         if (transacao.status_pagamento === 'PENDENTE') {
-          return acc + (p.valor_devido ?? 0)
+          return acc + (parseFloat(p.valor_devido) || 0)
         } else if (transacao.status_pagamento === 'PAGO_PARCIAL') {
-          const valorDevido = p.valor_devido ?? 0
-          const valorPago = p.valor_pago ?? 0
+          const valorDevido = parseFloat(p.valor_devido) || 0
+          const valorPago = parseFloat(p.valor_pago) || 0
           return acc + (valorDevido - valorPago)
         }
         return acc

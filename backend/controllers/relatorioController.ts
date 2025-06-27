@@ -1347,4 +1347,138 @@ export const getCategorias = async (req: Request, res: Response): Promise<void> 
       timestamp: new Date().toISOString()
     });
   }
+};
+
+/**
+ * Relatório de histórico de saldo para uma pessoa
+ * GET /api/relatorios/saldo-historico/:pessoaId
+ */
+export const getSaldoHistoricoPessoa = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { pessoaId } = req.params;
+    
+    if (!pessoaId || isNaN(parseInt(pessoaId, 10))) {
+        res.status(400).json({ success: false, message: 'ID da pessoa inválido ou não fornecido.' });
+        return;
+    }
+    const id = parseInt(pessoaId, 10);
+
+    // 1. Obter todas as participações em despesas (o que a pessoa deve)
+    const participacoes = await prisma.transacao_participantes.findMany({
+      where: { pessoa_id: id },
+      include: {
+        transacoes: {
+          select: { data_transacao: true }
+        }
+      },
+      orderBy: {
+        transacoes: {
+          data_transacao: 'asc'
+        }
+      }
+    });
+
+    // 2. Obter todos os pagamentos feitos pela pessoa
+    const pagamentos = await prisma.pagamentos.findMany({
+      where: { pessoa_id: id },
+      orderBy: {
+        data_pagamento: 'asc'
+      }
+    });
+    
+    // 3. Obter todas as receitas recebidas pela pessoa
+    const receitas = await prisma.transacoes.findMany({
+        where: {
+            tipo: 'RECEITA',
+            transacao_participantes: {
+                some: {
+                    pessoa_id: id,
+                },
+            },
+        },
+        orderBy: {
+            data_transacao: 'asc',
+        },
+    });
+
+    // 4. Unificar em uma timeline de eventos financeiros
+    const eventos: { data: Date; valor: number }[] = [];
+
+    participacoes.forEach(p => {
+      eventos.push({
+        data: p.transacoes.data_transacao,
+        valor: -Number(p.valor_devido) // Negativo pois é uma dívida
+      });
+    });
+
+    pagamentos.forEach(p => {
+      eventos.push({
+        data: p.data_pagamento,
+        valor: Number(p.valor_total) // Positivo pois é um pagamento que quita dívidas
+      });
+    });
+    
+    receitas.forEach(r => {
+        eventos.push({
+            data: r.data_transacao,
+            valor: Number(r.valor_total), // Positivo pois é uma receita
+        });
+    });
+
+    // 5. Ordenar todos os eventos por data
+    eventos.sort((a, b) => a.data.getTime() - b.data.getTime());
+
+    // 6. Calcular o saldo cumulativo
+    const saldoHistorico: { data: string; saldo: number }[] = [];
+    let saldoAcumulado = 0;
+
+    if (eventos.length > 0) {
+      // GARANTIA: eventos[0] existe por causa do if
+      let dataAtual = eventos[0]!.data; 
+
+      eventos.forEach((evento) => {
+        // Se a data do evento for diferente da data que estamos agrupando,
+        // salvamos o saldo acumulado para a dataAtual antes de avançar.
+        if (evento.data.toDateString() !== dataAtual.toDateString()) {
+          saldoHistorico.push({
+            data: dataAtual.toISOString().split('T')[0]!,
+            saldo: Number(saldoAcumulado.toFixed(2))
+          });
+          dataAtual = evento.data; // Avança para a nova data
+        }
+        saldoAcumulado += evento.valor;
+      });
+      
+      // Adicionar o último saldo para a última data processada
+      saldoHistorico.push({
+        data: dataAtual.toISOString().split('T')[0]!,
+        saldo: Number(saldoAcumulado.toFixed(2))
+      });
+    }
+
+    // Otimizar removendo pontos de dados redundantes (mesmo saldo em dias seguidos)
+    const saldoOtimizado = saldoHistorico.filter((ponto, i, arr) => {
+        // Manter o primeiro e o último ponto para garantir a extensão completa do gráfico.
+        if (i === 0 || i === arr.length - 1) return true; 
+        // Manter o ponto apenas se o saldo for diferente do dia anterior.
+        // GARANTIA: arr[i-1] existe pois i > 0 aqui.
+        return ponto.saldo !== arr[i-1]!.saldo; 
+    });
+
+
+    res.json({
+      success: true,
+      message: 'Histórico de saldo gerado com sucesso.',
+      data: saldoOtimizado,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao gerar histórico de saldo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor ao gerar histórico de saldo',
+      timestamp: new Date().toISOString()
+    });
+  }
 }; 

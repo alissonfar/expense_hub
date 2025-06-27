@@ -38,6 +38,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog'
 
 export default function TransacaoDetalhesPage() {
   const params = useParams()
@@ -187,8 +188,8 @@ export default function TransacaoDetalhesPage() {
             Editar
           </Button>
           
-          <Dialog>
-            <DialogTrigger asChild>
+          <ConfirmationDialog
+            trigger={
               <Button 
                 variant="destructive" 
                 size="sm"
@@ -197,31 +198,23 @@ export default function TransacaoDetalhesPage() {
                 <Trash2 className="w-4 h-4 mr-2" />
                 Excluir
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Confirmar Exclusão</DialogTitle>
-                <DialogDescription>
-                  Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
-                  {transacao.status_pagamento !== 'PENDENTE' && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
-                      ⚠️ Esta transação possui pagamentos registrados e pode não ser possível excluí-la.
-                    </div>
-                  )}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline">Cancelar</Button>
-                <Button
-                  onClick={handleDelete}
-                  className="bg-red-600 hover:bg-red-700"
-                  disabled={deleteState.loading}
-                >
-                  {deleteState.loading ? 'Excluindo...' : 'Excluir'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            }
+            title="Confirmar Exclusão"
+            description={
+              <>
+                Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
+                {transacao.status_pagamento !== 'PENDENTE' && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                    ⚠️ Esta transação possui pagamentos registrados e pode não ser possível excluí-la.
+                  </div>
+                )}
+              </>
+            }
+            onConfirm={handleDelete}
+            confirmText="Excluir"
+            confirmingText="Excluindo..."
+            isConfirming={deleteState.loading}
+          />
         </div>
       </div>
 

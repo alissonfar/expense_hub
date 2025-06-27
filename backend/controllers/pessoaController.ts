@@ -243,38 +243,44 @@ export const getPessoa = async (req: Request, res: Response): Promise<void> => {
       orderBy: { data_transacao: 'desc' }
     });
 
-    // Buscar estatísticas da pessoa (transações relacionadas)
-    const [totalTransacoes, totalDevendo, totalRecebendo, totalPago] = await Promise.all([
-      req.prisma.transacao_participantes.count({
-        where: { pessoa_id: id }
-      }),
-      req.prisma.transacao_participantes.aggregate({
-        where: {
-          pessoa_id: id,
-          transacoes: { tipo: 'GASTO' }
-        },
-        _sum: { valor_devido: true }
-      }),
-      req.prisma.transacao_participantes.aggregate({
-        where: {
-          pessoa_id: id,
-          transacoes: { tipo: 'RECEITA' }
-        },
-        _sum: { valor_recebido: true }
-      }),
-      req.prisma.transacao_participantes.aggregate({
+    // =========================================================================
+    // CÁLCULO DE ESTATÍSTICAS FINANCEIRAS (LÓGICA CORRIGIDA E UNIFICADA)
+    // =========================================================================
+
+    let totalDevidoGeral = 0;
+    let totalPagoPorEstaPessoa = 0;
+    
+    // Iterar sobre as participações da pessoa para calcular o que ela deve e o que ela já pagou
+    const participacoes = await req.prisma.transacao_participantes.findMany({
         where: { pessoa_id: id },
-        _sum: { valor_pago: true }
-      })
-    ]);
+        select: { valor_devido: true, valor_pago: true }
+    });
+
+    participacoes.forEach(p => {
+        totalDevidoGeral += Number(p.valor_devido) || 0;
+        totalPagoPorEstaPessoa += Number(p.valor_pago) || 0;
+    });
+
+    // O que a pessoa ainda deve (pendente)
+    const totalDevidoPendente = Math.max(0, totalDevidoGeral - totalPagoPorEstaPessoa);
+
+    // Calcular o total que a pessoa tem a receber de outros.
+    // Isso acontece quando o total que ela pagou excede o total que ela devia.
+    const totalReceberPendente = Math.max(0, totalPagoPorEstaPessoa - totalDevidoGeral);
+    
+    // O saldo líquido é a diferença direta entre o que ela tem a receber e o que ela ainda deve.
+    const saldoLiquido = totalReceberPendente - totalDevidoPendente;
 
     const estatisticas = {
-      total_transacoes: totalTransacoes,
-      total_devendo: Number(totalDevendo._sum.valor_devido || 0),
-      total_recebendo: Number(totalRecebendo._sum.valor_recebido || 0),
-      total_pago: Number(totalPago._sum.valor_pago || 0),
-      saldo_liquido: Number(totalRecebendo._sum.valor_recebido || 0) - Number(totalDevendo._sum.valor_devido || 0)
+      total_transacoes: participacoes.length,
+      total_devido_geral: totalDevidoGeral,
+      total_pago_geral: totalPagoPorEstaPessoa,
+      total_devido_pendente: totalDevidoPendente,
+      total_receber_pendente: totalReceberPendente,
+      saldo_liquido: saldoLiquido
     };
+    
+    // =========================================================================
 
     res.json({
       success: true,

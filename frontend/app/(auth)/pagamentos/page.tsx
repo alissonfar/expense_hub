@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table'
 import { 
   CreditCard, 
   Plus, 
@@ -31,6 +31,7 @@ import { toast } from '@/hooks/use-toast'
 import { formatCurrency, formatDate, formatRelativeDate, generateAvatarColor, getInitials } from '@/lib/utils'
 import { FormaPagamento, PagamentoFilters } from '@/types'
 import { usePagamentos } from '@/hooks/usePagamentos'
+import { ConfirmationDialog } from '@/components/common/ConfirmationDialog'
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; color: string }[] = [
   { value: 'PIX', label: 'PIX', color: 'bg-blue-100 text-blue-800' },
@@ -473,33 +474,17 @@ export default function PagamentosPage() {
         </CardContent>
       </Card>
 
-      {/* Modal de Confirmação de Exclusão */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja excluir este pagamento? Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteModalOpen(false)}
-              disabled={deleteState.loading}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleConfirmDelete}
-              disabled={deleteState.loading}
-            >
-              {deleteState.loading ? 'Excluindo...' : 'Excluir'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Modal de Confirmação */}
+      <ConfirmationDialog
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        title="Confirmar Exclusão"
+        description="Tem certeza de que deseja excluir este pagamento? Esta ação é irreversível."
+        onConfirm={handleConfirmDelete}
+        isConfirming={deleteState.loading}
+        confirmText="Excluir Pagamento"
+        confirmingText="Excluindo..."
+      />
     </div>
   )
 } 

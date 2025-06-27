@@ -4,7 +4,8 @@ import {
   getDashboard,
   getPendencias,
   getTransacoes,
-  getCategorias
+  getCategorias,
+  getSaldoHistoricoPessoa
 } from '../controllers/relatorioController';
 import {
   saldosQuerySchema,
@@ -244,6 +245,15 @@ router.get('/categorias',
   requireAuth,
   validateQuery(categoriasQuerySchema),
   getCategorias
+);
+
+/**
+ * GET /api/relatorios/saldo-historico/:pessoaId
+ * Histórico de saldo para o gráfico de uma pessoa
+ */
+router.get('/saldo-historico/:pessoaId',
+  requireAuth,
+  getSaldoHistoricoPessoa
 );
 
 export default router; 
