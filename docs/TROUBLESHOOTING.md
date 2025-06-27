@@ -70,4 +70,42 @@ Este documento centraliza problemas conhecidos, erros comuns e suas respectivas 
     1.  **Paginação:** Sempre implemente paginação (`skip`, `take`) em endpoints que podem retornar listas longas.
     2.  **`select` Específico:** Use a cláusula `select` do Prisma para buscar apenas os campos que você realmente precisa. Evite buscar todos os campos de um modelo se não for necessário.
     3.  **Índices:** Verifique se os campos usados em cláusulas `where` ou `orderBy` frequentes possuem índices no `schema.prisma`.
-    4.  **N+1 Problema:** Tenha cuidado com queries aninhadas dentro de loops. Use as funcionalidades do Prisma para buscar dados relacionados em uma única query sempre que possível. 
+    4.  **N+1 Problema:** Tenha cuidado com queries aninhadas dentro de loops. Use as funcionalidades do Prisma para buscar dados relacionados em uma única query sempre que possível.
+
+## 5. Casos de Debugging Complexos
+
+### 🐞 **Exclusão de Pagamento (`DELETE /api/pagamentos/:id`)**
+
+-   **Data da Resolução:** 2024-06-27
+-   **Autor:** Cursor AI
+-   **Sintoma:** O backend travava ou retornava erros de banco de dados ao tentar excluir um pagamento que possuía relações complexas (transações múltiplas, receita de excedente).
+
+#### Problema Resolvido
+
+A implementação inicial da exclusão de pagamento não lidava corretamente com a lógica de negócio e as restrições do banco de dados, resultando em uma série de erros em cascata.
+
+#### Solução Implementada
+
+A solução envolveu a reescrita da lógica dentro de uma **transação do Prisma (`$transaction`)** para garantir que todas as operações fossem atômicas (ou tudo funciona, ou nada é alterado). O processo de debugging resolveu 4 erros distintos:
+
+1.  **Erro de Sintaxe (TS2353):**
+    -   **Causa:** A query para atualizar os participantes da transação usava uma sintaxe incorreta para a chave única composta (`@@unique([transacao_id, pessoa_id])`).
+    -   **Correção:** A cláusula `where` foi corrigida para usar o formato `where: { participante_transacao_unico: { transacao_id, pessoa_id } }`, que o Prisma entende para chaves compostas.
+
+2.  **Erro de Conflito com Cascata (Prisma P2025):**
+    -   **Causa:** O código tentava deletar manualmente os registros na tabela `pagamento_transacoes` *antes* de deletar o pagamento principal. No entanto, o `schema.prisma` já definia `onDelete: Cascade`, fazendo com que o Prisma tentasse deletar os mesmos registros duas vezes, causando um erro "Record not found".
+    -   **Correção:** A exclusão manual dos registros filhos foi removida. A lógica agora confia na regra `onDelete: Cascade` para remover os `pagamento_transacoes` automaticamente após a exclusão do `pagamento` principal.
+
+3.  **Erro de Chave Estrangeira (Prisma P2003):**
+    -   **Causa:** O código tentava deletar a `transacao` referente à receita de excedente *antes* de remover o registro de `pagamento` que a referenciava (através do campo `receita_excedente_id`). Isso violava uma restrição de chave estrangeira.
+    -   **Correção:** A ordem das operações foi invertida. Agora, o `pagamento` principal é deletado primeiro, e só então a `transacao` de excedente (se houver) é removida.
+
+4.  **Erro de Escopo (TypeScript TS2304):**
+    -   **Causa:** A variável `receitaExcedenteId` era declarada dentro do bloco `$transaction`, tornando-a inacessível para a lógica que montava a resposta JSON final.
+    -   **Correção:** A variável foi movida para um escopo superior, antes do início do bloco `$transaction`, garantindo sua disponibilidade durante todo o processo.
+
+#### Testes Sugeridos
+-   Excluir um pagamento simples.
+-   Excluir um pagamento que cobre múltiplas transações.
+-   Excluir um pagamento que gerou uma receita de excedente.
+-   Verificar (em `GET /api/transacoes/:id`) se os valores pagos e os status das transações afetadas foram corretamente revertidos após a exclusão. 

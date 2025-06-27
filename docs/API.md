@@ -144,6 +144,12 @@ A lista a seguir foi gerada com base no mapeamento completo do sistema e represe
 
 5.  **`DELETE /api/pagamentos/:id`**: Excluir um pagamento.
     -   **Auth:** `requireAuth` (próprio usuário ou proprietário).
+    -   **Comportamento:**
+        -   Realiza a exclusão dentro de uma transação para garantir consistência.
+        -   Reverte os valores pagos das transações associadas, atualizando o `valor_pago` e o `status_pagamento` de cada uma.
+        -   Deleta o registro do pagamento e, em cascata (`onDelete: Cascade`), os registros da tabela `pagamento_transacoes`.
+        -   Se o pagamento gerou uma receita de excedente, essa receita também é excluída.
+    -   **Response (200):** Objeto com detalhes da operação, como o ID do pagamento, o número de transações afetadas e se uma receita de excedente foi removida.
 
 6.  **`GET /api/pagamentos/configuracoes/excedente`**: Obter configurações de valor excedente.
     -   **Auth:** `requireAuth`

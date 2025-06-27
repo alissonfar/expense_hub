@@ -883,38 +883,73 @@ export const deletePagamento = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Verificar se pode ser removido (regras de negócio)
-    const temTransacoesPagasCompletas = pagamento.pagamento_transacoes.some(
-      pt => pt.transacoes.status_pagamento === 'PAGO_TOTAL'
-    );
-
-    if (temTransacoesPagasCompletas) {
-      res.status(400).json({
-        error: 'Pagamento não pode ser removido',
-        message: 'Este pagamento gerou quitação completa de transações e não pode ser removido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
+    const receitaExcedenteId = pagamento.receita_excedente_id;
 
     // Executar remoção em transação
     await req.prisma.$transaction(async (prisma) => {
-      // 1. Remover receita de excedente (se existir)
-      if (pagamento.receita_excedente_id) {
-        await prisma.transacoes.delete({
-          where: { id: pagamento.receita_excedente_id }
+      // 1. Reverter os valores pagos nas transações associadas
+      for (const pt of pagamento.pagamento_transacoes) {
+        // Encontrar o participante correspondente para reverter o valor
+        const participante = await prisma.transacao_participantes.findUnique({
+          where: {
+            transacao_id_pessoa_id: {
+              transacao_id: pt.transacao_id,
+              pessoa_id: pagamento.pessoa_id,
+            },
+          },
+        });
+
+        if (participante) {
+          await prisma.transacao_participantes.update({
+            where: { id: participante.id },
+            data: {
+              valor_pago: {
+                decrement: pt.valor_aplicado,
+              },
+            },
+          });
+        }
+      }
+
+      // 2. Recalcular e atualizar o status de todas as transações afetadas
+      const transacoesIds = pagamento.pagamento_transacoes.map(pt => pt.transacao_id);
+      const transacoesAfetadas = await prisma.transacoes.findMany({
+        where: { id: { in: transacoesIds } },
+        include: { transacao_participantes: true },
+      });
+
+      for (const transacao of transacoesAfetadas) {
+        const valorTotalPago = transacao.transacao_participantes.reduce(
+          (acc, p) => acc + Number(p.valor_pago),
+          0
+        );
+        
+        let novoStatus = 'PENDENTE';
+        if (valorTotalPago > 0) {
+          if (valorTotalPago >= Number(transacao.valor_total)) {
+            novoStatus = 'PAGO_TOTAL';
+          } else {
+            novoStatus = 'PAGO_PARCIAL';
+          }
+        }
+
+        await prisma.transacoes.update({
+          where: { id: transacao.id },
+          data: { status_pagamento: novoStatus },
         });
       }
 
-      // 2. Remover detalhes do pagamento (pagamento_transacoes)
-      await prisma.pagamento_transacoes.deleteMany({
-        where: { pagamento_id: id }
-      });
-
-      // 3. Remover pagamento principal
+      // 3. Remover pagamento principal (a exclusão dos 'pagamento_transacoes' ocorrerá em cascata)
       await prisma.pagamentos.delete({
         where: { id }
       });
+
+      // 4. Remover receita de excedente (se existir)
+      if (receitaExcedenteId) {
+        await prisma.transacoes.delete({
+          where: { id: receitaExcedenteId }
+        });
+      }
     });
 
     res.json({
@@ -924,7 +959,7 @@ export const deletePagamento = async (req: Request, res: Response): Promise<void
         id: pagamento.id,
         valor_total: Number(pagamento.valor_total),
         transacoes_afetadas: pagamento.pagamento_transacoes.length,
-        receita_excedente_removida: !!pagamento.receita_excedente_id
+        receita_excedente_removida: !!receitaExcedenteId
       },
       timestamp: new Date().toISOString()
     });

@@ -65,4 +65,19 @@ Use este template para documentar novas decisões arquiteturais.
         -   *Contras:* Perda de histórico, arriscado, pode causar erros em cascata se os relacionamentos não forem bem gerenciados.
 -   **Decisão:** Foi implementado o padrão **Soft Delete**. Em vez de deletar o registro, uma flag `ativo` (ou similar) é definida como `false`.
     -   **Motivo:** Preserva o histórico de dados, mantém a integridade referencial e permite a "restauração" de dados simplesmente alterando a flag de volta para `true`. É uma abordagem muito mais segura para sistemas financeiros.
--   **Consequências:** Todas as queries de listagem (`findMany`) precisam incluir uma cláusula `where: { ativo: true }` para filtrar os registros "deletados". Isso adiciona uma pequena complexidade às queries, mas os benefícios de segurança e integridade superam em muito essa desvantagem. 
+-   **Consequências:** Todas as queries de listagem (`findMany`) precisam incluir uma cláusula `where: { ativo: true }` para filtrar os registros "deletados". Isso adiciona uma pequena complexidade às queries, mas os benefícios de segurança e integridade superam em muito essa desvantagem.
+
+---
+
+### **Lógica de Exclusão de Pagamentos com Transações Atômicas**
+
+-   **Data:** 2024-06-27
+-   **Status:** Aceita
+-   **Contexto:** A funcionalidade de excluir um pagamento (`DELETE /api/pagamentos/:id`) é uma operação crítica que afeta múltiplos modelos no banco de dados (Pagamentos, Transações, Participantes). Uma falha no meio do processo poderia deixar o banco em um estado inconsistente (ex: o pagamento é deletado, mas o valor não é revertido na transação original).
+-   **Alternativas Consideradas:**
+    -   **Execução Sequencial de Queries:** Executar cada `DELETE` e `UPDATE` como uma chamada separada ao Prisma.
+        -   *Prós:* Mais simples de escrever inicialmente.
+        -   *Contras:* Altamente perigoso. Se uma query no meio da sequência falhar, as queries anteriores não são desfeitas, resultando em dados corrompidos.
+-   **Decisão:** Toda a lógica de exclusão foi encapsulada em um bloco **`prisma.$transaction([...])`**. Também foi decidido confiar na restrição `onDelete: Cascade` do Prisma para lidar com a exclusão de registros filhos (`pagamento_transacoes`), em vez de gerenciá-los manualmente.
+    -   **Motivo:** O uso de transações garante a **atomicidade**: ou todas as operações (reverter valores, atualizar status, deletar pagamento, deletar receita de excedente) são bem-sucedidas, ou todas são revertidas em caso de erro. Isso mantém a integridade dos dados financeiros, que é a principal prioridade do sistema. Confiar no `onDelete: Cascade` simplifica o código e reduz a chance de erros manuais.
+-   **Consequências:** A lógica do controller ficou um pouco mais aninhada, mas a robustez e a segurança do sistema aumentaram significativamente. O código agora é resiliente a falhas parciais durante a operação de exclusão. 
