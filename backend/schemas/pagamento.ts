@@ -91,6 +91,14 @@ export const createPagamentoCompostoSchema = z.object({
       'Não pode haver transações duplicadas no mesmo pagamento'
     ),
   
+  valor_total: z
+    .number()
+    .positive('Valor total pago deve ser maior que zero')
+    .multipleOf(0.01, 'Valor total pago deve ter no máximo 2 casas decimais')
+    .max(999999.99, 'Valor total pago não pode exceder R$ 999.999,99')
+    .optional()
+    .describe('Valor total efetivamente pago. Se omitido, será a soma dos valores aplicados.'),
+  
   data_pagamento: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')

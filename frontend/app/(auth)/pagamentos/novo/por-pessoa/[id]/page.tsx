@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,19 +11,20 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Save, CreditCard, AlertCircle, Info, Users } from 'lucide-react'
+import { ArrowLeft, Save, CreditCard, AlertCircle, Info, Users, Loader2, Check, Plus } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { usePagamentos } from '@/hooks/usePagamentos'
 import { usePessoas } from '@/hooks/usePessoas'
-import { PagamentoForm, FormaPagamento, Transacao, Pessoa } from '@/types'
+import { Pagamento, PagamentoForm, FormaPagamento, Transacao, Pessoa } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
   { value: 'PIX', label: 'PIX' },
   { value: 'DINHEIRO', label: 'Dinheiro' },
   { value: 'TRANSFERENCIA', label: 'Transferência' },
-  { value: 'CARTAO_DEBITO', label: 'Cartão Débito' },
-  { value: 'CARTAO_CREDITO', label: 'Cartão Crédito' },
+  { value: 'CARTAO_DEBITO', label: 'Cartão de Débito' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão de Crédito' },
   { value: 'OUTROS', label: 'Outros' }
 ]
 
@@ -59,7 +60,10 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     transacao: Transacao
   }[]>([])
   const [valorTotalPago, setValorTotalPago] = useState<number>(0)
-  const [minPaymentDate, setMinPaymentDate] = useState<string | undefined>(undefined);
+  const [minPaymentDate, setMinPaymentDate] = useState<string | undefined>(undefined)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [pagamentoSalvo, setPagamentoSalvo] = useState<Pagamento | null>(null)
   
   // Carregar pessoa com transações
   useEffect(() => {
@@ -163,68 +167,126 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
     setTransacoesSelecionadas([])
   }
   
-  // Submeter formulário
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {}
+    if (!formData.data_pagamento) {
+      newErrors.data_pagamento = 'A data do pagamento é obrigatória.'
+    }
+    if (transacoesSelecionadas.length === 0) {
+      newErrors.transacoes = 'Selecione pelo menos uma transação para pagar.'
+    }
+    if (!valorTotalPago || valorTotalPago <= 0) {
+      newErrors.valor_total = 'O valor total pago deve ser maior que zero.'
+    }
+    const totalAplicado = transacoesSelecionadas.reduce((acc, t) => acc + t.valor_aplicado, 0)
+    if (valorTotalPago < totalAplicado) {
+      newErrors.valor_total_insuficiente = 'O valor total pago não pode ser menor que o valor aplicado nas transações.'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const resetFormulario = () => {
+    // A lógica de reset pode ser adaptada conforme a necessidade
+    window.location.reload() 
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrors({})
     
-    // Validações
-    if (!formData.data_pagamento) {
+    if (!validateForm()) {
+      const primeiroErro = Object.values(errors)[0]
       toast({
-        title: 'Data obrigatória',
-        description: 'Informe a data do pagamento',
-        variant: 'destructive'
+        title: 'Erro de Validação',
+        description: primeiroErro || 'Verifique os campos obrigatórios.',
+        variant: 'destructive',
       })
       return
     }
     
-    if (transacoesSelecionadas.length === 0) {
-      toast({
-        title: 'Transações obrigatórias',
-        description: 'Selecione pelo menos uma transação',
-        variant: 'destructive'
-      })
-      return
+    const dadosPagamento = {
+      pessoa_id: Number(pessoaId),
+      valor_total: valorTotalPago,
+      transacoes: transacoesSelecionadas.map(t => ({
+        transacao_id: t.transacao_id,
+        valor_aplicado: t.valor_aplicado,
+      })),
+      data_pagamento: formData.data_pagamento!,
+      forma_pagamento: formData.forma_pagamento!,
+      observacoes: formData.observacoes,
+      processar_excedente: formData.processar_excedente,
+      criar_receita_excedente: formData.criar_receita_excedente,
     }
-    
-    if (!valorTotalPago || valorTotalPago <= 0) {
-      toast({
-        title: 'Valor obrigatório',
-        description: 'Informe o valor total pago',
-        variant: 'destructive'
-      })
-      return
-    }
-    
-    try {
-      const dadosPagamento = {
-        pessoa_id: Number(pessoaId),
-        valor_total: valorTotalPago,
-        transacoes: transacoesSelecionadas.map(t => ({
-          transacao_id: t.transacao_id,
-          valor_aplicado: t.valor_aplicado,
-        })),
-        data_pagamento: formData.data_pagamento!,
-        forma_pagamento: formData.forma_pagamento!,
-        observacoes: formData.observacoes,
-        processar_excedente: formData.processar_excedente,
-        criar_receita_excedente: formData.criar_receita_excedente
-      }
       
-      console.log('[TransacoesPessoa] Criando pagamento:', dadosPagamento)
-      
-      await createPagamento(dadosPagamento)
-      
-      toast({
-        title: 'Pagamento criado!',
-        description: `Pagamento registrado para ${pessoa?.nome}`,
-        duration: 3000,
-      })
-      
-      router.push('/pagamentos')
-    } catch (error: any) {
-      console.error('[TransacoesPessoa] Erro ao criar pagamento:', error)
-      // O erro já foi tratado no hook
-    }
+    await createPagamento(dadosPagamento, {
+      autoToast: false,
+      onSuccess: (pagamentoCriado) => {
+        setPagamentoSalvo(pagamentoCriado)
+        setShowSuccess(true)
+        toast({
+          title: '🎉 Pagamento Salvo!',
+          description: `Pagamento de ${formatCurrency(pagamentoCriado.valor_total)} para ${pessoa?.nome} foi registrado.`,
+          duration: 5000,
+        })
+        setTimeout(() => {
+          router.push('/pagamentos')
+        }, 4000)
+      },
+      onError: (error) => {
+        toast({
+          title: '❌ Erro ao Salvar',
+          description: error.message || 'Não foi possível registrar o pagamento.',
+          variant: 'destructive',
+        })
+      },
+    })
+  }
+
+  if (showSuccess && pagamentoSalvo) {
+    return (
+      <Card className="border-green-200 bg-gradient-to-r from-green-50 to-green-100 shadow-lg animate-in slide-in-from-top-4 duration-500">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-500 rounded-full">
+                <Check className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-green-800 mb-1">
+                  🎉 Pagamento Salvo com Sucesso!
+                </h3>
+                <div className="space-y-1 text-sm text-green-700">
+                  <p>
+                    Pagador: <span className="font-medium">{pessoa?.nome}</span>
+                  </p>
+                  <p>
+                    Valor Total: <span className="font-medium">{formatCurrency(pagamentoSalvo.valor_total)}</span>
+                  </p>
+                  {Number(pagamentoSalvo.valor_excedente) > 0 && (
+                    <p className="text-green-600">
+                      Excedente Gerado: <span className="font-medium">{formatCurrency(pagamentoSalvo.valor_excedente!)}</span>
+                    </p>
+                  )}
+                  <p className="text-xs opacity-80">Redirecionando para a lista de pagamentos em 4s...</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" size="sm" onClick={resetFormulario} className="border-green-300 text-green-700 hover:bg-green-200">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Pagamento
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => router.push('/pagamentos')} className="text-green-600 hover:bg-green-200">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Voltar para Lista
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
   
   if (loading || pessoasLoading) {
@@ -596,15 +658,15 @@ export default function TransacoesPessoaPage({ params }: PageProps) {
               <Button 
                 type="submit" 
                 disabled={createState.loading}
-                className="min-w-[120px]"
+                className="min-w-[150px]"
               >
                 {createState.loading ? (
-                  'Criando...'
-                ) : (
                   <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Criar Pagamento
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
                   </>
+                ) : (
+                  'Criar Pagamento'
                 )}
               </Button>
             </div>

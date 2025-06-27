@@ -7,6 +7,12 @@ interface UsePagamentosOptions {
   debounceMs?: number
 }
 
+interface CreatePagamentoOptions {
+  onSuccess?: (data: Pagamento) => void
+  onError?: (error: any) => void
+  autoToast?: boolean
+}
+
 interface ConfiguracaoExcedente {
   auto_criar_receita_excedente: boolean
   valor_minimo_excedente: number
@@ -177,34 +183,42 @@ function usePagamentos(options: UsePagamentosOptions = {}) {
   }, [fetchPagamentos, autoFetch])
 
   // Criar novo pagamento
-  const createPagamento = useCallback(async (data: PagamentoForm): Promise<Pagamento> => {
-    try {
-      setCreateState({ loading: true, error: null })
+  const createPagamento = useCallback(
+    async (data: PagamentoForm, options: CreatePagamentoOptions = {}) => {
+      const { onSuccess, onError, autoToast = true } = options
 
-      console.log('[usePagamentos] Criando pagamento:', data)
+      try {
+        setCreateState({ loading: true, error: null })
 
-      const response = await apiPost<ApiResponse<Pagamento>>('/pagamentos', data)
+        console.log('[usePagamentos] Criando pagamento:', data)
 
-      if (response.data.success && response.data.data) {
-        console.log('[usePagamentos] Pagamento criado:', response.data.data)
-        
-        // Refresh da lista se estiver ativa
-        if (autoFetch) {
-          await fetchPagamentos()
+        const response = await apiPost<ApiResponse<Pagamento>>('/pagamentos', data)
+
+        if (response.data.success && response.data.data) {
+          console.log('[usePagamentos] Pagamento criado:', response.data.data)
+
+          if (autoFetch) {
+            await fetchPagamentos()
+          }
+
+          setCreateState({ loading: false, error: null })
+          onSuccess?.(response.data.data)
+          return response.data.data
+        } else {
+          // Lança o erro com detalhes se houver
+          const errorDetails = (response.data as any).details || {}
+          throw new Error(response.data.message || 'Erro ao criar pagamento', { cause: errorDetails })
         }
-        
-        setCreateState({ loading: false, error: null })
-        return response.data.data
-      } else {
-        throw new Error(response.data.message || 'Erro ao criar pagamento')
+      } catch (err: any) {
+        console.error('[usePagamentos] Erro ao criar pagamento:', err)
+        const errorMsg = err.message || 'Erro ao criar pagamento'
+        setCreateState({ loading: false, error: errorMsg })
+        onError?.(err) // Chama o callback de erro
+        // Não relançar o erro para o componente não precisar de try/catch
       }
-    } catch (err: any) {
-      console.error('[usePagamentos] Erro ao criar pagamento:', err)
-      const errorMsg = err.message || 'Erro ao criar pagamento'
-      setCreateState({ loading: false, error: errorMsg })
-      throw new Error(errorMsg)
-    }
-  }, [fetchPagamentos, autoFetch])
+    },
+    [fetchPagamentos, autoFetch]
+  )
 
   // Funções básicas
   const applyFilters = useCallback((newFilters: Partial<PagamentoFilters>) => {
