@@ -72,7 +72,37 @@ Este documento centraliza problemas conhecidos, erros comuns e suas respectivas 
     3.  **Índices:** Verifique se os campos usados em cláusulas `where` ou `orderBy` frequentes possuem índices no `schema.prisma`.
     4.  **N+1 Problema:** Tenha cuidado com queries aninhadas dentro de loops. Use as funcionalidades do Prisma para buscar dados relacionados em uma única query sempre que possível.
 
-## 5. Casos de Debugging Complexos
+## 5. Erros de Multi-Tenancy (Isolamento de Dados)
+
+### 🔴 **Erro: Dados de outro Hub estão visíveis ou sendo modificados.**
+
+-   **Causa Provável:** Esta é uma falha de segurança crítica. Geralmente ocorre porque uma rota está acessando o banco de dados sem o devido isolamento do `hubId`.
+    1.  O middleware `injectPrismaClient` está faltando na definição da rota em `backend/routes/*.ts`.
+    2.  Um controller está usando a instância global do Prisma (`import { prisma } from '../utils/prisma'`) em vez da instância injetada na requisição (`req.prisma`).
+-   **Solução:**
+    1.  **GARANTA** que todas as rotas protegidas que acessam o banco de dados usem o middleware `injectPrismaClient` **depois** de `requireAuth`.
+    2.  **SEMPRE** use `req.prisma` nos controllers para operações de negócio. A instância global `prisma` só deve ser usada em contextos sem Hub (ex: no processo de login inicial).
+
+### 🔴 **Erro: `Cannot read property 'hubId' of undefined` no middleware `injectPrismaClient`**
+
+-   **Causa Provável:** A ordem dos middlewares está incorreta na rota. `injectPrismaClient` está sendo executado **antes** de `requireAuth`.
+-   **Solução:** A ordem é **crítica** e deve ser sempre a mesma: primeiro `requireAuth` (que popula `req.auth`), depois `injectPrismaClient` (que usa `req.auth` para criar o cliente seguro).
+    ```typescript
+    // Certo ✅
+    router.use(requireAuth, injectPrismaClient);
+
+    // Errado ❌
+    router.use(injectPrismaClient, requireAuth);
+    ```
+
+### 🔴 **Erro: `Null constraint violation on column 'hubId'` ao criar um novo registro.**
+
+-   **Causa Provável:** A lógica de extensão do Prisma em `utils/prisma.ts` não está injetando o `hubId` na operação de `create` ou `createMany`.
+-   **Solução:**
+    1.  Verifique se o modelo em questão está listado no array `TENANT_MODELS` em `backend/utils/prisma.ts`.
+    2.  Revise a lógica `getExtendedPrismaClient` para as operações `create` e `createMany`, garantindo que o `hubId` do contexto de autenticação (`ctx.hubId`) está sendo mesclado aos dados da criação.
+
+## 6. Casos de Debugging Complexos
 
 ### 🐞 **Exclusão de Pagamento (`DELETE /api/pagamentos/:id`)**
 

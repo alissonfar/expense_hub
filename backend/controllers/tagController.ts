@@ -87,8 +87,13 @@ export const listTags = async (req: Request, res: Response): Promise<void> => {
  * POST /api/tags
  */
 export const createTag = async (req: Request, res: Response): Promise<void> => {
+  console.log(`\n🔍 [createTag] INÍCIO - Criação de tag`);
+  console.log(`   Rota: ${req.method} ${req.path}`);
+  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
+  
   try {
     if (!req.auth) {
+      console.log(`   ❌ [createTag] FALHA - req.auth não encontrado`);
       res.status(401).json({
         error: 'Usuário não autenticado',
         message: 'Token de autenticação é obrigatório',
@@ -97,7 +102,35 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    console.log(`   👤 [createTag] Usuário autenticado:`);
+    console.log(`      - Papel: ${req.auth.role}`);
+    console.log(`      - Hub ID: ${req.auth.hubId}`);
+    console.log(`      - Pessoa ID: ${req.auth.pessoaId}`);
+    console.log(`      - Eh Administrador: ${req.auth.ehAdministrador}`);
+    console.log(`      - Política de Acesso: ${req.auth.dataAccessPolicy || 'N/A'}`);
+
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    console.log(`   🔒 [createTag] Verificação de papel:`);
+    console.log(`      - Papéis permitidos: [${allowedRoles.join(', ')}]`);
+    console.log(`      - Papel do usuário: ${req.auth.role}`);
+    console.log(`      - Usuário tem permissão? ${allowedRoles.includes(req.auth.role)}`);
+    
+    if (!allowedRoles.includes(req.auth.role)) {
+      console.log(`   ❌ [createTag] ACESSO NEGADO - Papel não permitido`);
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    console.log(`   ✅ [createTag] ACESSO PERMITIDO - Prosseguindo com criação`);
+
     const { nome, cor, icone }: CreateTagInput = req.body;
+    console.log(`   📝 [createTag] Dados recebidos:`, { nome, cor, icone });
 
     // Verificar se nome já existe (deve usar busca por hubId e nome)
     const existingTag = await req.prisma.tags.findFirst({
@@ -188,13 +221,7 @@ export const getTag = async (req: Request, res: Response): Promise<void> => {
 
     const tag = await req.prisma.tags.findUnique({
       where: { id },
-      select: {
-        id: true,
-        nome: true,
-        cor: true,
-        icone: true,
-        ativo: true,
-        criado_em: true,
+      include: {
         pessoas: {
           select: {
             id: true,
@@ -266,6 +293,27 @@ export const getTag = async (req: Request, res: Response): Promise<void> => {
  */
 export const updateTag = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.auth) {
+      res.status(401).json({
+        error: 'Usuário não autenticado',
+        message: 'Token de autenticação é obrigatório',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    if (!allowedRoles.includes(req.auth.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     const idParam = req.params.id;
     if (!idParam) {
       res.status(400).json({
@@ -371,6 +419,27 @@ export const updateTag = async (req: Request, res: Response): Promise<void> => {
  */
 export const deleteTag = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.auth) {
+      res.status(401).json({
+        error: 'Usuário não autenticado',
+        message: 'Token de autenticação é obrigatório',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR'];
+    if (!allowedRoles.includes(req.auth.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     const idParam = req.params.id;
     if (!idParam) {
       res.status(400).json({
@@ -405,9 +474,14 @@ export const deleteTag = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar se tag está sendo usada em transações
+    // Verificar se tag está sendo usada em transações ATIVAS
     const transacoesUsando = await req.prisma.transacao_tags.findFirst({
-      where: { tag_id: id }
+      where: { 
+        tag_id: id,
+        transacoes: {
+          ativo: true
+        }
+      }
     });
 
     if (transacoesUsando) {

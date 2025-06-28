@@ -1,193 +1,243 @@
-# Documentação da API (Endpoints)
+# Documentação da API - Personal Expense Hub v2.0 (Multi-Tenant)
 
-Este documento detalha todos os endpoints da API do Personal Expense Hub.
+Esta documentação detalha todos os endpoints disponíveis na API do Personal Expense Hub.
 
-## Autenticação
+## Autenticação e Autorização
 
-A autenticação é feita via **JWT (JSON Web Token)**. Para todas as rotas protegidas, você deve incluir o token no header `Authorization`:
+A API utiliza um fluxo de autenticação em duas etapas para o ambiente multi-tenant:
 
-`Authorization: Bearer <seu-token-jwt>`
+1.  **Login Inicial**: O usuário envia `email` e `senha` para `POST /api/auth/login`. A API retorna um **Refresh Token** de longa duração e a lista de Hubs aos quais o usuário pertence.
+2.  **Seleção de Hub**: O cliente envia o **Refresh Token** (no header `Authorization: Bearer <refresh_token>`) e um `hubId` para `POST /api/auth/select-hub`. A API valida e retorna um **Access Token** de curta duração, específico para aquele Hub.
+3.  **Requisições Autenticadas**: Todas as outras requisições a endpoints protegidos devem incluir o **Access Token** no header `Authorization: Bearer <access_token>`.
 
-## Respostas Padrão
-
--   **Sucesso (2xx):** `{ "success": true, "data": {...}, "message": "...", "timestamp": "..." }`
--   **Erro do Cliente (4xx):** `{ "success": false, "error": "...", "message": "...", "details"?: [...], "timestamp": "..." }`
--   **Erro do Servidor (5xx):** `{ "success": false, "error": "...", "message": "...", "timestamp": "..." }`
+O controle de acesso é baseado em papéis (RBAC) dentro de cada Hub, definidos pelo enum `Role` (`PROPRIETARIO`, `ADMINISTRADOR`, `COLABORADOR`, `VISUALIZADOR`).
 
 ---
 
-## Endpoints
+## 1. Auth (`/api/auth`)
 
-[[memory:6830135959561837192]]
+Endpoints para registro, login e gerenciamento de perfil.
 
-A lista a seguir foi gerada com base no mapeamento completo do sistema e representa o estado atual de todos os 42 endpoints.
+### `POST /api/auth/register`
+- **Descrição:** Registra um novo usuário e seu primeiro Hub.
+- **Autenticação:** Nenhuma.
+- **Rate Limit:** Estrito.
+- **Body:** `{ nome, email, senha, nomeHub }` (validados por `registerSchema`).
 
-### 🏛️ Autenticação (`/api/auth`)
+### `POST /api/auth/login`
+- **Descrição:** Autentica um usuário e retorna a lista de Hubs disponíveis e um Refresh Token.
+- **Autenticação:** Nenhuma.
+- **Rate Limit:** Estrito.
+- **Body:** `{ email, senha }` (validados por `loginSchema`).
+- **Resposta:** `{ hubs: [...], refreshToken: '...' }`
 
-1.  **`POST /api/auth/register`**: Registrar novo usuário.
-    -   **Body:** `{ nome, email, senha, telefone? }`
-    -   **Validação:** Senha forte (8+, maiúscula, minúscula, número, especial).
-    -   **Response (201):** `{ token, user, refreshToken }`
+### `POST /api/auth/select-hub`
+- **Descrição:** Seleciona um Hub e retorna um Access Token para ele.
+- **Autenticação:** Refresh Token (`Authorization: Bearer <refresh_token>`).
+- **Rate Limit:** Estrito.
+- **Body:** `{ hubId }` (validado por `selectHubSchema`).
+- **Resposta:** `{ accessToken: '...' }`
 
-2.  **`POST /api/auth/login`**: Autenticar um usuário.
-    -   **Body:** `{ email, senha }`
-    -   **Response (200):** `{ token, user, refreshToken }`
+### `GET /api/auth/me`
+- **Descrição:** Retorna o perfil do usuário logado e seu contexto no Hub.
+- **Autenticação:** Access Token.
 
-3.  **`GET /api/auth/me`**: Obter perfil do usuário logado.
-    -   **Auth:** `requireAuth`
-    -   **Response (200):** `{ userProfile }`
+### `PUT /api/auth/profile`
+- **Descrição:** Atualiza o perfil do usuário logado.
+- **Autenticação:** Access Token.
+- **Body:** `{ nome, email, telefone }` (validados por `updateProfileSchema`).
 
-4.  **`PUT /api/auth/profile`**: Atualizar perfil do usuário logado.
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ nome?, email?, telefone? }`
+### `PUT /api/auth/change-password`
+- **Descrição:** Altera a senha do usuário logado.
+- **Autenticação:** Access Token.
+- **Rate Limit:** Estrito.
+- **Body:** `{ senhaAtual, novaSenha }` (validados por `changePasswordSchema`).
 
-5.  **`PUT /api/auth/change-password`**: Alterar a senha.
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ senhaAtual, novaSenha, confirmarSenha }`
+---
 
-6.  **`GET /api/auth/info`**: Documentação das rotas de autenticação.
+## 2. Membros (`/api/pessoas`)
 
-### 👥 Pessoas (`/api/pessoas`)
+Endpoints para gerenciar membros dentro de um Hub.
 
-1.  **`GET /api/pessoas`**: Listar pessoas com filtros e paginação.
-    -   **Auth:** `requireAuth`
-    -   **Query:** `{ ativo?, proprietario?, page?, limit? }`
-    -   **Response (200):** `{ pessoas[], pagination }`
+### `GET /api/pessoas`
+- **Descrição:** Lista todos os membros do Hub atual.
+- **Autenticação:** Access Token.
+- **Query:** `{ ativo, role, page, limit }` (validados por `listMembrosQuerySchema`).
 
-2.  **`POST /api/pessoas`**: Criar uma nova pessoa.
-    -   **Auth:** `requireAuth`, `requireOwner`
-    -   **Body:** `{ nome, email, telefone?, eh_proprietario? }`
+### `POST /api/pessoas`
+- **Descrição:** Convida um novo membro para o Hub, criando o usuário se ele não existir no sistema.
+- **Autenticação:** Access Token com `role` de `PROPRIETARIO` ou `ADMINISTRADOR`.
+- **Body:** `{ email, role }` (validado por `createMembroSchema`).
 
-3.  **`GET /api/pessoas/:id`**: Detalhes de uma pessoa e suas estatísticas.
-    -   **Auth:** `requireAuth`
-    -   **Params:** `id` (numérico)
-    -   **Response (200):** `{ pessoa, estatisticas }`
+### `GET /api/pessoas/:id`
+- **Descrição:** Busca detalhes de um membro específico do Hub pelo ID da pessoa.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `membroParamsSchema`).
 
-4.  **`PUT /api/pessoas/:id`**: Editar uma pessoa.
-    -   **Auth:** `requireAuth`, `requireOwner`
-    -   **Body:** `{ nome?, email?, telefone? }`
+### `PUT /api/pessoas/:id`
+- **Descrição:** Atualiza o papel (`role`) ou o status de um membro no Hub.
+- **Autenticação:** Access Token com `role` de `PROPRIETARIO` ou `ADMINISTRADOR`.
+- **Params:** `id` (validado por `membroParamsSchema`).
+- **Body:** `{ role, ativo }` (validado por `updateMembroSchema`).
 
-5.  **`DELETE /api/pessoas/:id`**: Desativar uma pessoa (soft delete).
-    -   **Auth:** `requireAuth`, `requireOwner`
+### `DELETE /api/pessoas/:id`
+- **Descrição:** Desativa (soft delete) um membro do Hub.
+- **Autenticação:** Access Token com `role` de `PROPRIETARIO` ou `ADMINISTRADOR`.
+- **Params:** `id` (validado por `membroParamsSchema`).
 
-6.  **`GET /api/pessoas/info`**: Documentação das rotas de pessoas.
+---
 
-### 🏷️ Tags (`/api/tags`)
+## 3. Tags (`/api/tags`)
 
-1.  **`GET /api/tags`**: Listar tags com filtros.
-    -   **Auth:** `requireAuth`
-    -   **Query:** `{ ativo?, criado_por?, page?, limit? }`
+Endpoints para gerenciar tags (categorias) dentro de um Hub.
 
-2.  **`POST /api/tags`**: Criar uma nova tag.
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ nome, cor?, icone? }`
-    -   **Validação:** Cor em formato HEX (`/^#[0-9A-Fa-f]{6}$/`).
+### `GET /api/tags`
+- **Descrição:** Lista todas as tags do Hub atual.
+- **Autenticação:** Access Token.
+- **Query:** `{ ativo, page, limit }` (validados por `tagQuerySchema`).
 
-3.  **`GET /api/tags/:id`**: Detalhes e estatísticas de uma tag.
-    -   **Auth:** `requireAuth`
+### `POST /api/tags`
+- **Descrição:** Cria uma nova tag no Hub.
+- **Autenticação:** Access Token.
+- **Body:** `{ nome, cor, icone }` (validado por `createTagSchema`).
 
-4.  **`PUT /api/tags/:id`**: Editar uma tag.
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ nome?, cor?, icone? }`
+### `GET /api/tags/:id`
+- **Descrição:** Busca detalhes de uma tag específica.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `tagParamsSchema`).
 
-5.  **`DELETE /api/tags/:id`**: Desativar uma tag (soft delete).
-    -   **Auth:** `requireAuth`
+### `PUT /api/tags/:id`
+- **Descrição:** Atualiza uma tag.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `tagParamsSchema`).
+- **Body:** `{ nome, cor, icone }` (validado por `updateTagSchema`).
 
-6.  **`GET /api/tags/info`**: Documentação das rotas de tags.
+### `DELETE /api/tags/:id`
+- **Descrição:** Desativa (soft delete) uma tag.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `tagParamsSchema`).
 
-### 💸 Transações (`/api/transacoes`)
+---
 
-1.  **`GET /api/transacoes`**: Listar transações com filtros avançados.
-    -   **Auth:** `requireAuth`
-    -   **Query:** Múltiplos filtros disponíveis (tipo, status, data, etc.).
+## 4. Transações (`/api/transacoes`)
 
-2.  **`POST /api/transacoes`**: Criar um novo gasto (despesa).
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ descricao, valor_total, data_transacao, participantes[], ... }`
-    -   **Validação:** Soma dos valores dos participantes deve ser igual ao valor total.
+Endpoints para gerenciar gastos e receitas.
 
-3.  **`POST /api/transacoes/receita`**: Criar uma nova receita.
-    -   **Auth:** `requireAuth`
-    -   **Body:** `{ descricao, valor_recebido, data_transacao, ... }`
+### `GET /api/transacoes`
+- **Descrição:** Lista transações com filtros avançados.
+- **Autenticação:** Access Token.
+- **Query:** (Complexo, validado por `transacaoQuerySchema`).
 
-4.  **`GET /api/transacoes/:id`**: Detalhes completos de uma transação.
-    -   **Auth:** `requireAuth`
-    -   **Response (200):** `{ transacao, participantes, tags, pagamentos, parcelas }`
+### `POST /api/transacoes` (Gasto)
+- **Descrição:** Cria um novo gasto, com suporte a parcelamento e divisão entre participantes.
+- **Autenticação:** Access Token.
+- **Body:** (Complexo, validado por `createGastoSchema`).
 
-5.  **`PUT /api/transacoes/:id`**: Editar um gasto.
-    -   **Auth:** `requireAuth`
+### `POST /api/transacoes/receita`
+- **Descrição:** Cria uma nova receita.
+- **Autenticação:** Access Token.
+- **Body:** (Complexo, validado por `createReceitaSchema`).
 
-6.  **`PUT /api/transacoes/receita/:id`**: Editar uma receita.
-    -   **Auth:** `requireAuth`
+### `GET /api/transacoes/:id`
+- **Descrição:** Busca detalhes completos de uma transação.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `transacaoParamsSchema`).
 
-7.  **`DELETE /api/transacoes/:id`**: Excluir uma transação.
-    -   **Auth:** `requireAuth`
-    -   **Restrição:** Não pode ser excluída se tiver pagamentos associados.
+### `PUT /api/transacoes/:id` (Gasto)
+- **Descrição:** Atualiza um gasto existente.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `transacaoParamsSchema`).
+- **Body:** (validado por `updateGastoSchema`).
 
-8.  **`GET /api/transacoes/info`**: Documentação das rotas de transações.
+### `PUT /api/transacoes/receita/:id`
+- **Descrição:** Atualiza uma receita existente.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `transacaoParamsSchema`).
+- **Body:** (validado por `updateReceitaSchema`).
 
-### 💳 Pagamentos (`/api/pagamentos`)
+### `DELETE /api/transacoes/:id`
+- **Descrição:** Exclui uma transação.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `transacaoParamsSchema`).
 
-1.  **`GET /api/pagamentos`**: Listar pagamentos com filtros.
-    -   **Auth:** `requireAuth`
+---
 
-2.  **`POST /api/pagamentos`**: Criar um pagamento (simples ou composto).
-    -   **Auth:** `requireAuth`
-    -   **Body (Simples):** `{ transacao_id, valor_pago, ... }`
-    -   **Body (Composto):** `{ transacoes: [{ transacao_id, valor_aplicado }], ... }`
+## 5. Pagamentos (`/api/pagamentos`)
 
-3.  **`GET /api/pagamentos/:id`**: Detalhes de um pagamento.
-    -   **Auth:** `requireAuth`
+Endpoints para registrar e gerenciar pagamentos de transações.
 
-4.  **`PUT /api/pagamentos/:id`**: Atualizar um pagamento.
-    -   **Auth:** `requireAuth` (próprio usuário ou proprietário).
+### `GET /api/pagamentos`
+- **Descrição:** Lista pagamentos com filtros avançados.
+- **Autenticação:** Access Token.
+- **Query:** (Complexo, validado por `pagamentoQuerySchema`).
 
-5.  **`DELETE /api/pagamentos/:id`**: Excluir um pagamento.
-    -   **Auth:** `requireAuth` (próprio usuário ou proprietário).
-    -   **Comportamento:**
-        -   Realiza a exclusão dentro de uma transação para garantir consistência.
-        -   Reverte os valores pagos das transações associadas, atualizando o `valor_pago` e o `status_pagamento` de cada uma.
-        -   Deleta o registro do pagamento e, em cascata (`onDelete: Cascade`), os registros da tabela `pagamento_transacoes`.
-        -   Se o pagamento gerou uma receita de excedente, essa receita também é excluída.
-    -   **Response (200):** Objeto com detalhes da operação, como o ID do pagamento, o número de transações afetadas e se uma receita de excedente foi removida.
+### `POST /api/pagamentos`
+- **Descrição:** Cria um pagamento, que pode ser individual ou composto (quitar várias transações de uma vez).
+- **Autenticação:** Access Token.
+- **Body:** (Complexo, validado por `createPagamentoSchema`).
 
-6.  **`GET /api/pagamentos/configuracoes/excedente`**: Obter configurações de valor excedente.
-    -   **Auth:** `requireAuth`
+### `GET /api/pagamentos/:id`
+- **Descrição:** Busca detalhes completos de um pagamento.
+- **Autenticação:** Access Token.
+- **Params:** `id` (validado por `pagamentoParamsSchema`).
 
-7.  **`PUT /api/pagamentos/configuracoes/excedente`**: Atualizar configurações de valor excedente.
-    -   **Auth:** `requireAuth`, `requireOwner`
+### `PUT /api/pagamentos/:id`
+- **Descrição:** Atualiza um pagamento.
+- **Autenticação:** Access Token (requer permissão específica).
+- **Params:** `id` (validado por `pagamentoParamsSchema`).
+- **Body:** (validado por `updatePagamentoSchema`).
 
-8.  **`GET /api/pagamentos/info`**: Documentação das rotas de pagamentos.
+### `DELETE /api/pagamentos/:id`
+- **Descrição:** Exclui um pagamento.
+- **Autenticação:** Access Token (requer permissão específica).
+- **Params:** `id` (validado por `pagamentoParamsSchema`).
 
-### 📊 Relatórios (`/api/relatorios`)
+---
 
-1.  **`GET /api/relatorios/dashboard`**: Dados para o dashboard principal.
-    -   **Auth:** `requireAuth`
-    -   **Query:** `{ periodo?, data_inicio?, data_fim?, ... }`
+## 6. Relatórios (`/api/relatorios`)
 
-2.  **`GET /api/relatorios/saldos`**: Saldos devedores/credores por pessoa.
-    -   **Auth:** `requireAuth`
+Endpoints para obter dados consolidados e análises.
 
-3.  **`GET /api/relatorios/pendencias`**: Listar todas as pendências financeiras.
-    -   **Auth:** `requireAuth`
+### `GET /api/relatorios/dashboard`
+- **Descrição:** Retorna dados para o dashboard principal.
+- **Autenticação:** Access Token.
+- **Query:** (validado por `dashboardQuerySchema`).
 
-4.  **`GET /api/relatorios/transacoes`**: Relatório avançado de transações.
-    -   **Auth:** `requireAuth`
+### `GET /api/relatorios/saldos`
+- **Descrição:** Relatório detalhado de saldos por pessoa.
+- **Autenticação:** Access Token.
+- **Query:** (validado por `saldosQuerySchema`).
 
-5.  **`GET /api/relatorios/categorias`**: Análise de gastos por categoria (tag).
-    -   **Auth:** `requireAuth`
+### `GET /api/relatorios/pendencias`
+- **Descrição:** Relatório de pendências e vencimentos.
+- **Autenticação:** Access Token.
+- **Query:** (validado por `pendenciasQuerySchema`).
 
-6.  **`GET /api/relatorios/info`**: Documentação das rotas de relatórios.
+### `GET /api/relatorios/transacoes`
+- **Descrição:** Relatório completo e filtrável de transações.
+- **Autenticação:** Access Token.
+- **Query:** (validado por `transacoesQuerySchema`).
 
-### ⚙️ Configurações (`/api/configuracoes`)
+### `GET /api/relatorios/categorias`
+- **Descrição:** Análise de gastos e receitas por categoria/tag.
+- **Autenticação:** Access Token.
+- **Query:** (validado por `categoriasQuerySchema`).
 
-1.  **`GET /api/configuracoes/interface`**: Buscar configuração de tema da interface.
-    -   **Auth:** `requireAuth`
+---
 
-2.  **`PUT /api/configuracoes/interface`**: Atualizar tema da interface.
-    -   **Auth:** `requireAuth`, `requireOwner`
-    -   **Body:** `{ theme_interface: 'light' | 'dark' | 'auto' }`
+## 7. Configurações (`/api/configuracoes`)
 
-3.  **`GET /api/configuracoes/info`**: Documentação das rotas de configurações.
+Endpoints para gerenciar configurações do sistema.
+
+### `GET /api/configuracoes/interface`
+- **Descrição:** Busca as configurações de interface do usuário.
+- **Autenticação:** Access Token.
+
+### `PUT /api/configuracoes/interface`
+- **Descrição:** Atualiza as configurações de interface.
+- **Autenticação:** Access Token com `role` de `PROPRIETARIO` ou `ADMINISTRADOR`.
+- **Body:** `{ theme_interface }` (validado por `configuracaoInterfaceSchema`).
+
+### `GET /api/configuracoes/info`**: Documentação das rotas de configurações.
 
 4.  **`GET /api/configuracoes/{comportamento|alertas|relatorios}`**: Rotas futuras (retornam 501 Not Implemented). 

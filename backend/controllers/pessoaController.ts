@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { CreateMembroInput, UpdateMembroInput, MembroParamsInput, ListMembrosQueryInput } from '../schemas/pessoa';
+import { AtivarConviteInput, ReenviarConviteInput } from '../schemas/auth';
 import { prisma as globalPrisma } from '../utils/prisma';
 import { Prisma } from '@prisma/client';
+import { generateInviteToken, hashPassword, validatePasswordStrength } from '../utils/password';
 
 // =============================================
 // CONTROLLER DE MEMBROS DO HUB
@@ -19,25 +21,33 @@ export const listMembros = async (req: Request, res: Response): Promise<void> =>
     const { page = 1, limit = 20, ativo, role } = req.query as unknown as ListMembrosQueryInput;
     const { hubId } = req.auth;
 
-    const where: Prisma.MembroHubWhereInput = { hubId };
-    if (ativo !== undefined) where.ativo = ativo;
+    const where: Prisma.membros_hubWhereInput = { 
+      hubId, 
+      ativo: true,
+      pessoa: { ativo: true }
+    };
+    
+    if (ativo === false) {
+      where.ativo = false;
+    }
+    
     if (role) where.role = role;
 
     const offset = (page - 1) * limit;
 
     const [membros, total] = await req.prisma.$transaction([
-      req.prisma.membroHub.findMany({
+      req.prisma.membros_hub.findMany({
         where,
         include: {
           pessoa: {
-            select: { id: true, nome: true, email: true, telefone: true, ativo: true }
+            select: { id: true, nome: true, email: true, telefone: true, ativo: true, conviteAtivo: true }
           }
         },
         orderBy: { pessoa: { nome: 'asc' } },
         skip: offset,
         take: limit,
       }),
-      req.prisma.membroHub.count({ where })
+      req.prisma.membros_hub.count({ where })
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -66,7 +76,7 @@ export const convidarMembro = async (req: Request, res: Response): Promise<void>
     const { email, nome, role, dataAccessPolicy }: CreateMembroInput = req.body;
     const { hubId } = req.auth;
 
-    const membroExistente = await req.prisma.membroHub.findFirst({
+    const membroExistente = await req.prisma.membros_hub.findFirst({
       where: { hubId, pessoa: { email } }
     });
 
@@ -76,33 +86,51 @@ export const convidarMembro = async (req: Request, res: Response): Promise<void>
     }
     
     const novoMembro = await globalPrisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Gerar token de convite seguro
+      const conviteToken = generateInviteToken();
+      const conviteExpiraEm = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
       const pessoa = await tx.pessoas.upsert({
         where: { email },
-        update: {},
+        update: {
+          // Se a pessoa já existe mas não tem senha, gerar novo convite
+          conviteToken,
+          conviteExpiraEm,
+          conviteAtivo: true,
+          senha_hash: null, // SEMPRE null quando há convite ativo
+          ...(nome && { nome }) // Só atualizar nome se fornecido
+        },
         create: {
           email,
           nome,
-          senha_hash: 'CONVITE_PENDENTE_' + new Date().toISOString(), 
+          senha_hash: null, // Sem senha até ativação
+          conviteToken,
+          conviteExpiraEm,
+          conviteAtivo: true
         }
       });
 
-      return tx.membroHub.create({
+      return tx.membros_hub.create({
         data: {
           hubId,
           pessoaId: pessoa.id,
           role,
+          ativo: true,
           dataAccessPolicy: (role === 'COLABORADOR' ? dataAccessPolicy : null) as any,
         },
         include: {
-          pessoa: { select: { id: true, nome: true, email: true }}
+          pessoa: { select: { id: true, nome: true, email: true, conviteToken: true }}
         }
       });
     });
 
     res.status(201).json({
       success: true,
-      message: 'Membro convidado com sucesso para o Hub.',
-      data: novoMembro,
+      message: 'Membro convidado com sucesso para o Hub. Um convite foi enviado para o email.',
+      data: {
+        ...novoMembro,
+        conviteToken: novoMembro.pessoa.conviteToken // Incluir token para testes
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -123,7 +151,7 @@ export const getMembro = async (req: Request, res: Response): Promise<void> => {
     const { id: pessoaId } = req.params as unknown as MembroParamsInput;
     const { hubId } = req.auth;
 
-    const membro = await req.prisma.membroHub.findUnique({
+    const membro = await req.prisma.membros_hub.findUnique({
       where: { hubId_pessoaId: { hubId, pessoaId } },
       include: {
         pessoa: { select: { id: true, nome: true, email: true, telefone: true, ativo: true } }
@@ -156,7 +184,7 @@ export const updateMembro = async (req: Request, res: Response): Promise<void> =
     const { hubId } = req.auth;
 
     // Verificar se o usuário é proprietário através do MembroHub
-    const proprietario = await req.prisma.membroHub.findFirst({
+    const proprietario = await req.prisma.membros_hub.findFirst({
       where: { hubId, role: 'PROPRIETARIO', ativo: true },
       select: { pessoaId: true }
     });
@@ -166,14 +194,14 @@ export const updateMembro = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const dataToUpdate: Prisma.MembroHubUpdateInput = {};
+    const dataToUpdate: Prisma.membros_hubUpdateInput = {};
     if (role !== undefined) dataToUpdate.role = role;
     if (ativo !== undefined) dataToUpdate.ativo = ativo;
     if (dataAccessPolicy !== undefined) {
       dataToUpdate.dataAccessPolicy = role === 'COLABORADOR' ? dataAccessPolicy : null;
     }
 
-    const membroAtualizado = await req.prisma.membroHub.update({
+    const membroAtualizado = await req.prisma.membros_hub.update({
       where: { hubId_pessoaId: { hubId, pessoaId } },
       data: dataToUpdate,
       include: {
@@ -201,7 +229,7 @@ export const removerMembro = async (req: Request, res: Response): Promise<void> 
     const { hubId } = req.auth;
 
     // Verificar se o usuário é proprietário através do MembroHub
-    const proprietario = await req.prisma.membroHub.findFirst({
+    const proprietario = await req.prisma.membros_hub.findFirst({
         where: { hubId, role: 'PROPRIETARIO', ativo: true },
         select: { pessoaId: true }
     });
@@ -211,14 +239,152 @@ export const removerMembro = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    await req.prisma.membroHub.update({
-      where: { hubId_pessoaId: { hubId, pessoaId } },
-      data: { ativo: false }
+    await req.prisma.$transaction(async (tx) => {
+      // 1. Desativar o membro do Hub
+      await tx.membros_hub.update({
+        where: { hubId_pessoaId: { hubId, pessoaId } },
+        data: { ativo: false }
+      });
+
+      // 2. Desativar a pessoa também (soft delete completo)
+      await tx.pessoas.update({
+        where: { id: pessoaId },
+        data: { ativo: false }
+      });
     });
 
-    res.status(204).send();
+    res.status(200).json({
+      success: true,
+      message: 'Membro removido com sucesso.',
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Erro ao remover membro:', error);
     res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível remover o membro do Hub.' });
+  }
+};
+
+/**
+ * Ativa um convite e define a senha do usuário.
+ */
+export const ativarConvite = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, novaSenha }: AtivarConviteInput = req.body;
+
+    // Validar força da senha
+    const passwordValidation = validatePasswordStrength(novaSenha);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({ error: 'SenhaInvalida', message: passwordValidation.errors.join(' ') });
+      return;
+    }
+
+    // Buscar pessoa com o token
+    const pessoa = await globalPrisma.pessoas.findUnique({
+      where: { conviteToken: token }
+    });
+
+    if (!pessoa) {
+      res.status(404).json({ error: 'ConviteInvalido', message: 'Token de convite inválido ou não encontrado.' });
+      return;
+    }
+
+    if (!pessoa.conviteAtivo) {
+      res.status(400).json({ error: 'ConviteInativo', message: 'Este convite já foi utilizado ou está inativo.' });
+      return;
+    }
+
+    if (pessoa.conviteExpiraEm && pessoa.conviteExpiraEm < new Date()) {
+      res.status(400).json({ error: 'ConviteExpirado', message: 'Este convite expirou. Solicite um novo convite.' });
+      return;
+    }
+
+    // Gerar hash da nova senha
+    const senhaHash = await hashPassword(novaSenha);
+
+    // Ativar a conta e limpar dados do convite
+    await globalPrisma.pessoas.update({
+      where: { id: pessoa.id },
+      data: {
+        senha_hash: senhaHash,
+        conviteToken: null,
+        conviteExpiraEm: null,
+        conviteAtivo: false,
+        ativo: true
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Conta ativada com sucesso! Você já pode fazer login.',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao ativar convite:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível ativar o convite.' });
+  }
+};
+
+/**
+ * Reenvia um convite para um email.
+ */
+export const reenviarConvite = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
+      return;
+    }
+    const { email }: ReenviarConviteInput = req.body;
+    const { hubId } = req.auth;
+
+    // Verificar se o usuário é membro do Hub
+    const membro = await req.prisma.membros_hub.findFirst({
+      where: { hubId, pessoa: { email } },
+      include: { pessoa: true }
+    });
+
+    if (!membro) {
+      res.status(404).json({ error: 'MembroNaoEncontrado', message: 'Membro não encontrado neste Hub.' });
+      return;
+    }
+
+    // Verificar se tem convite ativo
+    if (!membro.pessoa.conviteAtivo) {
+      res.status(400).json({ error: 'ConviteInativo', message: 'Este membro não possui convite ativo.' });
+      return;
+    }
+
+    // Verificar se o membro já foi ativado (tem senha_hash)
+    if (membro.pessoa.senha_hash) {
+      res.status(400).json({ error: 'MembroJaAtivado', message: 'Este membro já foi ativado e não precisa de novo convite.' });
+      return;
+    }
+
+    // Gerar novo token e data de expiração
+    const novoToken = generateInviteToken();
+    const novaExpiraEm = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+    // Atualizar convite
+    await globalPrisma.pessoas.update({
+      where: { id: membro.pessoa.id },
+      data: {
+        conviteToken: novoToken,
+        conviteExpiraEm: novaExpiraEm,
+        conviteAtivo: true
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Convite reenviado com sucesso.',
+      data: {
+        conviteToken: novoToken // Incluir token para testes
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao reenviar convite:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível reenviar o convite.' });
   }
 }; 

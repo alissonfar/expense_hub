@@ -153,6 +153,36 @@ export const selectHubSchema = z.object({
     .positive('ID do Hub deve ser um número positivo')
 });
 
+/**
+ * Schema para ativação de convite
+ */
+export const ativarConviteSchema = z.object({
+  token: z
+    .string()
+    .min(1, 'Token é obrigatório')
+    .max(255, 'Token deve ter no máximo 255 caracteres'),
+  
+  novaSenha: senhaSchema,
+  
+  confirmarSenha: z
+    .string()
+    .min(1, 'Confirmação de senha é obrigatória')
+}).refine(data => data.novaSenha === data.confirmarSenha, {
+  message: 'Senhas não coincidem',
+  path: ['confirmarSenha']
+});
+
+/**
+ * Schema para reenvio de convite
+ */
+export const reenviarConviteSchema = z.object({
+  email: z
+    .string()
+    .email('Email inválido')
+    .toLowerCase()
+    .transform(email => email.trim())
+});
+
 // =============================================
 // TIPOS INFERIDOS DOS SCHEMAS
 // =============================================
@@ -161,4 +191,6 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type SelectHubInput = z.infer<typeof selectHubSchema>; 
+export type SelectHubInput = z.infer<typeof selectHubSchema>;
+export type AtivarConviteInput = z.infer<typeof ativarConviteSchema>;
+export type ReenviarConviteInput = z.infer<typeof reenviarConviteSchema>; 

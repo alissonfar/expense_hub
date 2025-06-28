@@ -17,6 +17,7 @@ import {
 } from '../schemas/pagamento';
 import { z } from 'zod';
 import { getLogger } from '../utils/logger';
+import { getExtendedPrismaClient } from '../utils/prisma';
 
 const logger = getLogger('pagamentoController');
 
@@ -163,8 +164,276 @@ export const getPagamento = async (req: Request, res: Response): Promise<void> =
  * POST /api/pagamentos
  */
 export const createPagamento = async (req: Request, res: Response): Promise<void> => {
-    // ... implementação futura (requer lógica complexa de transações)
-    res.status(501).json({ message: 'Endpoint não implementado' });
+  const { pessoaId: userId, hubId } = req.auth!;
+  const prisma = getExtendedPrismaClient(req.auth!);
+  
+  try {
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    if (!allowedRoles.includes(req.auth!.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Detectar formato do payload (individual vs composto)
+    const isPagamentoComposto = req.body.transacoes && Array.isArray(req.body.transacoes);
+    const isPagamentoIndividual = req.body.transacao_id && req.body.valor_pago;
+    
+    if (!isPagamentoComposto && !isPagamentoIndividual) {
+      throw new Error('Formato de pagamento inválido. Deve fornecer transacao_id + valor_pago (individual) OU transacoes[] (composto).');
+    }
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      if (isPagamentoIndividual) {
+        // ============================================
+        // PAGAMENTO INDIVIDUAL (formato original)
+        // ============================================
+        const { transacao_id, valor_pago, data_pagamento, forma_pagamento, observacoes } = req.body;
+        
+        // 1. Validar a transação e a participação do usuário
+        const participante = await tx.transacao_participantes.findFirst({
+          where: {
+            transacao_id: transacao_id,
+            pessoa_id: userId,
+            transacoes: {
+              hubId: hubId, // ✅ VALIDAÇÃO DE HUB
+              tipo: 'GASTO',
+              ativo: true
+            }
+          },
+          include: {
+            transacoes: true,
+          },
+        });
+
+        if (!participante) {
+          throw new Error('Participante não encontrado nesta transação ou a transação não é um gasto válido deste Hub.');
+        }
+
+        const valorDevido = Number(participante.valor_devido);
+        const valorJaPago = Number(participante.valor_pago);
+        const saldoDevedor = valorDevido - valorJaPago;
+
+        if (valor_pago <= 0) {
+          throw new Error('O valor pago deve ser positivo.');
+        }
+        
+        if (valor_pago > saldoDevedor + 0.01) {
+          throw new Error(`Valor pago (R$${valor_pago}) excede o saldo devedor (R$${saldoDevedor.toFixed(2)}).`);
+        }
+
+        // 2. Criar o registro do pagamento
+        const novoPagamento = await tx.pagamentos.create({
+          data: {
+            hubId,
+            pessoa_id: userId,
+            registrado_por: userId,
+            data_pagamento: new Date(data_pagamento),
+            valor_total: valor_pago,
+            forma_pagamento: forma_pagamento || 'PIX',
+            observacoes: observacoes,
+          },
+        });
+
+        // 3. Ligar o pagamento à transação
+        await tx.pagamento_transacoes.create({
+          data: {
+            pagamento_id: novoPagamento.id,
+            transacao_id: transacao_id,
+            valor_aplicado: valor_pago,
+          },
+        });
+
+        // 4. Atualizar o valor pago pelo participante
+        const novoTotalPagoPeloParticipante = valorJaPago + valor_pago;
+        await tx.transacao_participantes.update({
+          where: {
+            id: participante.id,
+          },
+          data: {
+            valor_pago: novoTotalPagoPeloParticipante,
+          },
+        });
+        
+        // 5. Atualizar o status geral da transação
+        await atualizarStatusTransacao(tx, transacao_id);
+        
+        return novoPagamento;
+
+      } else {
+        // ============================================
+        // PAGAMENTO COMPOSTO (novo formato)
+        // ============================================
+        const { 
+          pessoa_id, 
+          transacoes, 
+          data_pagamento, 
+          forma_pagamento, 
+          observacoes,
+          valor_total: valorTotalFornecido 
+        } = req.body;
+
+        // Usar pessoa_id do payload ou usuário logado
+        const pessoaPagante = pessoa_id || userId;
+        
+        // Calcular valor total se não fornecido
+        const valorTotalCalculado = transacoes.reduce((acc: number, t: any) => acc + Number(t.valor_aplicado), 0);
+        const valorTotal = valorTotalFornecido || valorTotalCalculado;
+
+        // Validar que o valor total corresponde à soma dos valores aplicados
+        if (Math.abs(valorTotal - valorTotalCalculado) > 0.01) {
+          throw new Error(`Valor total (R$${valorTotal}) não corresponde à soma dos valores aplicados (R$${valorTotalCalculado.toFixed(2)}).`);
+        }
+
+        // 1. Validar todas as transações e participações
+        for (const transacao of transacoes) {
+          // VALIDAÇÃO DE HUB - Garantir que a transação pertence ao mesmo Hub
+          const transacaoValida = await tx.transacoes.findFirst({
+            where: {
+              id: transacao.transacao_id,
+              hubId: hubId, // ✅ VALIDAÇÃO DE HUB
+              tipo: 'GASTO',
+              ativo: true
+            },
+            select: { id: true, hubId: true }
+          });
+
+          if (!transacaoValida) {
+            throw new Error(`Transação ${transacao.transacao_id} não pertence a este Hub ou não é um gasto válido.`);
+          }
+
+          const participante = await tx.transacao_participantes.findFirst({
+            where: {
+              transacao_id: transacao.transacao_id,
+              pessoa_id: pessoaPagante,
+              transacoes: {
+                tipo: 'GASTO',
+                ativo: true
+              }
+            },
+            include: {
+              transacoes: true,
+            },
+          });
+
+          if (!participante) {
+            throw new Error(`Participante não encontrado na transação ${transacao.transacao_id} ou a transação não é um gasto válido.`);
+          }
+
+          const valorDevido = Number(participante.valor_devido);
+          const valorJaPago = Number(participante.valor_pago);
+          const saldoDevedor = valorDevido - valorJaPago;
+
+          if (transacao.valor_aplicado <= 0) {
+            throw new Error(`Valor aplicado na transação ${transacao.transacao_id} deve ser positivo.`);
+          }
+          
+          if (transacao.valor_aplicado > saldoDevedor + 0.01) {
+            throw new Error(`Valor aplicado (R$${transacao.valor_aplicado}) na transação ${transacao.transacao_id} excede o saldo devedor (R$${saldoDevedor.toFixed(2)}).`);
+          }
+        }
+
+        // 2. Criar o registro do pagamento
+        const novoPagamento = await tx.pagamentos.create({
+          data: {
+            hubId,
+            pessoa_id: pessoaPagante,
+            registrado_por: userId,
+            data_pagamento: new Date(data_pagamento),
+            valor_total: valorTotal,
+            forma_pagamento: forma_pagamento || 'PIX',
+            observacoes: observacoes,
+          },
+        });
+
+        // 3. Processar cada transação
+        for (const transacao of transacoes) {
+          // Ligar o pagamento à transação
+          await tx.pagamento_transacoes.create({
+            data: {
+              pagamento_id: novoPagamento.id,
+              transacao_id: transacao.transacao_id,
+              valor_aplicado: transacao.valor_aplicado,
+            },
+          });
+
+          // Atualizar o valor pago pelo participante
+          const participante = await tx.transacao_participantes.findFirst({
+            where: {
+              transacao_id: transacao.transacao_id,
+              pessoa_id: pessoaPagante,
+            },
+          });
+
+          if (participante) {
+            const valorJaPago = Number(participante.valor_pago);
+            const novoTotalPagoPeloParticipante = valorJaPago + transacao.valor_aplicado;
+            
+            await tx.transacao_participantes.update({
+              where: {
+                id: participante.id,
+              },
+              data: {
+                valor_pago: novoTotalPagoPeloParticipante,
+              },
+            });
+
+            // Atualizar o status da transação
+            await atualizarStatusTransacao(tx, transacao.transacao_id);
+          }
+        }
+        
+        return novoPagamento;
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Pagamento registrado com sucesso!',
+      data: resultado,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (error: any) {
+    logger.error('Erro ao criar pagamento:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Não foi possível registrar o pagamento.',
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+// Função auxiliar para atualizar status da transação
+async function atualizarStatusTransacao(tx: any, transacaoId: number): Promise<void> {
+  const todosParticipantes = await tx.transacao_participantes.findMany({
+    where: { transacao_id: transacaoId }
+  });
+
+  const transacao = await tx.transacoes.findUnique({
+    where: { id: transacaoId },
+    select: { valor_total: true }
+  });
+
+  if (!transacao) return;
+
+  const totalPagoNaTransacao = todosParticipantes.reduce((acc: number, p: any) => acc + Number(p.valor_pago), 0);
+  const valorTotalDaTransacao = Number(transacao.valor_total);
+  
+  let novoStatus = 'PAGO_PARCIAL';
+  if (Math.abs(totalPagoNaTransacao - valorTotalDaTransacao) < 0.01) {
+    novoStatus = 'PAGO_TOTAL';
+  }
+
+  await tx.transacoes.update({
+    where: { id: transacaoId },
+    data: { status_pagamento: novoStatus },
+  });
 }
 
 /**
@@ -172,9 +441,131 @@ export const createPagamento = async (req: Request, res: Response): Promise<void
  * PUT /api/pagamentos/:id
  */
 export const updatePagamento = async (req: Request, res: Response): Promise<void> => {
-    // ... implementação futura
-    res.status(501).json({ message: 'Endpoint não implementado' });
-}
+  try {
+    const { id: pagamentoId } = pagamentoParamsSchema.parse(req.params);
+    const { pessoaId, role } = req.auth!;
+    const data: UpdatePagamentoInput = req.body;
+
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    if (!allowedRoles.includes(role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // 1. Verificar se o pagamento existe e buscar dados para validação
+    const pagamento = await req.prisma.pagamentos.findUnique({
+      where: { id: pagamentoId },
+      include: {
+        pagamento_transacoes: {
+          include: {
+            transacoes: {
+              select: { status_pagamento: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!pagamento) {
+      res.status(404).json({ 
+        success: false, 
+        message: 'Pagamento não encontrado' 
+      });
+      return;
+    }
+
+    // 2. Verificar se o pagamento pode ser editado
+    // Não permitir edição se alguma transação foi totalmente quitada
+    const transacoesQuitadas = pagamento.pagamento_transacoes.some(
+      pt => pt.transacoes.status_pagamento === 'PAGO_TOTAL'
+    );
+
+    if (transacoesQuitadas) {
+      res.status(400).json({ 
+        success: false, 
+        message: 'Não é possível editar pagamentos que geraram quitação total de transações' 
+      });
+      return;
+    }
+
+    // 4. Construir dados de atualização
+    const updateData: any = {};
+    
+    if (data.data_pagamento !== undefined) {
+      updateData.data_pagamento = new Date(data.data_pagamento);
+    }
+    
+    if (data.forma_pagamento !== undefined) {
+      updateData.forma_pagamento = data.forma_pagamento;
+    }
+    
+    if (data.observacoes !== undefined) {
+      updateData.observacoes = data.observacoes || null;
+    }
+
+    // 5. Atualizar o pagamento
+    const pagamentoAtualizado = await req.prisma.pagamentos.update({
+      where: { id: pagamentoId },
+      data: updateData,
+      include: {
+        pessoas_pagamentos_pessoa_idTopessoas: { 
+          select: { id: true, nome: true, email: true } 
+        },
+        pessoas_pagamentos_registrado_porTopessoas: { 
+          select: { id: true, nome: true } 
+        },
+        pagamento_transacoes: {
+          include: {
+            transacoes: { 
+              select: { id: true, descricao: true, valor_total: true, status_pagamento: true } 
+            }
+          }
+        }
+      }
+    });
+
+    // 6. Processar excedente se solicitado
+    if (data.processar_excedente === true) {
+      // Lógica para processar excedente (similar ao createPagamento)
+      // Por enquanto, apenas log para indicar que seria processado
+      logger.info(`Processamento de excedente solicitado para pagamento ${pagamentoId}`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Pagamento atualizado com sucesso',
+      data: {
+        ...pagamentoAtualizado,
+        valor_total: Number(pagamentoAtualizado.valor_total),
+        valor_excedente: pagamentoAtualizado.valor_excedente ? Number(pagamentoAtualizado.valor_excedente) : null
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Erro ao atualizar pagamento:', error);
+    
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ 
+        success: false, 
+        message: 'Dados inválidos', 
+        errors: error.errors 
+      });
+      return;
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro interno do servidor ao atualizar pagamento' 
+    });
+  }
+};
 
 /**
  * Exclui um pagamento
@@ -185,6 +576,18 @@ export const deletePagamento = async (req: Request, res: Response): Promise<void
     const { pessoaId, role } = req.auth!;
 
     try {
+        // Verificação de papel - Camada 2 de segurança
+        const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR'];
+        if (!allowedRoles.includes(role)) {
+            res.status(403).json({
+                error: 'AcessoNegado',
+                message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+                seuPapel: role,
+                timestamp: new Date().toISOString()
+            });
+            return;
+        }
+
         const pagamento = await req.prisma.pagamentos.findUnique({
             where: { id: pagamentoId },
             select: { registrado_por: true }
@@ -203,8 +606,48 @@ export const deletePagamento = async (req: Request, res: Response): Promise<void
 
         // Lógica de deleção em transação (exemplo: reverter status das transações pagas)
         await req.prisma.$transaction(async (tx) => {
-             // 1. Reverter os valores aplicados nas transações
-             // 2. Desativar o pagamento
+             // 1. Buscar todas as transações associadas ao pagamento
+             const pagamentoCompleto = await tx.pagamentos.findUnique({
+                 where: { id: pagamentoId },
+                 include: {
+                     pagamento_transacoes: {
+                         include: {
+                             transacoes: true
+                         }
+                     }
+                 }
+             });
+
+             if (!pagamentoCompleto) {
+                 throw new Error('Pagamento não encontrado');
+             }
+
+             // 2. Reverter os valores aplicados nas transações
+             for (const pt of pagamentoCompleto.pagamento_transacoes) {
+                 // Buscar participante da transação
+                 const participante = await tx.transacao_participantes.findFirst({
+                     where: {
+                         transacao_id: pt.transacao_id,
+                         pessoa_id: pagamentoCompleto.pessoa_id
+                     }
+                 });
+
+                 if (participante) {
+                     // Reverter o valor pago
+                     const novoValorPago = Number(participante.valor_pago) - Number(pt.valor_aplicado);
+                     await tx.transacao_participantes.update({
+                         where: { id: participante.id },
+                         data: { valor_pago: Math.max(0, novoValorPago) }
+                     });
+                 }
+             }
+
+             // 3. Remover registros da tabela de junção
+             await tx.pagamento_transacoes.deleteMany({
+                 where: { pagamento_id: pagamentoId }
+             });
+
+             // 4. Desativar o pagamento
              await tx.pagamentos.update({
                  where: { id: pagamentoId },
                  data: { ativo: false }

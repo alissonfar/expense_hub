@@ -121,4 +121,20 @@ export const isCommonPassword = (password: string): boolean => {
   ];
   
   return commonPasswords.includes(password.toLowerCase());
+};
+
+/**
+ * Gera um token de convite seguro e único
+ */
+export const generateInviteToken = (): string => {
+  const crypto = require('crypto');
+  return crypto.randomBytes(32).toString('hex');
+};
+
+/**
+ * Verifica se um token de convite é válido (formato)
+ */
+export const isValidInviteToken = (token: string): boolean => {
+  // Token deve ter 64 caracteres hexadecimais
+  return /^[a-f0-9]{64}$/.test(token);
 }; 

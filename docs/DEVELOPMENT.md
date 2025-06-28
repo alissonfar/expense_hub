@@ -1,84 +1,105 @@
-# Guia de Desenvolvimento
+# Guia de Desenvolvimento - Personal Expense Hub
 
-Este guia fornece diretrizes e padrões para o desenvolvimento de novas funcionalidades e manutenção do código no Personal Expense Hub.
+Este documento fornece diretrizes, padrões e checklists para garantir um desenvolvimento consistente, seguro e de alta qualidade.
 
-## 1. Fluxo de Trabalho com Cursor AI
+## 1. Fluxo de Desenvolvimento com Cursor AI
 
-Para garantir a consistência e a qualidade, o desenvolvimento assistido por IA deve seguir um fluxo investigativo rigoroso. A regra principal é: **SEMPRE DESCOBRIR, NUNCA ASSUMIR**.
+Adotamos o protocolo **"Discovery First" (Descobrir Primeiro)**. Nenhuma linha de código deve ser escrita sem antes entender o contexto existente.
 
-### Metodologia de Descoberta Dinâmica
+### A Mentalidade Correta:
+- **NÃO:** "Vou criar o endpoint `getSaldos` como imagino que seja."
+- **SIM:** "Vou usar `@routes` para ver se um endpoint de saldos já existe. Vou usar `@controllers` para entender como os controllers de relatório são implementados. Vou usar `@schemas` para ver as validações de relatório existentes."
 
-Antes de escrever qualquer linha de código, utilize os seguintes comandos para investigar o estado atual do projeto:
+### Comandos de Descoberta Obrigatórios:
+Use estes comandos para investigar o codebase ANTES de codificar:
 
-1.  **`@codebase`**: Análise geral da arquitetura, estrutura de pastas e padrões.
-2.  **`@routes`**: Mapeamento de todos os endpoints existentes na API.
-3.  **`@controllers`**: Análise das implementações atuais nos controllers.
-4.  **`@schemas`**: Verificação dos schemas de validação Zod existentes.
-5.  **`@prisma/schema.prisma`**: Entendimento completo do modelo de dados.
-6.  **`@middleware`**: Descoberta de middlewares de autenticação e validação.
-7.  **`@types`**: Verificação de tipos e interfaces TypeScript disponíveis.
-8.  **`@utils`**: Identificação de funções utilitárias que podem ser reutilizadas.
+1.  `@codebase`: Análise geral da arquitetura e estrutura.
+2.  `@routes`: Mapear todos os endpoints existentes e seus padrões.
+3.  `@controllers`: Analisar implementações e padrões de lógica de negócio.
+4.  `@schemas`: Verificar todas as validações Zod e seus formatos.
+5.  `@prisma/schema.prisma`: Entender a estrutura completa do banco de dados.
+6.  `@middleware`: Descobrir middlewares disponíveis (auth, RLS, etc).
+7.  `@types`: Verificar interfaces e tipos definidos.
+8.  `@utils`: Identificar helpers e utilitários reutilizáveis.
 
-## 2. Padrões de Implementação
+## 2. Padrões de Código Backend
 
 ### Padrões de Controller
+Os controllers, localizados em `backend/controllers/`, são o coração da lógica de negócio.
 
--   **Responsabilidade Única:** Cada função do controller deve lidar com uma única ação (ex: `listar`, `criar`, `atualizar`).
--   **Tratamento de Erros:** Use blocos `try...catch` para capturar exceções e retornar respostas de erro padronizadas.
--   **Validação de Entrada:** A validação deve ser feita no nível do middleware (`validateSchema`), não no controller.
--   **Lógica de Negócio:** Mantenha a lógica de negócio complexa nos controllers, mas considere mover para serviços dedicados se a complexidade aumentar.
+-   **Nomenclatura:** As funções seguem o padrão `verboAcaoRecurso` (ex: `listMembros`, `createTag`, `getTransacao`).
+-   **Assincronicidade:** Todas as funções de controller são `async` e retornam `Promise<void>`.
+-   **Acesso ao Prisma:** O Prisma Client seguro e com RLS **deve** ser acessado através de `req.prisma`. Ele já é injetado pelo middleware `injectPrismaClient`. Não instancie um novo `PrismaClient` dentro de um controller.
+    ```typescript
+    // Certo ✅
+    export const listTags = async (req: Request, res: Response): Promise<void> => {
+      const tags = await req.prisma.tags.findMany(...);
+      // ...
+    }
 
-### Configurações Zod (`/backend/schemas`)
+    // Errado ❌
+    import { PrismaClient } from '@prisma/client';
+    const prisma = new PrismaClient(); // Isto ignora o RLS!
+    ```
+-   **Tratamento de Erros:** Use blocos `try...catch` para capturar exceções. Logue o erro e envie uma resposta padronizada.
+-   **Tipagem:** Use os tipos dos schemas Zod para tipar o `body`, `query` e `params` da requisição para ter autocomplete e segurança de tipos.
 
--   **Schemas por Recurso:** Crie arquivos de schema separados por recurso (ex: `pessoa.ts`, `transacao.ts`).
--   **Mensagens Claras:** Sempre forneça mensagens de erro em português para os campos.
--   **Coerção de Tipos:** Use `z.coerce.number()` ou `z.coerce.date()` quando receber dados de `req.query` ou `req.params`, que são sempre strings.
+### Padrões de Validação com Zod
+Os schemas de validação estão em `backend/schemas/`.
 
-**Exemplo de Schema Zod:**
-
-```typescript
-// backend/schemas/tag.ts
-import { z } from 'zod';
-
-export const createTagSchema = z.object({
-  nome: z.string({ required_error: 'Nome da tag é obrigatório' })
-    .min(2, 'Nome deve ter no mínimo 2 caracteres'),
-  cor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve estar no formato hexadecimal').optional(),
-  icone: z.string().max(10, 'Ícone pode ter no máximo 10 caracteres').optional(),
-});
-```
+-   **Mensagens em Português:** Todos os erros de validação devem ter mensagens claras em português.
+    ```typescript
+    z.string({ required_error: "O nome é obrigatório." })
+     .min(3, { message: "O nome deve ter pelo menos 3 caracteres." })
+    ```
+-   **Coerção de Tipos:** Para `query` e `params`, onde tudo é string, use `z.coerce` para converter tipos automaticamente.
+    ```typescript
+    const listQuerySchema = z.object({
+      page: z.coerce.number().int().positive().optional().default(1),
+      ativo: z.coerce.boolean().optional(),
+    });
+    ```
+-   **Reutilização:** Exporte tanto o schema (`minhaSchema`) quanto o tipo inferido (`MinhaSchemaInput`) para ser usado nos controllers.
 
 ### Logs Estratégicos
+Use o logger Winston configurado em `utils/logger.ts` para registrar eventos importantes.
 
--   **`console.log` para Debug:** Use `console.log` livremente durante o desenvolvimento, mas **remova-os antes de commitar**.
--   **`console.error` para Erros:** Use `console.error` dentro dos blocos `catch` nos controllers para registrar exceções no servidor.
--   **Logs Permanentes:** Para logs estratégicos que devem permanecer em produção, use um logger mais robusto (implementação futura).
+-   **Obtenha uma instância do logger:**
+    ```typescript
+    import { getLogger } from '../utils/logger';
+    const logger = getLogger('meu-modulo'); // ex: 'pagamentoController'
+    ```
+-   **Níveis de Log:**
+    -   `logger.error(message, errorObject)`: Para erros capturados em blocos `catch`.
+    -   `logger.warn(message)`: Para situações inesperadas, mas que não quebram a aplicação.
+    -   `logger.info(message)`: Para eventos importantes do fluxo (ex: "Pagamento composto X processado com sucesso").
+    -   `logger.debug(message)`: Para informações detalhadas úteis apenas em desenvolvimento.
 
-## 3. Checklist de Qualidade
+## 3. Checklist de Limpeza Pós-Correção
+Após confirmar que um bug foi corrigido ou uma feature foi implementada:
 
-### Limpeza Pós-Correção (Obrigatório)
+-   [ ] **Remover `console.log`:** Substitua todos os `console.log` de debug por `logger.debug()` ou remova-os completamente.
+-   [ ] **Apagar Código Comentado:** Delete linhas de código que foram comentadas durante o desenvolvimento.
+-   [ ] **Verificar Imports:** Remova quaisquer imports que não estão sendo utilizados.
+-   [ ] **Remover Variáveis Não Usadas:** Verifique se há variáveis declaradas que nunca são lidas.
+-   [ ] **Consistência de Nomenclatura:** Garanta que novas funções e variáveis seguem os padrões do projeto.
 
-Após resolver um bug ou implementar uma funcionalidade, é **crítico** realizar uma limpeza:
+## 4. Checklist de Validação Final
+Antes de considerar uma tarefa concluída:
 
--   [ ] Remover todos os `console.log` de debug.
--   [ ] Apagar código comentado de tentativas anteriores.
--   [ ] Verificar e remover variáveis ou imports não utilizados.
--   [ ] Garantir que não há duplicação de código.
+-   [ ] **Descoberta:** O código foi desenvolvido com base na análise do codebase existente?
+-   [ ] **Funcionalidade:** A nova feature ou correção foi testada manualmente e funciona como esperado?
+-   [ ] **Consistência:** A implementação segue os padrões de arquitetura e código descritos neste documento?
+-   [ ] **Segurança:**
+    -   Os middlewares de autenticação (`requireAuth`) e RLS (`injectPrismaClient`) foram aplicados nas rotas?
+    -   O controle de acesso por papel (`requireHubRole`) foi usado onde necessário?
+-   [ ] **Validação:** Todos os dados de entrada (body, params, query) são validados com um schema Zod?
+-   [ ] **Tipagem:** O código está totalmente tipado e sem erros do TypeScript?
+-   [ ] **Logs:** Logs estratégicos (`info`, `warn`, `error`) foram adicionados em pontos críticos?
+-   [ ] **Limpeza:** O checklist de limpeza foi seguido?
+-   [ ] **Documentação:** A documentação relevante (`API.md`, `ARCHITECTURE.md`, etc.) foi atualizada para refletir as mudanças?
 
-### Validação Final (Obrigatório)
-
-Antes de considerar uma tarefa concluída, verifique os seguintes pontos:
-
-1.  **[ ] Descoberta:** O código existente foi completamente analisado?
-2.  **[ ] Funcionalidade:** A implementação foi testada e funciona como esperado?
-3.  **[ ] Consistência:** Os padrões de arquitetura e código do projeto foram seguidos?
-4.  **[ ] Validação:** Os dados de entrada são validados com Zod e mensagens em português?
-5.  **[ ] Segurança:** Os middlewares de autenticação (`requireAuth`, `requireOwner`) foram aplicados corretamente?
-6.  **[ ] Tipagem:** O código TypeScript está corretamente tipado e sem erros?
-7.  **[ ] Limpeza:** Todo o código de debug foi removido?
-8.  **[ ] Documentação:** A documentação relevante (`API.md`, `ARCHITECTURE.md`) foi atualizada?
-
-## 4. Padrões de Desenvolvimento Frontend
+## 5. Padrões de Desenvolvimento Frontend
 
 ### Hooks Customizados de Dados
 

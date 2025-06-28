@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { getExtendedPrismaClient } from '../utils/prisma';
 import { 
   saldosQuerySchema,
   transacoesQuerySchema,
@@ -15,8 +15,6 @@ import {
   CategoriasQueryInput
 } from '../schemas/relatorio';
 
-const prisma = new PrismaClient();
-
 // =============================================
 // CONTROLLER DE RELATÓRIOS
 // =============================================
@@ -27,6 +25,9 @@ const prisma = new PrismaClient();
  */
 export const getSaldos = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
     // Validar e extrair parâmetros da query
     const queryData = saldosQuerySchema.parse(req.query);
     const {
@@ -239,6 +240,9 @@ export const getSaldos = async (req: Request, res: Response): Promise<void> => {
  */
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
     // Validar e extrair parâmetros da query
     const queryData = dashboardQuerySchema.parse(req.query);
     const {
@@ -436,7 +440,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
 
        // Agrupar gastos por dia seguindo padrão do projeto
        const gastosPorDiaMap = new Map<number, number>();
-       gastosTransacoes.forEach(transacao => {
+       gastosTransacoes.forEach((transacao: any) => {
          const dataKey = transacao.data_transacao.getTime();
          const valorAtual = gastosPorDiaMap.get(dataKey) || 0;
          gastosPorDiaMap.set(dataKey, valorAtual + Number(transacao.valor_total));
@@ -473,7 +477,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       // Agrupar gastos por categoria
       const gastosPorCategoriaMap = new Map<string, { valor: number, cor: string }>();
       
-      gastosComTags.forEach(transacao => {
+      gastosComTags.forEach((transacao: any) => {
         const valor = Number(transacao.valor_total);
         
         if (transacao.transacao_tags.length === 0) {
@@ -482,7 +486,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
           gastosPorCategoriaMap.set('Sem categoria', { valor: atual.valor + valor, cor: atual.cor });
         } else {
           // Com tags
-                     transacao.transacao_tags.forEach(tt => {
+                     transacao.transacao_tags.forEach((tt: any) => {
              if (tt.tags) {
                const nomeTag = tt.tags.nome;
                const corTag = (tt.tags.cor as string) || '#6B7280';
@@ -542,6 +546,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
  */
 export const getPendencias = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
     // Validar e extrair parâmetros da query
     const queryData = pendenciasQuerySchema.parse(req.query);
     const {
@@ -592,8 +599,8 @@ export const getPendencias = async (req: Request, res: Response): Promise<void> 
       wherePessoas.id = pessoa_id;
     }
 
-    // Buscar participações com pendências usando Prisma ORM puro
-    const pendenciasRaw = await prisma.transacao_participantes.findMany({
+    // Buscar participações com pendências
+    const participacoes = await prisma.transacao_participantes.findMany({
       where: {
         transacoes: whereTransacoes,
         pessoas: wherePessoas,
@@ -606,124 +613,176 @@ export const getPendencias = async (req: Request, res: Response): Promise<void> 
           {
             valor_pago: null,
             valor_devido: {
-              gte: valor_minimo
+              gt: 0
             }
           }
         ]
       },
       include: {
-        pessoas: {
-          select: {
-            id: true,
-            nome: true,
-            email: true
-          }
-        },
         transacoes: {
           select: {
             id: true,
             descricao: true,
-            local: true,
             valor_total: true,
             data_transacao: true,
             status_pagamento: true,
-            observacoes: true
+            local: true
           }
+        },
+        pessoas: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true
+          }
+        }
+      },
+      orderBy: {
+        transacoes: {
+          data_transacao: 'asc'
         }
       }
     });
 
-    // Processar dados seguindo padrão do projeto
-    const pendencias = pendenciasRaw.map(participante => {
-      const valorDevido = Number(participante.valor_devido || 0);
-      const valorPago = Number(participante.valor_pago || 0);
-      const valorPendente = valorDevido - valorPago;
-      
-      // Calcular dias de atraso
-      const hoje = new Date();
-      const dataTransacao = participante.transacoes.data_transacao;
-      const diasAtraso = Math.floor((hoje.getTime() - dataTransacao.getTime()) / (1000 * 60 * 60 * 24));
+    // Processar pendências
+    const pendencias = await Promise.all(
+      participacoes.map(async (participante: any) => {
+        const valorDevido = Number(participante.valor_devido || 0);
+        const valorPago = Number(participante.valor_pago || 0);
+        const valorPendente = valorDevido - valorPago;
+        
+        // Calcular dias de atraso
+        const hoje = new Date();
+        const dataTransacao = new Date(participante.transacoes.data_transacao);
+        const diasAtraso = Math.floor((hoje.getTime() - dataTransacao.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Determinar urgência
+        let urgenciaCalculada: 'NORMAL' | 'ATRASADA' | 'VENCIDA';
+        if (diasAtraso <= 0) {
+          urgenciaCalculada = 'NORMAL';
+        } else if (diasAtraso <= 30) {
+          urgenciaCalculada = 'ATRASADA';
+        } else {
+          urgenciaCalculada = 'VENCIDA';
+        }
 
-      return {
-        transacao_id: participante.transacao_id,
-        pessoa_id: participante.pessoa_id,
-        pessoa_nome: participante.pessoas.nome,
-        pessoa_email: participante.pessoas.email,
-        descricao: participante.transacoes.descricao,
-        local: participante.transacoes.local,
-        valor_total_transacao: Number(participante.transacoes.valor_total),
-        valor_devido: valorDevido,
-        valor_pago: valorPago,
-        valor_pendente: valorPendente,
-        data_transacao: participante.transacoes.data_transacao.toISOString().split('T')[0],
-        status_pagamento: participante.transacoes.status_pagamento,
-        observacoes: participante.transacoes.observacoes,
-        dias_atraso: diasAtraso
-      };
-    }).filter(pendencia => pendencia.valor_pendente >= valor_minimo);
+        // Buscar histórico de pagamentos se solicitado
+        let historicoPagamentos = undefined;
+        if (incluir_historico_pagamentos) {
+          historicoPagamentos = await prisma.pagamento_transacoes.findMany({
+            where: {
+              transacao_id: participante.transacoes.id,
+              pagamentos: {
+                pessoa_id: participante.pessoas.id
+              }
+            },
+            include: {
+              pagamentos: {
+                select: {
+                  id: true,
+                  valor_total: true,
+                  data_pagamento: true,
+                  forma_pagamento: true,
+                  observacoes: true
+                }
+              }
+            },
+            orderBy: {
+              pagamentos: {
+                data_pagamento: 'desc'
+              }
+            }
+          });
+        }
 
-    // Processar pendências com urgência seguindo padrão do projeto
-    const pendenciasProcessadas = pendencias.map(pendencia => {
-      const diasAtraso = pendencia.dias_atraso;
-      
-      // Determinar urgência
-      let urgenciaItem: string;
-      if (diasAtraso > 0) {
-        urgenciaItem = 'VENCIDA';
-      } else if (diasAtraso === 0) {
-        urgenciaItem = 'VENCE_HOJE';
-      } else if (diasAtraso >= -7) {
-        urgenciaItem = 'VENCE_SEMANA';
-      } else if (diasAtraso >= -30) {
-        urgenciaItem = 'VENCE_MES';
-      } else {
-        urgenciaItem = 'FUTURA';
-      }
+        return {
+          transacao_id: participante.transacoes.id,
+          pessoa_id: participante.pessoas.id,
+          pessoa_nome: participante.pessoas.nome,
+          pessoa_email: participante.pessoas.email,
+          descricao: participante.transacoes.descricao,
+          valor_devido: valorDevido,
+          valor_pago: valorPago,
+          valor_pendente: valorPendente,
+          data_transacao: participante.transacoes.data_transacao.toISOString().split('T')[0],
+          dias_atraso: diasAtraso,
+          urgencia: urgenciaCalculada,
+          local: participante.transacoes.local,
+          historico_pagamentos: historicoPagamentos
+        };
+      })
+    );
 
-      return {
-        ...pendencia,
-        urgencia: urgenciaItem
-      };
-    });
-
-    // Filtrar por urgência
-    let pendenciasFiltradas = pendenciasProcessadas;
-    if (urgencia !== 'TODAS') {
-      pendenciasFiltradas = pendenciasProcessadas.filter(p => p.urgencia === urgencia);
+    // Filtrar por valor mínimo
+    let pendenciasFiltradas = pendencias;
+    if (valor_minimo !== undefined) {
+      pendenciasFiltradas = pendencias.filter((pendencia: any) => pendencia.valor_pendente >= valor_minimo);
     }
 
-    // Processar agrupamento
+    // Filtrar por urgência
+    if (urgencia !== 'TODAS') {
+      pendenciasFiltradas = pendenciasFiltradas.filter((pendencia: any) => pendencia.urgencia === urgencia);
+    }
+
+    // Ordenar resultados
+    pendenciasFiltradas.sort((a: any, b: any) => {
+      let comparison = 0;
+      
+      switch (ordenar_por) {
+        case 'pessoa_nome':
+          comparison = a.pessoa_nome.localeCompare(b.pessoa_nome);
+          break;
+        case 'valor_devido':
+          comparison = a.valor_pendente - b.valor_pendente;
+          break;
+        case 'data_transacao':
+          comparison = new Date(a.data_transacao).getTime() - new Date(b.data_transacao).getTime();
+          break;
+        case 'dias_atraso':
+          const urgenciaOrder: { [key: string]: number } = { 'VENCIDA': 3, 'ATRASADA': 2, 'NORMAL': 1 };
+          comparison = (urgenciaOrder[a.urgencia] || 0) - (urgenciaOrder[b.urgencia] || 0);
+          break;
+      }
+      
+      return ordem === 'desc' ? -comparison : comparison;
+    });
+
+    // Agrupar resultados se solicitado
     let agrupamento = undefined;
-    if (agrupar_por !== 'nenhum') {
+    if (agrupar_por && agrupar_por !== 'nenhum') {
       const grupos = new Map();
       
-      pendenciasFiltradas.forEach(pendencia => {
-        let chaveGrupo: string;
+      pendenciasFiltradas.forEach((pendencia: any) => {
+        let chave: string;
         
         switch (agrupar_por) {
           case 'pessoa':
-            chaveGrupo = `${pendencia.pessoa_id}-${pendencia.pessoa_nome}`;
+            chave = pendencia.pessoa_nome;
             break;
           case 'urgencia':
-            chaveGrupo = pendencia.urgencia;
+            chave = pendencia.urgencia;
+            break;
+          case 'tag':
+            chave = 'Geral'; // Não implementado ainda
             break;
           default:
-            chaveGrupo = 'outros';
+            chave = 'Geral';
         }
         
-        if (!grupos.has(chaveGrupo)) {
-          grupos.set(chaveGrupo, {
-            grupo: chaveGrupo,
-            quantidade: 0,
+        if (!grupos.has(chave)) {
+          grupos.set(chave, {
+            chave,
+            total_pendencias: 0,
             valor_total: 0,
-            itens: []
+            pendencias: []
           });
         }
         
-        const grupo = grupos.get(chaveGrupo);
-        grupo.quantidade++;
+        const grupo = grupos.get(chave);
+        grupo.total_pendencias++;
         grupo.valor_total += pendencia.valor_pendente;
-        grupo.itens.push(pendencia);
+        grupo.pendencias.push(pendencia);
       });
       
       agrupamento = Array.from(grupos.values());
@@ -732,12 +791,12 @@ export const getPendencias = async (req: Request, res: Response): Promise<void> 
     // Calcular estatísticas
     const estatisticas = {
       total_pendencias: pendenciasFiltradas.length,
-      valor_total_pendente: pendenciasFiltradas.reduce((sum, p) => sum + p.valor_pendente, 0),
-      pessoas_com_pendencias: new Set(pendenciasFiltradas.map(p => p.pessoa_id)).size,
-      pendencias_vencidas: pendenciasFiltradas.filter(p => p.urgencia === 'VENCIDA').length,
-      valor_vencido: pendenciasFiltradas.filter(p => p.urgencia === 'VENCIDA').reduce((sum, p) => sum + p.valor_pendente, 0),
+      valor_total_pendente: pendenciasFiltradas.reduce((sum: number, p: any) => sum + p.valor_pendente, 0),
+      pessoas_com_pendencias: new Set(pendenciasFiltradas.map((p: any) => p.pessoa_id)).size,
+      pendencias_vencidas: pendenciasFiltradas.filter((p: any) => p.urgencia === 'VENCIDA').length,
+      valor_vencido: pendenciasFiltradas.filter((p: any) => p.urgencia === 'VENCIDA').reduce((sum: number, p: any) => sum + p.valor_pendente, 0),
       media_dias_atraso: pendenciasFiltradas.length > 0 
-        ? pendenciasFiltradas.reduce((sum, p) => sum + p.dias_atraso, 0) / pendenciasFiltradas.length 
+        ? pendenciasFiltradas.reduce((sum: number, p: any) => sum + p.dias_atraso, 0) / pendenciasFiltradas.length 
         : 0
     };
 
@@ -780,6 +839,9 @@ export const getPendencias = async (req: Request, res: Response): Promise<void> 
  */
 export const getTransacoes = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
     // Validar e extrair parâmetros da query
     const queryData = transacoesQuerySchema.parse(req.query);
     const {
@@ -794,8 +856,8 @@ export const getTransacoes = async (req: Request, res: Response): Promise<void> 
       valor_max,
       eh_parcelado,
       grupo_parcela,
-      page,
-      limit,
+      page = 1,
+      limit = 20,
       ordenar_por,
       ordem,
       agrupar_por,
@@ -804,257 +866,220 @@ export const getTransacoes = async (req: Request, res: Response): Promise<void> 
       incluir_pagamentos
     } = queryData;
 
-    // Construir filtros base
-    const whereTransacoes: any = {
+    // Construir filtros
+    const where: any = {
       confirmado: true
     };
 
-    // Filtros de tipo
     if (tipo !== 'TODOS') {
-      whereTransacoes.tipo = tipo;
+      where.tipo = tipo;
     }
 
-    // Filtros de status
     if (status_pagamento !== 'TODOS') {
-      whereTransacoes.status_pagamento = status_pagamento;
+      where.status_pagamento = status_pagamento;
     }
 
-    // Filtros de data
     if (data_inicio || data_fim) {
-      whereTransacoes.data_transacao = {};
+      where.data_transacao = {};
       if (data_inicio) {
-        whereTransacoes.data_transacao.gte = new Date(data_inicio);
+        where.data_transacao.gte = new Date(data_inicio);
       }
       if (data_fim) {
-        whereTransacoes.data_transacao.lte = new Date(data_fim);
+        where.data_transacao.lte = new Date(data_fim);
       }
     }
 
-    // Filtros de pessoa
     if (proprietario_id) {
-      whereTransacoes.proprietario_id = proprietario_id;
+      where.proprietario_id = proprietario_id;
     }
 
     if (participante_id) {
-      whereTransacoes.transacao_participantes = {
+      where.transacao_participantes = {
         some: {
           pessoa_id: participante_id
         }
       };
     }
 
-    // Filtros de tag
     if (tag_id) {
-      whereTransacoes.transacao_tags = {
+      where.transacao_tags = {
         some: {
           tag_id: tag_id
         }
       };
     }
 
-    // Filtros de valor
-    if (valor_min !== undefined || valor_max !== undefined) {
-      whereTransacoes.valor_total = {};
-      if (valor_min !== undefined) {
-        whereTransacoes.valor_total.gte = valor_min;
-      }
-      if (valor_max !== undefined) {
-        whereTransacoes.valor_total.lte = valor_max;
-      }
+    if (valor_min !== undefined) {
+      where.valor_total = {
+        ...where.valor_total,
+        gte: valor_min
+      };
     }
 
-    // Filtros de parcelamento
+    if (valor_max !== undefined) {
+      where.valor_total = {
+        ...where.valor_total,
+        lte: valor_max
+      };
+    }
+
     if (eh_parcelado !== undefined) {
-      whereTransacoes.eh_parcelado = eh_parcelado;
+      where.eh_parcelado = eh_parcelado;
     }
 
     if (grupo_parcela) {
-      whereTransacoes.grupo_parcela = grupo_parcela;
+      where.grupo_parcela = grupo_parcela;
     }
 
-    // Calcular offset para paginação
-    const offset = (page - 1) * limit;
+    // Calcular total para paginação
+    const total = await prisma.transacoes.count({ where });
 
-    // Definir ordenação
-    const orderBy: any = {};
-    orderBy[ordenar_por] = ordem;
-
-    // Preparar include baseado nos parâmetros
-    const include: any = {
-      pessoas_transacoes_proprietario_idTopessoas: {
-        select: {
-          id: true,
-          nome: true,
-          email: true
-        }
-      }
-    };
-
-    if (incluir_participantes) {
-      include.transacao_participantes = {
-        include: {
-          pessoas: {
-            select: {
-              id: true,
-              nome: true,
-              email: true
-            }
+    // Buscar transações com paginação
+    const transacoes = await prisma.transacoes.findMany({
+      where,
+      include: {
+        pessoas_transacoes_proprietario_idTopessoas: {
+          select: {
+            id: true,
+            nome: true,
+            email: true
           }
-        }
-      };
-    }
-
-    if (incluir_tags) {
-      include.transacao_tags = {
-        include: {
-          tags: {
-            select: {
-              id: true,
-              nome: true,
-              cor: true
-            }
-          }
-        }
-      };
-    }
-
-    if (incluir_pagamentos) {
-      include.pagamento_transacoes = {
-        include: {
-          pagamentos: {
-            select: {
-              id: true,
-              valor_total: true,
-              data_pagamento: true,
-              forma_pagamento: true,
-              pessoas_pagamentos_pessoa_idTopessoas: {
-                select: {
-                  id: true,
-                  nome: true
-                }
+        },
+        transacao_participantes: incluir_participantes ? {
+          include: {
+            pessoas: {
+              select: {
+                id: true,
+                nome: true,
+                email: true
               }
             }
           }
-        }
-      };
-    }
+        } : false,
+        transacao_tags: incluir_tags ? {
+          include: {
+            tags: {
+              select: {
+                id: true,
+                nome: true,
+                cor: true,
+                icone: true
+              }
+            }
+          }
+        } : false,
+        pagamento_transacoes: incluir_pagamentos ? {
+          include: {
+            pagamentos: {
+              select: {
+                id: true,
+                valor_total: true,
+                data_pagamento: true,
+                forma_pagamento: true
+              }
+            }
+          }
+        } : false
+      },
+      orderBy: {
+        [ordenar_por]: ordem
+      },
+      skip: (page - 1) * limit,
+      take: limit
+    });
 
-    // Buscar transações
-    const [transacoes, total] = await Promise.all([
-      prisma.transacoes.findMany({
-        where: whereTransacoes,
-        include,
-        orderBy,
-        skip: offset,
-        take: limit
-      }),
-      prisma.transacoes.count({ where: whereTransacoes })
-    ]);
+    // Formatar transações
+    const transacoesFormatadas = transacoes.map((transacao: any) => ({
+      id: transacao.id,
+      descricao: transacao.descricao,
+      tipo: transacao.tipo,
+      valor_total: Number(transacao.valor_total),
+      data_transacao: transacao.data_transacao.toISOString().split('T')[0],
+      status_pagamento: transacao.status_pagamento,
+      local: transacao.local,
+      observacoes: transacao.observacoes,
+      eh_parcelado: transacao.eh_parcelado,
+      total_parcelas: transacao.total_parcelas,
+      grupo_parcela: transacao.grupo_parcela,
+      proprietario: transacao.pessoas_transacoes_proprietario_idTopessoas,
+      participantes: incluir_participantes ? transacao.transacao_participantes?.map((p: any) => ({
+        pessoa_id: p.pessoas.id,
+        pessoa_nome: p.pessoas.nome,
+        pessoa_email: p.pessoas.email,
+        valor_devido: Number(p.valor_devido || 0),
+        valor_pago: Number(p.valor_pago || 0)
+      })) : undefined,
+      tags: incluir_tags ? transacao.transacao_tags?.map((tt: any) => ({
+        id: tt.tags.id,
+        nome: tt.tags.nome,
+        cor: tt.tags.cor,
+        icone: tt.tags.icone
+      })) : undefined,
+      pagamentos: incluir_pagamentos ? transacao.pagamento_transacoes?.map((pt: any) => ({
+        id: pt.pagamentos.id,
+        valor_total: Number(pt.pagamentos.valor_total),
+        data_pagamento: pt.pagamentos.data_pagamento.toISOString().split('T')[0],
+        forma_pagamento: pt.pagamentos.forma_pagamento
+      })) : undefined
+    }));
 
-    // Processar agrupamento se solicitado
+    // Processar agrupamento
     let agrupamento = undefined;
-    if (agrupar_por !== 'nenhum') {
+    if (agrupar_por && agrupar_por !== 'nenhum') {
       const grupos = new Map();
       
-      transacoes.forEach(transacao => {
-        let chaveGrupo: string;
+      transacoesFormatadas.forEach((transacao: any) => {
+        let chave: string;
         
         switch (agrupar_por) {
+          case 'tipo':
+            chave = transacao.tipo;
+            break;
+          case 'pessoa':
+            chave = transacao.proprietario?.nome || 'Sem proprietário';
+            break;
+          case 'tag':
+            chave = transacao.tags?.[0]?.nome || 'Sem categoria';
+            break;
           case 'mes':
             const data = new Date(transacao.data_transacao);
-            chaveGrupo = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-            break;
-                     case 'tag':
-             const primeiraTag = (transacao as any).transacao_tags?.[0]?.tags?.nome || 'Sem categoria';
-             chaveGrupo = primeiraTag;
-             break;
-           case 'pessoa':
-             chaveGrupo = (transacao as any).pessoas_transacoes_proprietario_idTopessoas.nome;
-            break;
-          case 'tipo':
-            chaveGrupo = transacao.tipo;
+            chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
             break;
           default:
-            chaveGrupo = 'outros';
+            chave = 'Geral';
         }
         
-        if (!grupos.has(chaveGrupo)) {
-          grupos.set(chaveGrupo, {
-            grupo: chaveGrupo,
-            quantidade: 0,
+        if (!grupos.has(chave)) {
+          grupos.set(chave, {
+            chave,
+            total_transacoes: 0,
             valor_total: 0,
             transacoes: []
           });
         }
         
-        const grupo = grupos.get(chaveGrupo);
-        grupo.quantidade++;
-        grupo.valor_total += Number(transacao.valor_total);
-        grupo.transacoes.push(transacao.id);
+        const grupo = grupos.get(chave);
+        grupo.total_transacoes++;
+        grupo.valor_total += transacao.valor_total;
+        grupo.transacoes.push(transacao);
       });
       
       agrupamento = Array.from(grupos.values());
     }
 
-         // Formatar transações
-     const transacoesFormatadas = transacoes.map(transacao => {
-       const tr = transacao as any;
-       return {
-         id: tr.id,
-         tipo: tr.tipo,
-         descricao: tr.descricao,
-         local: tr.local,
-         valor_total: Number(tr.valor_total),
-         data_transacao: tr.data_transacao.toISOString().split('T')[0],
-         status_pagamento: tr.status_pagamento,
-         eh_parcelado: tr.eh_parcelado,
-         parcela_atual: tr.parcela_atual,
-         total_parcelas: tr.total_parcelas,
-         valor_parcela: Number(tr.valor_parcela),
-         grupo_parcela: tr.grupo_parcela,
-         observacoes: tr.observacoes,
-         confirmado: tr.confirmado,
-         data_criacao: tr.data_criacao,
-         proprietario: {
-           id: tr.pessoas_transacoes_proprietario_idTopessoas?.id,
-           nome: tr.pessoas_transacoes_proprietario_idTopessoas?.nome,
-           email: tr.pessoas_transacoes_proprietario_idTopessoas?.email
-         },
-         participantes: incluir_participantes ? tr.transacao_participantes?.map((tp: any) => ({
-           pessoa_id: tp.pessoa_id,
-           nome: tp.pessoas?.nome,
-           valor_devido: Number(tp.valor_devido || 0),
-           valor_pago: Number(tp.valor_pago || 0),
-           eh_proprietario: tp.eh_proprietario
-         })) : undefined,
-         tags: incluir_tags ? tr.transacao_tags?.map((tt: any) => ({
-           id: tt.tags?.id,
-           nome: tt.tags?.nome,
-           cor: tt.tags?.cor
-         })) : undefined,
-         pagamentos: incluir_pagamentos ? tr.pagamento_transacoes?.map((pt: any) => ({
-           pagamento_id: pt.pagamentos?.id,
-           valor_aplicado: Number(pt.valor_aplicado),
-           data_pagamento: pt.pagamentos?.data_pagamento.toISOString().split('T')[0],
-           forma_pagamento: pt.pagamentos?.forma_pagamento,
-           pessoa_pagadora: pt.pagamentos?.pessoas_pagamentos_pessoa_idTopessoas?.nome
-         })) : undefined
-       };
-     });
-
     // Calcular estatísticas
     const estatisticas = {
       total_transacoes: total,
-      total_gastos: transacoes.filter(t => t.tipo === 'GASTO').length,
-      total_receitas: transacoes.filter(t => t.tipo === 'RECEITA').length,
+      total_gastos: transacoes.filter((t: any) => t.tipo === 'GASTO').length,
+      total_receitas: transacoes.filter((t: any) => t.tipo === 'RECEITA').length,
       valor_total_gastos: transacoes
-        .filter(t => t.tipo === 'GASTO')
-        .reduce((sum, t) => sum + Number(t.valor_total), 0),
+        .filter((t: any) => t.tipo === 'GASTO')
+        .reduce((sum: number, t: any) => sum + Number(t.valor_total), 0),
       valor_total_receitas: transacoes
-        .filter(t => t.tipo === 'RECEITA')
-        .reduce((sum, t) => sum + Number(t.valor_total), 0),
-      transacoes_pendentes: transacoes.filter(t => t.status_pagamento === 'PENDENTE').length,
-      transacoes_parceladas: transacoes.filter(t => t.eh_parcelado).length
+        .filter((t: any) => t.tipo === 'RECEITA')
+        .reduce((sum: number, t: any) => sum + Number(t.valor_total), 0),
+      transacoes_pendentes: transacoes.filter((t: any) => t.status_pagamento === 'PENDENTE').length,
+      transacoes_parceladas: transacoes.filter((t: any) => t.eh_parcelado).length
     };
 
     const totalPages = Math.ceil(total / limit);
@@ -1110,6 +1135,9 @@ export const getTransacoes = async (req: Request, res: Response): Promise<void> 
  */
 export const getCategorias = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
     // Validar e extrair parâmetros da query
     const queryData = categoriasQuerySchema.parse(req.query);
     const {
@@ -1177,118 +1205,104 @@ export const getCategorias = async (req: Request, res: Response): Promise<void> 
       transacoes: any[];
     }>();
 
-    // Processamento das transações
-    transacoesComTags.forEach(transacao => {
+    transacoesComTags.forEach((transacao: any) => {
+      const valor = Number(transacao.valor_total);
+      
       if (transacao.transacao_tags.length === 0) {
-        // Transação sem categoria
+        // Sem categoria
         if (incluir_sem_categoria) {
-          const semCategoriaKey = 0;
-          if (!categoriaMap.has(semCategoriaKey)) {
-            categoriaMap.set(semCategoriaKey, {
-              tag_id: 0,
-              categoria: 'Sem categoria',
-              cor: '#6B7280',
-              valores: [],
-              transacoes: []
-            });
-          }
-                     const categoria = categoriaMap.get(semCategoriaKey)!;
-           categoria.valores.push(Number(transacao.valor_total));
-           categoria.transacoes.push(transacao);
+          const semCategoria = categoriaMap.get(-1) || {
+            tag_id: -1,
+            categoria: 'Sem categoria',
+            cor: '#6B7280',
+            valores: [] as number[],
+            transacoes: [] as any[]
+          };
+          semCategoria.valores.push(valor);
+          semCategoria.transacoes.push(transacao);
+          categoriaMap.set(-1, semCategoria);
         }
       } else {
-        // Transação com uma ou mais tags
-        transacao.transacao_tags.forEach(transacaoTag => {
-          const tag = transacaoTag.tags;
-          if (tag) {
-            if (!categoriaMap.has(tag.id)) {
-              categoriaMap.set(tag.id, {
-                tag_id: tag.id,
-                categoria: tag.nome,
-                cor: tag.cor || '#6B7280',
-                valores: [],
-                transacoes: []
-              });
-            }
-                         const categoria = categoriaMap.get(tag.id)!;
-             categoria.valores.push(Number(transacao.valor_total));
-             categoria.transacoes.push(transacao);
+        // Com tags
+        transacao.transacao_tags.forEach((tt: any) => {
+          if (tt.tags) {
+            const tagId = tt.tags.id;
+            const categoria = categoriaMap.get(tagId) || {
+              tag_id: tagId,
+              categoria: tt.tags.nome,
+              cor: (tt.tags.cor as string) || '#6B7280',
+              valores: [] as number[],
+              transacoes: [] as any[]
+            };
+            categoria.valores.push(valor);
+            categoria.transacoes.push(transacao);
+            categoriaMap.set(tagId, categoria);
           }
         });
       }
     });
 
-    // Processar dados das categorias
-    const categoriasProcessadas = Array.from(categoriaMap.values()).map(categoria => {
+    // Calcular métricas por categoria
+    const categorias = Array.from(categoriaMap.values()).map(categoria => {
       const valores = categoria.valores;
-      const quantidade_transacoes = valores.length;
       const valor_total = valores.reduce((sum, val) => sum + val, 0);
+      const quantidade_transacoes = categoria.transacoes.length;
       const valor_medio = quantidade_transacoes > 0 ? valor_total / quantidade_transacoes : 0;
-      const valor_minimo = quantidade_transacoes > 0 ? Math.min(...valores) : 0;
-      const valor_maximo = quantidade_transacoes > 0 ? Math.max(...valores) : 0;
-      
-      const datasTransacoes = categoria.transacoes.map(t => t.data_transacao);
-      const primeira_transacao = datasTransacoes.length > 0 ? new Date(Math.min(...datasTransacoes.map(d => d.getTime()))) : null;
-      const ultima_transacao = datasTransacoes.length > 0 ? new Date(Math.max(...datasTransacoes.map(d => d.getTime()))) : null;
 
       return {
         tag_id: categoria.tag_id,
         categoria: categoria.categoria,
         cor: categoria.cor,
-        quantidade_transacoes,
         valor_total,
+        quantidade_transacoes,
         valor_medio,
-        valor_minimo,
-        valor_maximo,
-        primeira_transacao: primeira_transacao ? primeira_transacao.toISOString().split('T')[0] : null,
-        ultima_transacao: ultima_transacao ? ultima_transacao.toISOString().split('T')[0] : null,
-        percentual_valor: 0, // Será calculado abaixo
-        percentual_quantidade: 0 // Será calculado abaixo
+        percentual_valor: 0, // Será calculado depois
+        percentual_quantidade: 0 // Será calculado depois
       };
     });
 
-    // Ordenar categorias
-    categoriasProcessadas.sort((a, b) => {
-      let valueA, valueB;
-      if (ordenar_por === 'valor') {
-        valueA = a.valor_total;
-        valueB = b.valor_total;
-      } else if (ordenar_por === 'quantidade') {
-        valueA = a.quantidade_transacoes;
-        valueB = b.quantidade_transacoes;
-      } else {
-        valueA = a.categoria.toLowerCase();
-        valueB = b.categoria.toLowerCase();
-        return ordem === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
+    // Calcular totais para percentuais
+    const totalValor = categorias.reduce((sum, cat) => sum + cat.valor_total, 0);
+    const totalQuantidade = categorias.reduce((sum, cat) => sum + cat.quantidade_transacoes, 0);
+
+    // Calcular percentuais
+    categorias.forEach(categoria => {
+      categoria.percentual_valor = totalValor > 0 ? (categoria.valor_total / totalValor) * 100 : 0;
+      categoria.percentual_quantidade = totalQuantidade > 0 ? (categoria.quantidade_transacoes / totalQuantidade) * 100 : 0;
+    });
+
+    // Ordenar por métrica selecionada
+    categorias.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (ordenar_por) {
+        case 'valor':
+          comparison = a.valor_total - b.valor_total;
+          break;
+        case 'quantidade':
+          comparison = a.quantidade_transacoes - b.quantidade_transacoes;
+          break;
+        case 'nome_tag':
+          comparison = a.categoria.localeCompare(b.categoria);
+          break;
       }
-      return ordem === 'asc' ? valueA - valueB : valueB - valueA;
+      
+      return ordem === 'desc' ? -comparison : comparison;
     });
 
     // Aplicar limite
-    const categoriasLimitadas = categoriasProcessadas.slice(0, limite);
+    const categoriasLimitadas = categorias.slice(0, limite);
 
-    // Calcular percentuais
-    const totalValor = categoriasLimitadas.reduce((sum, cat) => sum + cat.valor_total, 0);
-    const totalQuantidade = categoriasLimitadas.reduce((sum, cat) => sum + cat.quantidade_transacoes, 0);
-
-    categoriasLimitadas.forEach(categoria => {
-      categoria.percentual_valor = totalValor > 0 
-        ? (categoria.valor_total / totalValor) * 100 
-        : 0;
-      categoria.percentual_quantidade = totalQuantidade > 0 
-        ? (categoria.quantidade_transacoes / totalQuantidade) * 100 
-        : 0;
-    });
-
-    // Calcular estatísticas gerais
+    // Calcular estatísticas
     const estatisticas = {
-      total_categorias: categoriasLimitadas.length,
-      valor_total_geral: totalValor,
-      quantidade_total_geral: totalQuantidade,
-      valor_medio_geral: totalQuantidade > 0 ? totalValor / totalQuantidade : 0,
-      categoria_maior_valor: categoriasLimitadas.length > 0 
-        ? categoriasLimitadas.reduce((max, cat) => cat.valor_total > max.valor_total ? cat : max)
-        : null,
+      total_categorias: categorias.length,
+      categorias_analisadas: categoriasLimitadas.length,
+      valor_total_analisado: categoriasLimitadas.reduce((sum, cat) => sum + cat.valor_total, 0),
+      quantidade_total_analisada: categoriasLimitadas.reduce((sum, cat) => sum + cat.quantidade_transacoes, 0),
+      valor_medio_geral: categoriasLimitadas.length > 0 
+        ? categoriasLimitadas.reduce((sum, cat) => sum + cat.valor_total, 0) / categoriasLimitadas.length 
+        : 0,
+      categoria_maior_valor: categoriasLimitadas.length > 0 ? categoriasLimitadas[0] : null,
       categoria_mais_frequente: categoriasLimitadas.length > 0 
         ? categoriasLimitadas.reduce((max, cat) => cat.quantidade_transacoes > max.quantidade_transacoes ? cat : max)
         : null
@@ -1350,25 +1364,52 @@ export const getCategorias = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * Relatório de histórico de saldo para uma pessoa
- * GET /api/relatorios/saldo-historico/:pessoaId
+ * Relatório de saldo histórico por pessoa
+ * GET /api/relatorios/saldo-historico/:pessoa_id
  */
 export const getSaldoHistoricoPessoa = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { pessoaId } = req.params;
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
     
-    if (!pessoaId || isNaN(parseInt(pessoaId, 10))) {
-        res.status(400).json({ success: false, message: 'ID da pessoa inválido ou não fornecido.' });
-        return;
+    const pessoaIdParam = req.params.pessoa_id;
+    if (!pessoaIdParam) {
+      res.status(400).json({
+        success: false,
+        message: 'ID da pessoa é obrigatório',
+        timestamp: new Date().toISOString()
+      });
+      return;
     }
-    const id = parseInt(pessoaId, 10);
+    
+    const pessoaId = parseInt(pessoaIdParam);
+    
+    if (isNaN(pessoaId)) {
+      res.status(400).json({
+        success: false,
+        message: 'ID da pessoa deve ser um número válido',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
 
-    // 1. Obter todas as participações em despesas (o que a pessoa deve)
+    // Buscar participações da pessoa
     const participacoes = await prisma.transacao_participantes.findMany({
-      where: { pessoa_id: id },
+      where: {
+        pessoa_id: pessoaId,
+        transacoes: {
+          confirmado: true
+        }
+      },
       include: {
         transacoes: {
-          select: { data_transacao: true }
+          select: {
+            id: true,
+            descricao: true,
+            valor_total: true,
+            data_transacao: true,
+            tipo: true
+          }
         }
       },
       orderBy: {
@@ -1378,98 +1419,109 @@ export const getSaldoHistoricoPessoa = async (req: Request, res: Response): Prom
       }
     });
 
-    // 2. Obter todos os pagamentos feitos pela pessoa
+    // Buscar pagamentos da pessoa
     const pagamentos = await prisma.pagamentos.findMany({
-      where: { pessoa_id: id },
+      where: {
+        pessoa_id: pessoaId
+      },
+      select: {
+        id: true,
+        valor_total: true,
+        data_pagamento: true,
+        forma_pagamento: true
+      },
       orderBy: {
         data_pagamento: 'asc'
       }
     });
-    
-    // 3. Obter todas as receitas recebidas pela pessoa
+
+    // Buscar receitas da pessoa
     const receitas = await prisma.transacoes.findMany({
-        where: {
-            tipo: 'RECEITA',
-            transacao_participantes: {
-                some: {
-                    pessoa_id: id,
-                },
-            },
-        },
-        orderBy: {
-            data_transacao: 'asc',
-        },
+      where: {
+        proprietario_id: pessoaId,
+        tipo: 'RECEITA',
+        confirmado: true
+      },
+      select: {
+        id: true,
+        descricao: true,
+        valor_total: true,
+        data_transacao: true
+      },
+      orderBy: {
+        data_transacao: 'asc'
+      }
     });
 
-    // 4. Unificar em uma timeline de eventos financeiros
-    const eventos: { data: Date; valor: number }[] = [];
+    // Calcular saldo histórico
+    let saldoAtual = 0;
+    const historico: any[] = [];
 
-    participacoes.forEach(p => {
-      eventos.push({
-        data: p.transacoes.data_transacao,
-        valor: -Number(p.valor_devido) // Negativo pois é uma dívida
-      });
-    });
-
-    pagamentos.forEach(p => {
-      eventos.push({
-        data: p.data_pagamento,
-        valor: Number(p.valor_total) // Positivo pois é um pagamento que quita dívidas
-      });
-    });
-    
-    receitas.forEach(r => {
-        eventos.push({
-            data: r.data_transacao,
-            valor: Number(r.valor_total), // Positivo pois é uma receita
-        });
-    });
-
-    // 5. Ordenar todos os eventos por data
-    eventos.sort((a, b) => a.data.getTime() - b.data.getTime());
-
-    // 6. Calcular o saldo cumulativo
-    const saldoHistorico: { data: string; saldo: number }[] = [];
-    let saldoAcumulado = 0;
-
-    if (eventos.length > 0) {
-      // GARANTIA: eventos[0] existe por causa do if
-      let dataAtual = eventos[0]!.data; 
-
-      eventos.forEach((evento) => {
-        // Se a data do evento for diferente da data que estamos agrupando,
-        // salvamos o saldo acumulado para a dataAtual antes de avançar.
-        if (evento.data.toDateString() !== dataAtual.toDateString()) {
-          saldoHistorico.push({
-            data: dataAtual.toISOString().split('T')[0]!,
-            saldo: Number(saldoAcumulado.toFixed(2))
-          });
-          dataAtual = evento.data; // Avança para a nova data
-        }
-        saldoAcumulado += evento.valor;
-      });
+    // Processar participações em gastos
+    participacoes.forEach((p: any) => {
+      const valorDevido = Number(p.valor_devido || 0);
+      const valorPago = Number(p.valor_pago || 0);
+      const valorPendente = valorDevido - valorPago;
       
-      // Adicionar o último saldo para a última data processada
-      saldoHistorico.push({
-        data: dataAtual.toISOString().split('T')[0]!,
-        saldo: Number(saldoAcumulado.toFixed(2))
+      saldoAtual -= valorPendente;
+      
+      historico.push({
+        data: p.transacoes.data_transacao.toISOString().split('T')[0],
+        tipo: 'GASTO',
+        descricao: p.transacoes.descricao,
+        valor: valorPendente,
+        saldo_apos: saldoAtual
       });
-    }
-
-    // Otimizar removendo pontos de dados redundantes (mesmo saldo em dias seguidos)
-    const saldoOtimizado = saldoHistorico.filter((ponto, i, arr) => {
-        // Manter o primeiro e o último ponto para garantir a extensão completa do gráfico.
-        if (i === 0 || i === arr.length - 1) return true; 
-        // Manter o ponto apenas se o saldo for diferente do dia anterior.
-        // GARANTIA: arr[i-1] existe pois i > 0 aqui.
-        return ponto.saldo !== arr[i-1]!.saldo; 
     });
 
+    // Processar pagamentos
+    pagamentos.forEach((p: any) => {
+      const valor = Number(p.valor_total);
+      saldoAtual += valor;
+      
+      historico.push({
+        data: p.data_pagamento.toISOString().split('T')[0],
+        tipo: 'PAGAMENTO',
+        descricao: `Pagamento - ${p.forma_pagamento}`,
+        valor: valor,
+        saldo_apos: saldoAtual
+      });
+    });
+
+    // Processar receitas
+    receitas.forEach((r: any) => {
+      const valor = Number(r.valor_total);
+      saldoAtual += valor;
+      
+      historico.push({
+        data: r.data_transacao.toISOString().split('T')[0],
+        tipo: 'RECEITA',
+        descricao: r.descricao,
+        valor: valor,
+        saldo_apos: saldoAtual
+      });
+    });
+
+    // Ordenar histórico por data
+    historico.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
     res.json({
       success: true,
-      message: 'Histórico de saldo gerado com sucesso.',
-      data: saldoOtimizado,
+      message: 'Histórico de saldo gerado com sucesso',
+      data: {
+        pessoa_id: pessoaId,
+        saldo_atual: saldoAtual,
+        historico: historico,
+        estatisticas: {
+          total_movimentacoes: historico.length,
+          total_gastos: historico.filter(h => h.tipo === 'GASTO').length,
+          total_pagamentos: historico.filter(h => h.tipo === 'PAGAMENTO').length,
+          total_receitas: historico.filter(h => h.tipo === 'RECEITA').length,
+          valor_total_gastos: historico.filter(h => h.tipo === 'GASTO').reduce((sum, h) => sum + h.valor, 0),
+          valor_total_pagamentos: historico.filter(h => h.tipo === 'PAGAMENTO').reduce((sum, h) => sum + h.valor, 0),
+          valor_total_receitas: historico.filter(h => h.tipo === 'RECEITA').reduce((sum, h) => sum + h.valor, 0)
+        }
+      },
       timestamp: new Date().toISOString()
     });
 

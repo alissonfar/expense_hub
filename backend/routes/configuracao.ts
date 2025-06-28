@@ -11,6 +11,7 @@ import {
 } from '../schemas/configuracao';
 import {
   requireAuth,
+  requireHubRole,
   validateSchema
 } from '../middleware/auth';
 import { injectPrismaClient } from '../middleware/prisma';
@@ -133,6 +134,7 @@ router.get('/interface',
  */
 router.put('/interface',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
   injectPrismaClient,
   validateSchema(configuracaoInterfaceSchema),
   updateConfiguracaoInterface

@@ -17,6 +17,7 @@ import {
 } from '../schemas/pagamento';
 import {
   requireAuth,
+  requireHubRole,
   validateSchema,
   validateParams,
   validateQuery
@@ -333,6 +334,7 @@ router.get('/',
  */
 router.post('/',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR']),
   injectPrismaClient,
   validateSchema(createPagamentoSchema),
   createPagamento
@@ -355,6 +357,7 @@ router.get('/:id',
  */
 router.put('/:id',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR']),
   injectPrismaClient,
   validateParams(pagamentoParamsSchema),
   validateSchema(updatePagamentoSchema),
@@ -367,6 +370,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
   injectPrismaClient,
   validateParams(pagamentoParamsSchema),
   deletePagamento

@@ -7,57 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =============================================
-// ENUMS PARA MULTI-TENANCY
-// =============================================
-
-enum Role {
-  PROPRIETARIO
-  ADMINISTRADOR
-  COLABORADOR
-  VISUALIZADOR
-}
-
-enum DataAccessPolicy {
-  GLOBAL
-  INDIVIDUAL
-}
-
-// =============================================
-// NOVOS MODELOS PARA MULTI-TENANCY
-// =============================================
-
 /// Modelo central que representa cada workspace/tenant
 model Hub {
-  id          Int      @id @default(autoincrement())
-  nome        String   @unique @db.VarChar(100)
-  ativo       Boolean  @default(true) // Para soft delete
-  createdAt   DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
-
-  codigoAcesso String? @unique @db.VarChar(20)
-
-  // Relações com dados do tenant
-  membros               MembroHub[]
-  transacoes            transacoes[]
-  tags                  tags[]
-  pagamentos            pagamentos[]
+  id           Int          @id @default(autoincrement())
+  nome         String       @unique @db.VarChar(100)
+  ativo        Boolean      @default(true)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  codigoAcesso String?      @unique @db.VarChar(20)
+  membros       membros_hub[]
+  pagamentos   pagamentos[]
+  tags         tags[]
+  transacoes   transacoes[]
 
   @@index([ativo], map: "idx_hubs_ativo")
   @@index([codigoAcesso], map: "idx_hubs_codigo_acesso")
 }
 
 /// Tabela de junção que define papel e política de cada pessoa em cada Hub
-model MembroHub {
+model membros_hub {
   hubId            Int
   pessoaId         Int
   role             Role              @default(COLABORADOR)
-  dataAccessPolicy DataAccessPolicy? // Aplicável apenas quando role é COLABORADOR
-  ativo            Boolean           @default(true) // Para revogar acesso (soft delete)
+  dataAccessPolicy DataAccessPolicy?
+  ativo            Boolean           @default(true)
   joinedAt         DateTime          @default(now()) @db.Timestamptz(6)
-
-  hub    Hub    @relation(fields: [hubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  pessoa pessoas @relation(fields: [pessoaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  hub              Hub               @relation(fields: [hubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pessoa           pessoas           @relation(fields: [pessoaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([hubId, pessoaId])
   @@index([hubId], map: "idx_membro_hub_hub")
@@ -66,26 +42,21 @@ model MembroHub {
   @@index([role], map: "idx_membro_hub_role")
 }
 
-// =============================================
-// MODELOS MODIFICADOS PARA MULTI-TENANCY
-// =============================================
-
 /// Modelo pessoas modificado para multi-tenancy
 model pessoas {
   id                                             Int                       @id @default(autoincrement())
   nome                                           String                    @db.VarChar(100)
   email                                          String                    @unique @db.VarChar(150)
   telefone                                       String?                   @db.VarChar(20)
-  senha_hash                                     String                    @db.VarChar(255)
-  ehAdministrador                                Boolean                   @default(false) // Superusuário do sistema
+  senha_hash                                     String?                   @db.VarChar(255)
+  ehAdministrador                                Boolean                   @default(false)
   ativo                                          Boolean                   @default(true)
   data_cadastro                                  DateTime                  @default(now()) @db.Timestamptz(6)
   atualizado_em                                  DateTime                  @updatedAt @db.Timestamptz(6)
-
-  // Relação com os Hubs dos quais é membro
-  hubs                                           MembroHub[]
-
-  // Relações com dados que a pessoa CRIA (para política INDIVIDUAL)
+  conviteAtivo                                   Boolean                   @default(false)
+  conviteExpiraEm                                DateTime?                 @db.Timestamptz(6)
+  conviteToken                                   String?                   @unique @db.VarChar(255)
+  hubs                                           membros_hub[]
   pagamentos_pagamentos_pessoa_idTopessoas       pagamentos[]              @relation("pagamentos_pessoa_idTopessoas")
   pagamentos_pagamentos_registrado_porTopessoas  pagamentos[]              @relation("pagamentos_registrado_porTopessoas")
   tags                                           tags[]
@@ -96,12 +67,14 @@ model pessoas {
   @@index([ativo], map: "idx_pessoas_ativo")
   @@index([email], map: "idx_pessoas_email")
   @@index([ehAdministrador], map: "idx_pessoas_eh_administrador")
+  @@index([conviteAtivo], map: "idx_pessoas_convite_ativo")
+  @@index([conviteToken], map: "idx_pessoas_convite_token")
 }
 
 /// Transações modificadas para multi-tenancy
 model transacoes {
   id                                          Int                       @id @default(autoincrement())
-  ativo                                       Boolean                   @default(true) // Soft delete
+  ativo                                       Boolean                   @default(true)
   tipo                                        String                    @db.VarChar(10)
   proprietario_id                             Int
   descricao                                   String                    @db.VarChar(200)
@@ -119,27 +92,24 @@ model transacoes {
   status_pagamento                            String                    @default("PENDENTE") @db.VarChar(15)
   criado_por                                  Int
   atualizado_em                               DateTime                  @updatedAt @db.Timestamptz(6)
-
-  // Chave estrangeira para o Hub (CRÍTICO para isolamento)
   hubId                                       Int
-  hub                                         Hub                       @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   pagamento_transacoes                        pagamento_transacoes[]
   pagamentos_excedente                        pagamentos[]              @relation("PagamentoReceita")
   transacao_participantes                     transacao_participantes[]
   transacao_tags                              transacao_tags[]
   pessoas_transacoes_criado_porTopessoas      pessoas                   @relation("transacoes_criado_porTopessoas", fields: [criado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hub                                         Hub                       @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pessoas_transacoes_proprietario_idTopessoas pessoas                   @relation("transacoes_proprietario_idTopessoas", fields: [proprietario_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([ativo], map: "idx_transacoes_ativo")
-  @@index([hubId], map: "idx_transacoes_hub") // ÍNDICE CRÍTICO
+  @@index([hubId], map: "idx_transacoes_hub")
   @@index([criado_por], map: "idx_transacoes_criado_por")
   @@index([data_transacao], map: "idx_transacoes_data")
   @@index([grupo_parcela], map: "idx_transacoes_grupo_parcela")
   @@index([proprietario_id], map: "idx_transacoes_proprietario")
   @@index([status_pagamento], map: "idx_transacoes_status")
   @@index([tipo], map: "idx_transacoes_tipo")
-  @@index([hubId, ativo], map: "idx_transacoes_hub_ativo") // Índice composto otimizado
+  @@index([hubId, ativo], map: "idx_transacoes_hub_ativo")
 }
 
 /// Tags modificadas para multi-tenancy
@@ -151,26 +121,23 @@ model tags {
   ativo          Boolean          @default(true)
   criado_por     Int
   criado_em      DateTime         @default(now()) @db.Timestamptz(6)
-
-  // Chave estrangeira para o Hub (CRÍTICO para isolamento)
   hubId          Int
-  hub            Hub              @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   pessoas        pessoas          @relation(fields: [criado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  hub            Hub              @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   transacao_tags transacao_tags[]
 
-  @@unique([hubId, nome], map: "unique_tag_nome_per_hub") // Nome único por Hub
+  @@unique([hubId, nome], map: "unique_tag_nome_per_hub")
   @@index([ativo], map: "idx_tags_ativo")
-  @@index([hubId], map: "idx_tags_hub") // ÍNDICE CRÍTICO
+  @@index([hubId], map: "idx_tags_hub")
   @@index([criado_por], map: "idx_tags_criado_por")
   @@index([nome], map: "idx_tags_nome")
-  @@index([hubId, ativo], map: "idx_tags_hub_ativo") // Índice composto otimizado
+  @@index([hubId, ativo], map: "idx_tags_hub_ativo")
 }
 
 /// Pagamentos modificados para multi-tenancy
 model pagamentos {
   id                                         Int                    @id @default(autoincrement())
-  ativo                                      Boolean                @default(true) // Soft delete
+  ativo                                      Boolean                @default(true)
   pessoa_id                                  Int
   valor_total                                Decimal                @db.Decimal(10, 2)
   valor_excedente                            Decimal?               @default(0) @db.Decimal(10, 2)
@@ -182,29 +149,22 @@ model pagamentos {
   registrado_por                             Int
   criado_em                                  DateTime               @default(now()) @db.Timestamptz(6)
   atualizado_em                              DateTime               @updatedAt @db.Timestamptz(6)
-
-  // Chave estrangeira para o Hub (CRÍTICO para isolamento)
   hubId                                      Int
-  hub                                        Hub                    @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   pagamento_transacoes                       pagamento_transacoes[]
+  hub                                        Hub                    @relation(fields: [hubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pessoas_pagamentos_pessoa_idTopessoas      pessoas                @relation("pagamentos_pessoa_idTopessoas", fields: [pessoa_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   receita_excedente                          transacoes?            @relation("PagamentoReceita", fields: [receita_excedente_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pessoas_pagamentos_registrado_porTopessoas pessoas                @relation("pagamentos_registrado_porTopessoas", fields: [registrado_por], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([ativo], map: "idx_pagamentos_ativo")
-  @@index([hubId], map: "idx_pagamentos_hub") // ÍNDICE CRÍTICO
+  @@index([hubId], map: "idx_pagamentos_hub")
   @@index([registrado_por], map: "idx_pagamentos_registrado_por")
   @@index([data_pagamento], map: "idx_pagamentos_data")
   @@index([pessoa_id], map: "idx_pagamentos_pessoa")
   @@index([forma_pagamento], map: "idx_pagamentos_forma")
   @@index([pessoa_id, data_pagamento], map: "idx_pagamentos_pessoa_data")
-  @@index([hubId, ativo], map: "idx_pagamentos_hub_ativo") // Índice composto otimizado
+  @@index([hubId, ativo], map: "idx_pagamentos_hub_ativo")
 }
-
-// =============================================
-// TABELAS AUXILIARES (mantidas como estão)
-// =============================================
 
 /// Nova tabela para detalhamento de pagamentos compostos
 model pagamento_transacoes {
@@ -276,4 +236,16 @@ model pagamentos_backup {
   criado_em       DateTime? @db.Timestamptz(6)
 
   @@ignore
-} 
+}
+
+enum Role {
+  PROPRIETARIO
+  ADMINISTRADOR
+  COLABORADOR
+  VISUALIZADOR
+}
+
+enum DataAccessPolicy {
+  GLOBAL
+  INDIVIDUAL
+}

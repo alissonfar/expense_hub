@@ -110,6 +110,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Verificar se o usuário tem senha definida
+    if (!user.senha_hash) {
+      if (user.conviteAtivo) {
+        res.status(401).json({ 
+          error: 'ConvitePendente', 
+          message: 'Você possui um convite pendente. Verifique seu email ou solicite um novo convite.' 
+        });
+      } else {
+        res.status(401).json({ error: 'CredenciaisInvalidas', message: 'Email ou senha incorretos.' });
+      }
+      return;
+    }
+
     const isPasswordValid = await verifyPassword(senha, user.senha_hash);
     if (!isPasswordValid) {
       res.status(401).json({ error: 'CredenciaisInvalidas', message: 'Email ou senha incorretos.' });
@@ -166,7 +179,7 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
     const userIdentifier = verifyRefreshToken(refreshToken);
 
     // Verificar se o usuário realmente pertence ao Hub solicitado
-    const membership = await prisma.membroHub.findUnique({
+    const membership = await prisma.membros_hub.findUnique({
       where: {
         hubId_pessoaId: {
           hubId,
@@ -305,6 +318,12 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     if (!user) {
       res.status(404).json({ error: 'UsuarioNaoEncontrado', message: 'Usuário não encontrado.' });
+      return;
+    }
+
+    // Verificar se o usuário tem senha definida
+    if (!user.senha_hash) {
+      res.status(400).json({ error: 'SenhaNaoDefinida', message: 'Usuário não possui senha definida. Use o sistema de convite para ativar sua conta.' });
       return;
     }
 

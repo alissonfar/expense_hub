@@ -9,6 +9,10 @@ import {
   logout
 } from '../controllers/authController';
 import {
+  ativarConvite,
+  reenviarConvite
+} from '../controllers/pessoaController';
+import {
   requireAuth,
   validateSchema,
   strictRateLimit
@@ -18,7 +22,9 @@ import {
   loginSchema,
   selectHubSchema,
   updateProfileSchema,
-  changePasswordSchema
+  changePasswordSchema,
+  ativarConviteSchema,
+  reenviarConviteSchema
 } from '../schemas/auth';
 
 // =============================================
@@ -62,6 +68,14 @@ router.post('/select-hub',
     selectHub
 );
 
+/**
+ * POST /api/auth/ativar-convite
+ * Ativa um convite e define a senha do usuário.
+ */
+router.post('/ativar-convite',
+  validateSchema(ativarConviteSchema),
+  ativarConvite
+);
 
 // =============================================
 // ROTAS PROTEGIDAS (REQUEREM ACCESS TOKEN DE UM HUB)
@@ -98,6 +112,16 @@ router.put('/change-password',
 );
 
 /**
+ * POST /api/auth/reenviar-convite
+ * Reenvia um convite para um email.
+ */
+router.post('/reenviar-convite',
+  requireAuth,
+  validateSchema(reenviarConviteSchema),
+  reenviarConvite
+);
+
+/**
  * POST /api/auth/logout
  * Ação de logout do lado do servidor (atualmente um placeholder).
  */
@@ -126,13 +150,15 @@ router.get('/info', (req, res) => {
       public: {
         register: { method: 'POST', path: '/api/auth/register' },
         login: { method: 'POST', path: '/api/auth/login' },
-        selectHub: { method: 'POST', path: '/api/auth/select-hub' }
+        selectHub: { method: 'POST', path: '/api/auth/select-hub' },
+        ativarConvite: { method: 'POST', path: '/api/auth/ativar-convite' }
       },
       protected: {
         profile: { method: 'GET', path: '/api/auth/me' },
         updateProfile: { method: 'PUT', path: '/api/auth/profile' },
         changePassword: { method: 'PUT', path: '/api/auth/change-password' },
         logout: { method: 'POST', path: '/api/auth/logout' },
+        reenviarConvite: { method: 'POST', path: '/api/auth/reenviar-convite' }
       }
     },
     timestamp: new Date().toISOString()

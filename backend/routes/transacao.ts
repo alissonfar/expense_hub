@@ -18,10 +18,12 @@ import {
 } from '../schemas/transacao';
 import { 
   requireAuth, 
+  requireHubRole,
   validateSchema, 
   validateParams, 
   validateQuery 
 } from '../middleware/auth';
+import { injectPrismaClient } from '../middleware/prisma';
 
 const router = Router();
 
@@ -188,6 +190,8 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR']),
+  injectPrismaClient,
   validateSchema(createGastoSchema),
   createGasto
 );
@@ -199,6 +203,8 @@ router.post(
 router.post(
   '/receita',
   requireAuth,
+  requireHubRole(['PROPRIETARIO']),
+  injectPrismaClient,
   validateSchema(createReceitaSchema),
   createReceita
 );
@@ -210,6 +216,8 @@ router.post(
 router.put(
   '/:id',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR']),
+  injectPrismaClient,
   validateParams(transacaoParamsSchema),
   validateSchema(updateGastoSchema),
   updateTransacao
@@ -222,6 +230,8 @@ router.put(
 router.put(
   '/receita/:id',
   requireAuth,
+  requireHubRole(['PROPRIETARIO']),
+  injectPrismaClient,
   validateParams(transacaoParamsSchema),
   validateSchema(updateReceitaSchema),
   updateReceita
@@ -234,6 +244,8 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
+  injectPrismaClient,
   validateParams(transacaoParamsSchema),
   deleteTransacao
 );

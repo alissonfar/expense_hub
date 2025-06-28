@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { getExtendedPrismaClient } from '../utils/prisma';
 import { 
   createGastoSchema, 
   updateGastoSchema,
@@ -10,8 +11,6 @@ import { CreateGastoInput, CreateReceitaInput, UpdateGastoInput, UpdateReceitaIn
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
-const prisma = new PrismaClient();
-
 // =============================================
 // CONTROLLER DE TRANSAÇÕES (GASTOS)
 // =============================================
@@ -21,8 +20,9 @@ const prisma = new PrismaClient();
  * GET /api/transacoes
  */
 export const listTransacoes = async (req: Request, res: Response): Promise<void> => {
+  const prisma = getExtendedPrismaClient(req.auth!);
   try {
-    const { 
+    const {
       tipo,
       status_pagamento,
       data_inicio,
@@ -32,120 +32,49 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       eh_parcelado,
       grupo_parcela,
       page = 1,
-      limit = 20 
+      limit = 20
     }: TransacaoQueryInput = req.query;
 
-    // Construir filtros
-    const where: any = {};
-    
-    // Aplicar filtro de tipo apenas se especificado
-    if (tipo) {
-      where.tipo = tipo;
-    }
-    
-    if (status_pagamento) {
-      where.status_pagamento = status_pagamento;
-    }
-    
-    if (data_inicio || data_fim) {
-      where.data_transacao = {};
-      if (data_inicio) {
-        where.data_transacao.gte = new Date(data_inicio);
-      }
-      if (data_fim) {
-        where.data_transacao.lte = new Date(data_fim);
-      }
-    }
-    
-    if (eh_parcelado !== undefined) {
-      where.eh_parcelado = eh_parcelado;
-    }
-    
-    if (grupo_parcela) {
-      where.grupo_parcela = grupo_parcela;
-    }
-    
-    if (pessoa_id) {
-      where.transacao_participantes = {
-        some: {
-          pessoa_id: pessoa_id
-        }
-      };
-    }
-    
-    if (tag_id) {
-      where.transacao_tags = {
-        some: {
-          tag_id: tag_id
-        }
-      };
-    }
+    const where: Prisma.transacoesWhereInput = {};
 
-    // Calcular offset para paginação
+    if (tipo) where.tipo = tipo;
+    if (status_pagamento) where.status_pagamento = status_pagamento;
+    if (data_inicio) where.data_transacao = { ...where.data_transacao as object, gte: new Date(data_inicio) };
+    if (data_fim) where.data_transacao = { ...where.data_transacao as object, lte: new Date(data_fim) };
+    if (eh_parcelado !== undefined) where.eh_parcelado = eh_parcelado;
+    if (grupo_parcela) where.grupo_parcela = grupo_parcela;
+    if (pessoa_id) where.transacao_participantes = { some: { pessoa_id } };
+    if (tag_id) where.transacao_tags = { some: { tag_id } };
+
     const offset = (page - 1) * limit;
 
-    // Buscar transações com relacionamentos
-    const [transacoes, total] = await Promise.all([
+    const [transacoes, total] = await prisma.$transaction([
       prisma.transacoes.findMany({
         where,
         include: {
-          pessoas_transacoes_proprietario_idTopessoas: {
-            select: { id: true, nome: true, email: true }
-          },
-          pessoas_transacoes_criado_porTopessoas: {
-            select: { id: true, nome: true }
-          },
-          transacao_participantes: {
-            include: {
-              pessoas: {
-                select: { id: true, nome: true, email: true }
-              }
-            }
-          },
-          transacao_tags: {
-            include: {
-              tags: {
-                select: { id: true, nome: true, cor: true, icone: true }
-              }
-            }
-          }
+          pessoas_transacoes_proprietario_idTopessoas: { select: { id: true, nome: true } },
+          pessoas_transacoes_criado_porTopessoas: { select: { id: true, nome: true } },
+          transacao_participantes: { include: { pessoas: { select: { id: true, nome: true } } } },
+          transacao_tags: { include: { tags: { select: { id: true, nome: true, cor: true } } } }
         },
-        orderBy: [
-          { data_transacao: 'desc' },
-          { id: 'desc' }
-        ],
+        orderBy: [{ data_transacao: 'desc' }, { id: 'desc' }],
         skip: offset,
         take: limit
       }),
       prisma.transacoes.count({ where })
     ]);
 
-    // Calcular estatísticas
     const stats = await prisma.transacoes.aggregate({
       where,
-      _sum: {
-        valor_total: true
-      },
-      _count: {
-        id: true
-      }
+      _sum: { valor_total: true },
+      _count: { id: true }
     });
 
     res.json({
       success: true,
       message: 'Transações listadas com sucesso',
       data: {
-        transacoes: transacoes.map((t: any) => ({
-          ...t,
-          valor_total: Number(t.valor_total), // Converter Decimal para Number
-          valor_parcela: Number(t.valor_parcela), // Converter Decimal para Number
-          transacao_participantes: t.transacao_participantes.map((p: any) => ({
-            ...p,
-            valor_devido: Number(p.valor_devido), // Converter Decimal para Number
-            valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
-            valor_pago: Number(p.valor_pago) // Converter Decimal para Number
-          }))
-        })),
+        transacoes,
         paginacao: {
           page,
           limit,
@@ -154,8 +83,7 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
         },
         estatisticas: {
           total_transacoes: stats._count.id || 0,
-          valor_total: Number(stats._sum.valor_total || 0),
-          valor_medio: total > 0 ? Number(stats._sum.valor_total || 0) / total : 0
+          valor_total: stats._sum.valor_total || 0,
         }
       },
       timestamp: new Date().toISOString()
@@ -176,237 +104,157 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
  * POST /api/transacoes
  */
 export const createGasto = async (req: Request, res: Response): Promise<void> => {
+  const prisma = getExtendedPrismaClient(req.auth!);
+  const { hubId, pessoaId: userId } = req.auth!;
+  const data: CreateGastoInput = req.body;
+
   try {
-    const userId = (req as any).user?.user_id;
-    const {
-      descricao,
-      local,
-      valor_total,
-      data_transacao,
-      observacoes,
-      eh_parcelado = false,
-      total_parcelas = 1,
-      participantes,
-      tags = []
-    }: CreateGastoInput = req.body;
-
-    // Verificar se usuário logado está ativo (permissão já validada pelo middleware requireAuth)
-    const usuarioLogado = await prisma.pessoas.findUnique({
-      where: { id: userId },
-      select: { ativo: true }
-    });
-
-    if (!usuarioLogado) {
-      res.status(404).json({
-        success: false,
-        message: 'Usuário não encontrado',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    if (!usuarioLogado.ativo) {
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    if (!allowedRoles.includes(req.auth!.role)) {
       res.status(403).json({
-        success: false,
-        message: 'Usuário inativo não pode criar transações',
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    // Permissão para criar transações já validada pelo middleware de auth
+    const { descricao, local, valor_total, data_transacao, observacoes, participantes, tags = [], eh_parcelado, total_parcelas } = data;
 
-    // Validar se as pessoas existem
-    const pessoasIds = participantes.map(p => p.pessoa_id);
-    const pessoasExistentes = await prisma.pessoas.findMany({
-      where: {
-        id: { in: pessoasIds },
-        ativo: true
-      },
-      select: { id: true, nome: true }
-    });
-
-    if (pessoasExistentes.length !== pessoasIds.length) {
-      const idsEncontrados = pessoasExistentes.map((p: any) => p.id);
-      const idsNaoEncontrados = pessoasIds.filter(id => !idsEncontrados.includes(id));
-      res.status(400).json({
-        success: false,
-        message: `Pessoas não encontradas: ${idsNaoEncontrados.join(', ')}`,
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Validar se as tags existem (se fornecidas)
-    if (tags.length > 0) {
-      const tagsExistentes = await prisma.tags.findMany({
-        where: {
+    // VALIDAÇÃO DE TAGS - Garantir que todas pertencem ao mesmo Hub
+    if (tags && tags.length > 0) {
+      const tagsValidas = await prisma.tags.findMany({
+        where: { 
           id: { in: tags },
-          ativo: true
+          hubId: hubId // ✅ VALIDAÇÃO DE HUB
         },
         select: { id: true }
       });
 
-      if (tagsExistentes.length !== tags.length) {
-        const idsEncontrados = tagsExistentes.map((t: any) => t.id);
-        const idsNaoEncontrados = tags.filter(id => !idsEncontrados.includes(id));
+      if (tagsValidas.length !== tags.length) {
         res.status(400).json({
-          success: false,
-          message: `Tags não encontradas: ${idsNaoEncontrados.join(', ')}`,
+          error: 'TagsInvalidas',
+          message: 'Algumas tags não pertencem a este Hub ou não existem.',
           timestamp: new Date().toISOString()
         });
         return;
       }
     }
 
-    // Proprietário é sempre o usuário logado (já validado como proprietário)
-    const proprietario_id = userId;
+    // Garantir valores padrão para parcelamento
+    const totalParcelas = total_parcelas || 1;
+    const ehParcelado = eh_parcelado || false;
 
-    // Lógica de parcelamento - tipagem explícita
-    interface ParcelaData {
-      descricao: string;
-      local: string | undefined;
-      valor_total: number;
-      valor_parcela: number;
-      data_transacao: Date;
-      observacoes: string | undefined;
-      eh_parcelado: boolean;
-      parcela_atual: number;
-      total_parcelas: number;
-      grupo_parcela: string;
-      participantes: Array<{
-        pessoa_id: number;
-        valor_devido: number;
-      }>;
-    }
-    
-    const parcelas: ParcelaData[] = [];
-    
-    if (eh_parcelado && total_parcelas > 1) {
-      // Gerar UUID do grupo
-      const grupo_parcela = randomUUID();
-      
-      // Calcular valor base por parcela
-      const valor_base = Math.floor((valor_total * 100) / total_parcelas) / 100;
-      const resto_centavos = Math.round((valor_total - (valor_base * total_parcelas)) * 100);
-      
-      for (let i = 1; i <= total_parcelas; i++) {
-        // Distribuir centavos restantes nas primeiras parcelas
-        const valor_parcela = i <= resto_centavos ? valor_base + 0.01 : valor_base;
-        
-        // Calcular data da parcela
-        const dataBase = new Date(data_transacao);
-        const dataParcela = i === 1 
-          ? new Date(data_transacao) // Primeira parcela mantém data original
-          : new Date(dataBase.getFullYear(), dataBase.getMonth() + (i - 1), 1); // Demais no dia 1
-        
-        parcelas.push({
-          descricao: `${descricao} (${i}/${total_parcelas})`,
-          local: local || undefined,
-          valor_total: valor_parcela,
-          valor_parcela,
-          data_transacao: dataParcela,
-          observacoes: i === 1 ? (observacoes || undefined) : undefined,
-          eh_parcelado: true,
-          parcela_atual: i,
-          total_parcelas,
-          grupo_parcela,
-          participantes: participantes.map(p => ({
-            ...p,
-            valor_devido: Math.round((p.valor_devido / total_parcelas) * 100) / 100
-          }))
-        });
+    const pessoasIds = participantes.map(p => p.pessoa_id);
+    const grupoParcela = ehParcelado ? randomUUID() : null;
+
+    // Verificar se todos os participantes pertencem ao Hub
+    const membrosValidos = await prisma.membros_hub.findMany({
+      where: {
+        hubId,
+        pessoaId: { in: pessoasIds },
+        ativo: true
       }
-    } else {
-      // Transação única
-      parcelas.push({
-        descricao,
-        local: local || undefined,
-        valor_total,
-        valor_parcela: valor_total,
-        data_transacao: new Date(data_transacao),
-        observacoes: observacoes || undefined,
-        eh_parcelado: false,
-        parcela_atual: 1,
-        total_parcelas: 1,
-        grupo_parcela: randomUUID(),
-        participantes
-      });
-    }
-
-    // Criar transações em transação do banco
-    const resultados = await prisma.$transaction(async (tx: any) => {
-      const transacoesCriadas = [];
-
-      for (const parcela of parcelas) {
-        // Criar transação
-        const transacao = await tx.transacoes.create({
-          data: {
-            tipo: 'GASTO',
-            proprietario_id,
-            descricao: parcela.descricao,
-            local: parcela.local || null,
-            valor_total: parcela.valor_total,
-            data_transacao: parcela.data_transacao,
-            observacoes: parcela.observacoes || null,
-            eh_parcelado: parcela.eh_parcelado,
-            parcela_atual: parcela.parcela_atual,
-            total_parcelas: parcela.total_parcelas,
-            valor_parcela: parcela.valor_parcela,
-            grupo_parcela: parcela.grupo_parcela,
-            criado_por: userId
-          }
-        });
-
-        // Criar participantes
-        for (const participante of parcela.participantes) {
-          await tx.transacao_participantes.create({
-            data: {
-              transacao_id: transacao.id,
-              pessoa_id: participante.pessoa_id,
-              valor_devido: participante.valor_devido,
-              eh_proprietario: participante.pessoa_id === proprietario_id
-            }
-          });
-        }
-
-        // Criar tags
-        if (tags.length > 0) {
-          for (const tag_id of tags) {
-            await tx.transacao_tags.create({
-              data: {
-                transacao_id: transacao.id,
-                tag_id
-              }
-            });
-          }
-        }
-
-        transacoesCriadas.push(transacao);
-      }
-
-      return transacoesCriadas;
     });
 
-    // Verificar se resultados não está vazio
-    if (resultados.length === 0) {
-      res.status(500).json({
-        success: false,
-        message: 'Erro interno: nenhuma transação foi criada',
+    if (membrosValidos.length !== pessoasIds.length) {
+      res.status(400).json({
+        error: 'ParticipantesInvalidos',
+        message: 'Alguns participantes não pertencem a este Hub.',
         timestamp: new Date().toISOString()
       });
       return;
     }
 
+    const transacoesCriadas: any[] = [];
+
+    await prisma.$transaction(async (tx) => {
+      const extendedTx = getExtendedPrismaClient(req.auth!).$extends({
+        client: { $transaction: tx }
+      });
+
+      if (ehParcelado && totalParcelas > 1) {
+        const valorParcela = parseFloat((valor_total / totalParcelas).toFixed(2));
+        const somaOriginalParticipantes = participantes.reduce((acc, p) => acc + p.valor_devido, 0);
+
+        for (let i = 1; i <= totalParcelas; i++) {
+          const dataParcela = new Date(data_transacao);
+          dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
+
+          const transacaoData = {
+            hubId,
+            descricao: `${descricao} (Parc. ${i}/${totalParcelas})`,
+            local: local || null,
+            valor_total: valorParcela,
+            valor_parcela: valorParcela,
+            data_transacao: dataParcela,
+            observacoes: observacoes || null,
+            eh_parcelado: true,
+            parcela_atual: i,
+            total_parcelas: totalParcelas,
+            grupo_parcela: grupoParcela,
+            tipo: 'GASTO',
+            proprietario_id: userId,
+            criado_por: userId,
+            transacao_participantes: {
+              create: participantes.map(p => {
+                const proporcao = p.valor_devido / somaOriginalParticipantes;
+                const valorDevidoParcela = parseFloat((valorParcela * proporcao).toFixed(2));
+                return {
+                  pessoa_id: p.pessoa_id,
+                  valor_devido: valorDevidoParcela,
+                  eh_proprietario: p.pessoa_id === userId
+                };
+              })
+            },
+            transacao_tags: {
+              create: tags.map(tagId => ({ tag_id: tagId }))
+            }
+          };
+          const novaTransacao = await extendedTx.transacoes.create({ data: transacaoData });
+          transacoesCriadas.push(novaTransacao);
+        }
+      } else {
+        const transacaoData = {
+          hubId,
+          descricao,
+          local: local || null,
+          valor_total,
+          valor_parcela: valor_total,
+          data_transacao: new Date(data_transacao),
+          observacoes: observacoes || null,
+          eh_parcelado: false,
+          parcela_atual: 1,
+          total_parcelas: 1,
+          grupo_parcela: grupoParcela,
+          tipo: 'GASTO',
+          proprietario_id: userId,
+          criado_por: userId,
+          transacao_participantes: {
+            create: participantes.map(p => ({
+              pessoa_id: p.pessoa_id,
+              valor_devido: p.valor_devido,
+              eh_proprietario: p.pessoa_id === userId,
+            }))
+          },
+          transacao_tags: {
+            create: tags.map(tagId => ({ tag_id: tagId }))
+          }
+        };
+        const novaTransacao = await extendedTx.transacoes.create({ data: transacaoData });
+        transacoesCriadas.push(novaTransacao);
+      }
+    });
+
     res.status(201).json({
       success: true,
-      message: eh_parcelado 
-        ? `Gasto parcelado criado com sucesso (${total_parcelas} parcelas)`
-        : 'Gasto criado com sucesso',
+      message: ehParcelado ? `Gasto parcelado em ${totalParcelas}x criado com sucesso` : 'Gasto criado com sucesso',
       data: {
-        transacoes: resultados,
-        grupo_parcela: resultados[0]?.grupo_parcela,
-        total_parcelas: resultados.length
+        transacoes: transacoesCriadas,
+        grupo_parcela: transacoesCriadas[0]?.grupo_parcela,
+        total_parcelas: transacoesCriadas.length
       },
       timestamp: new Date().toISOString()
     });
@@ -422,220 +270,125 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
- * Busca detalhes de uma transação específica
+ * Detalhes de uma transação
  * GET /api/transacoes/:id
  */
 export const getTransacao = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const id = req.params.id;
-    
-    if (!id || isNaN(parseInt(id))) {
-      res.status(400).json({
-        success: false,
-        message: 'ID da transação inválido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
+  const prisma = getExtendedPrismaClient(req.auth!);
+  const { id } = req.params;
 
+  if (!id) {
+    res.status(400).json({ success: false, message: 'ID da transação é obrigatório.' });
+    return;
+  }
+
+  try {
     const transacao = await prisma.transacoes.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       include: {
-        pessoas_transacoes_proprietario_idTopessoas: {
-          select: { id: true, nome: true, email: true, telefone: true }
-        },
-        pessoas_transacoes_criado_porTopessoas: {
-          select: { id: true, nome: true }
-        },
-        transacao_participantes: {
-          include: {
-            pessoas: {
-              select: { id: true, nome: true, email: true }
-            }
-          },
-          orderBy: { valor_devido: 'desc' }
-        },
-        transacao_tags: {
-          include: {
-            tags: {
-              select: { id: true, nome: true, cor: true, icone: true }
-            }
-          }
-        }
+        transacao_participantes: { include: { pessoas: { select: { id: true, nome: true } } } },
+        transacao_tags: { include: { tags: true } },
+        pagamento_transacoes: { include: { pagamentos: true } },
+        pessoas_transacoes_criado_porTopessoas: { select: { id: true, nome: true } }
       }
     });
 
     if (!transacao) {
-      res.status(404).json({
-        success: false,
-        message: 'Transação não encontrada',
-        timestamp: new Date().toISOString()
-      });
+      res.status(404).json({ success: false, message: 'Transação não encontrada' });
       return;
     }
 
-    // Buscar outras parcelas do mesmo grupo (se parcelado)
-    interface ParcelaRelacionada {
-      id: number;
-      descricao: string;
-      valor_total: any; // Decimal do Prisma
-      data_transacao: Date;
-      parcela_atual: number | null;
-      status_pagamento: string | null;
-    }
-    
-    let parcelas_relacionadas: ParcelaRelacionada[] = [];
-    if (transacao.eh_parcelado && transacao.grupo_parcela) {
-      parcelas_relacionadas = await prisma.transacoes.findMany({
-        where: {
-          grupo_parcela: transacao.grupo_parcela,
-          id: { not: transacao.id }
-        },
-        select: {
-          id: true,
-          descricao: true,
-          valor_total: true,
-          data_transacao: true,
-          parcela_atual: true,
-          status_pagamento: true
-        },
-        orderBy: { parcela_atual: 'asc' }
-      });
-    }
-
-    // Calcular estatísticas da transação
-    const total_devido = transacao.transacao_participantes
-      .reduce((acc: number, p: any) => acc + Number(p.valor_devido), 0);
-    
-    const total_pago = transacao.transacao_participantes
-      .reduce((acc: number, p: any) => acc + Number(p.valor_pago), 0);
+    const total_pago = transacao.transacao_participantes.reduce((sum, p) => sum + Number(p.valor_pago || 0), 0);
+    const total_devido = transacao.transacao_participantes.reduce((sum, p) => sum + Number(p.valor_devido || 0), 0);
+    const saldo_devedor = total_devido - total_pago;
 
     res.json({
       success: true,
-      message: 'Transação encontrada com sucesso',
       data: {
         ...transacao,
-        valor_total: Number(transacao.valor_total), // Converter Decimal para Number
-        valor_parcela: Number(transacao.valor_parcela), // Converter Decimal para Number
-        parcelas_relacionadas: parcelas_relacionadas.map(p => ({
-          ...p,
-          valor_total: Number(p.valor_total) // Converter Decimal para Number
-        })),
-        transacao_participantes: transacao.transacao_participantes.map((p: any) => ({
-          ...p,
-          valor_devido: Number(p.valor_devido), // Converter Decimal para Number
-          valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
-          valor_pago: Number(p.valor_pago) // Converter Decimal para Number
-        })),
         estatisticas: {
-          total_devido,
           total_pago,
-          total_pendente: total_devido - total_pago,
-          percentual_pago: total_devido > 0 ? (total_pago / total_devido) * 100 : 0
+          total_devido,
+          saldo_devedor
         }
       },
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Erro ao buscar transação:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor ao buscar transação',
-      timestamp: new Date().toISOString()
-    });
+    console.error(`Erro ao buscar transação ${id}:`, error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
 
 /**
- * Atualiza uma transação existente
+ * Edita uma transação existente
  * PUT /api/transacoes/:id
  */
 export const updateTransacao = async (req: Request, res: Response): Promise<void> => {
+  const prisma = getExtendedPrismaClient(req.auth!);
+  const { id } = req.params;
+  const data: UpdateGastoInput = req.body;
+  const { hubId } = req.auth!;
+
+  if (!id) {
+    res.status(400).json({ success: false, message: 'ID da transação é obrigatório.' });
+    return;
+  }
+
   try {
-    const id = req.params.id;
-    const { descricao, local, observacoes, tags }: UpdateGastoInput = req.body;
-    
-    if (!id || isNaN(parseInt(id))) {
-      res.status(400).json({
-        success: false,
-        message: 'ID da transação inválido',
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
+    if (!allowedRoles.includes(req.auth!.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    // Verificar se transação existe
-    const transacaoExistente = await prisma.transacoes.findUnique({
-      where: { id: parseInt(id) }
-    });
-
+    const transacaoExistente = await prisma.transacoes.findUnique({ where: { id: parseInt(id, 10) } });
     if (!transacaoExistente) {
-      res.status(404).json({
-        success: false,
-        message: 'Transação não encontrada',
-        timestamp: new Date().toISOString()
-      });
+      res.status(404).json({ success: false, message: 'Transação não encontrada' });
       return;
     }
 
-    // Validar tags (se fornecidas)
-    if (tags && tags.length > 0) {
-      const tagsExistentes = await prisma.tags.findMany({
-        where: {
-          id: { in: tags },
-          ativo: true
+    // VALIDAÇÃO DE TAGS - Garantir que todas pertencem ao mesmo Hub
+    if (data.tags && data.tags.length > 0) {
+      const tagsValidas = await prisma.tags.findMany({
+        where: { 
+          id: { in: data.tags },
+          hubId: hubId // ✅ VALIDAÇÃO DE HUB
         },
         select: { id: true }
       });
 
-      if (tagsExistentes.length !== tags.length) {
-        const idsEncontrados = tagsExistentes.map((t: any) => t.id);
-        const idsNaoEncontrados = tags.filter(id => !idsEncontrados.includes(id));
+      if (tagsValidas.length !== data.tags.length) {
         res.status(400).json({
-          success: false,
-          message: `Tags não encontradas: ${idsNaoEncontrados.join(', ')}`,
+          error: 'TagsInvalidas',
+          message: 'Algumas tags não pertencem a este Hub ou não existem.',
           timestamp: new Date().toISOString()
         });
         return;
       }
     }
 
-    // Atualizar em transação
-    const transacaoAtualizada = await prisma.$transaction(async (tx: any) => {
-      // Atualizar dados básicos da transação
-      const dadosAtualizacao: any = {};
-      
-      if (descricao !== undefined) dadosAtualizacao.descricao = descricao;
-      if (local !== undefined) dadosAtualizacao.local = local || null;
-      if (observacoes !== undefined) dadosAtualizacao.observacoes = observacoes || null;
+    // Constrói o objeto de atualização dinamicamente para evitar 'undefined'
+    const updateData: Prisma.transacoesUpdateInput = {};
+    if (data.descricao !== undefined) updateData.descricao = data.descricao;
+    if (data.local !== undefined) updateData.local = data.local || null;
+    if (data.observacoes !== undefined) updateData.observacoes = data.observacoes || null;
+    if (data.tags !== undefined) {
+      updateData.transacao_tags = {
+        deleteMany: {},
+        create: data.tags.map(tagId => ({ tag_id: tagId }))
+      };
+    }
 
-      const transacao = await tx.transacoes.update({
-        where: { id: parseInt(id) },
-        data: dadosAtualizacao
-      });
-
-      // Atualizar tags (se fornecidas)
-      if (tags !== undefined) {
-        // Remover tags existentes
-        await tx.transacao_tags.deleteMany({
-          where: { transacao_id: parseInt(id) }
-        });
-
-        // Adicionar novas tags
-        if (tags.length > 0) {
-          for (const tag_id of tags) {
-            await tx.transacao_tags.create({
-              data: {
-                transacao_id: parseInt(id),
-                tag_id
-              }
-            });
-          }
-        }
-      }
-
-      return transacao;
+    const transacaoAtualizada = await prisma.transacoes.update({
+      where: { id: parseInt(id, 10) },
+      data: updateData
     });
 
     res.json({
@@ -644,388 +397,194 @@ export const updateTransacao = async (req: Request, res: Response): Promise<void
       data: transacaoAtualizada,
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Erro ao atualizar transação:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor ao atualizar transação',
-      timestamp: new Date().toISOString()
-    });
+    console.error(`Erro ao atualizar transação ${id}:`, error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
 
 /**
- * Remove uma transação (soft delete via status)
+ * Remove uma transação (soft delete)
  * DELETE /api/transacoes/:id
  */
 export const deleteTransacao = async (req: Request, res: Response): Promise<void> => {
+  const prisma = getExtendedPrismaClient(req.auth!);
+  const { id } = req.params;
+
+  if (!id) {
+    res.status(400).json({ success: false, message: 'ID da transação é obrigatório.' });
+    return;
+  }
+
   try {
-    const id = req.params.id;
-    
-    if (!id || isNaN(parseInt(id))) {
-      res.status(400).json({
-        success: false,
-        message: 'ID da transação inválido',
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR'];
+    if (!allowedRoles.includes(req.auth!.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    // Verificar se transação existe
     const transacao = await prisma.transacoes.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: parseInt(id, 10) },
+      include: { pagamento_transacoes: true }
     });
 
     if (!transacao) {
-      res.status(404).json({
-        success: false,
-        message: 'Transação não encontrada',
-        timestamp: new Date().toISOString()
-      });
+      res.status(404).json({ success: false, message: 'Transação não encontrada' });
       return;
     }
 
-    // Verificar se há pagamentos registrados (busca direta por enquanto)
-    const pagamentosVinculados = await prisma.$queryRaw`
-      SELECT COUNT(*) as count FROM pagamento_transacoes WHERE transacao_id = ${parseInt(id)}
-    ` as any[];
-
-    if (pagamentosVinculados[0]?.count > 0) {
-      res.status(400).json({
-        success: false,
-        message: 'Não é possível excluir transação que possui pagamentos registrados',
-        timestamp: new Date().toISOString()
-      });
+    if (transacao.pagamento_transacoes.length > 0) {
+      res.status(400).json({ success: false, message: 'Não é possível excluir transações com pagamentos associados.' });
       return;
     }
 
-    // Exclusão física (CASCADE remove participantes e tags automaticamente)
-    await prisma.transacoes.delete({
-      where: { id: parseInt(id) }
+    await prisma.transacoes.update({
+      where: { id: parseInt(id, 10) },
+      data: { ativo: false }
     });
 
     res.json({
       success: true,
-      message: 'Transação excluída com sucesso',
+      message: 'Transação removida com sucesso',
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Erro ao excluir transação:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erro interno do servidor ao excluir transação',
-      timestamp: new Date().toISOString()
-    });
+    console.error(`Erro ao excluir transação ${id}:`, error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
 
 // =============================================
-// FUNÇÕES ESPECÍFICAS PARA RECEITAS
+// CONTROLLER DE TRANSAÇÕES (RECEITAS)
 // =============================================
 
 /**
- * 📈 CRIAR RECEITA (POST /api/transacao/receita)
- * Cria uma nova receita exclusiva do proprietário
+ * Cria uma nova receita
+ * POST /api/transacoes/receita
  */
 export const createReceita = async (req: Request, res: Response): Promise<void> => {
+  const { pessoaId: userId, hubId } = req.auth!;
+  const prisma = getExtendedPrismaClient(req.auth!);
+
   try {
-    const userId = req.auth?.pessoaId;
-    if (!userId) {
-      res.status(401).json({ error: 'Usuário não autenticado' });
-      return;
-    }
-
-    // Validação dos dados
-    const dadosValidados = createReceitaSchema.parse(req.body);
-    
-    // Verificar se todas as tags existem e pertencem ao usuário
-    if (dadosValidados.tags && dadosValidados.tags.length > 0) {
-      const tagsExistentes = await prisma.tags.findMany({
-        where: {
-          id: { in: dadosValidados.tags },
-          criado_por: userId
-        }
-      });
-
-      if (tagsExistentes.length !== dadosValidados.tags.length) {
-        res.status(400).json({ 
-          error: 'Uma ou mais tags não existem ou não pertencem ao usuário' 
-        });
-        return;
-      }
-    }
-
-    // Executar transação no banco
-    const resultado = await prisma.$transaction(async (prisma: any) => {
-      // 1. Criar a transação principal
-      const transacao = await prisma.transacoes.create({
-        data: {
-          tipo: 'RECEITA',
-          descricao: dadosValidados.descricao,
-          local: dadosValidados.local || '',
-          valor_total: dadosValidados.valor_recebido,
-          data_transacao: new Date(dadosValidados.data_transacao),
-          observacoes: dadosValidados.observacoes || '',
-          proprietario_id: userId,
-          valor_parcela: dadosValidados.valor_recebido, // Valor da parcela
-          status_pagamento: 'PAGO_TOTAL',
-          criado_por: userId
-        }
-      });
-
-      // 2. O participante é criado automaticamente pelo trigger 'garantir_proprietario_receita'
-      // Não precisamos criar manualmente - o trigger já faz isso!
-
-      // 3. Associar tags se fornecidas
-      if (dadosValidados.tags && dadosValidados.tags.length > 0) {
-        const tagsData = dadosValidados.tags.map(tagId => ({
-          transacao_id: transacao.id,
-          tag_id: tagId
-        }));
-
-        await prisma.transacao_tags.createMany({
-          data: tagsData
-        });
-      }
-
-      return transacao;
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Receita criada com sucesso',
-      data: {
-        id: resultado.id,
-        tipo: resultado.tipo,
-        descricao: resultado.descricao,
-        local: resultado.local,
-        valor_total: resultado.valor_total,
-        data_transacao: resultado.data_transacao.toISOString().split('T')[0],
-        observacoes: resultado.observacoes,
-        status_pagamento: resultado.status_pagamento,
-        criado_em: resultado.data_criacao,
-        atualizado_em: resultado.atualizado_em,
-        // Campos específicos para receitas (compatibilidade)
-        fonte: resultado.local,
-        valor_recebido: resultado.valor_total
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Erro ao criar receita:', error);
-    
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        success: false,
-        error: 'Dados inválidos',
-        message: 'Verifique os dados fornecidos',
-        details: error.errors.map(err => ({
-          campo: err.path.join('.'),
-          mensagem: err.message
-        })),
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO'];
+    if (!allowedRoles.includes(req.auth!.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    res.status(500).json({
-      success: false,
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível criar a receita',
-      timestamp: new Date().toISOString()
+    const {
+      descricao,
+      local,
+      valor_recebido,
+      data_transacao,
+      observacoes,
+      tags = []
+    }: CreateReceitaInput = req.body;
+
+    const novaReceita = await prisma.transacoes.create({
+      data: {
+        hubId,
+        tipo: 'RECEITA',
+        proprietario_id: userId,
+        descricao,
+        local: local || null,
+        valor_total: valor_recebido,
+        data_transacao: new Date(data_transacao),
+        observacoes: observacoes || null,
+        status_pagamento: 'PAGO_TOTAL',
+        criado_por: userId,
+        valor_parcela: valor_recebido,
+        transacao_participantes: {
+          create: {
+            pessoa_id: userId,
+            valor_devido: valor_recebido,
+            valor_pago: valor_recebido,
+            eh_proprietario: true
+          }
+        },
+        transacao_tags: {
+          create: tags.map(tagId => ({ tag_id: tagId }))
+        }
+      }
     });
+    res.status(201).json({ success: true, message: 'Receita criada com sucesso', data: novaReceita });
+  } catch (error) {
+    console.error('Erro ao criar receita:', error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
 
 /**
- * 📝 ATUALIZAR RECEITA (PUT /api/transacao/receita/:id)
- * Atualiza uma receita existente (apenas proprietário)
+ * Edita uma receita
+ * PUT /api/transacoes/receita/:id
  */
 export const updateReceita = async (req: Request, res: Response): Promise<void> => {
+  const prisma = getExtendedPrismaClient(req.auth!);
+  const { id } = req.params;
+  const data: UpdateReceitaInput = req.body;
+
+  if (!id) {
+    res.status(400).json({ success: false, message: 'ID da receita é obrigatório.' });
+    return;
+  }
+
   try {
-    const userId = req.auth?.pessoaId;
-    const { id } = req.params;
+    // Verificação de papel - Camada 2 de segurança
+    const allowedRoles = ['PROPRIETARIO'];
+    if (!allowedRoles.includes(req.auth!.role)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: req.auth!.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    const receitaExistente = await prisma.transacoes.findUnique({
+      where: { id: parseInt(id, 10), tipo: 'RECEITA' },
+    });
+
+    if (!receitaExistente) {
+      res.status(404).json({ success: false, message: 'Receita não encontrada' });
+      return;
+    }
     
-    if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: 'Usuário não autenticado',
-        message: 'Token de autenticação inválido ou expirado',
-        timestamp: new Date().toISOString()
-      });
-      return;
+    // Constrói o objeto de atualização dinamicamente para evitar 'undefined'
+    const updateData: Prisma.transacoesUpdateInput = {};
+    if (data.descricao !== undefined) updateData.descricao = data.descricao;
+    if (data.local !== undefined) updateData.local = data.local || null;
+    if (data.valor_recebido !== undefined) updateData.valor_total = data.valor_recebido;
+    if (data.data_transacao !== undefined) updateData.data_transacao = new Date(data.data_transacao);
+    if (data.observacoes !== undefined) updateData.observacoes = data.observacoes || null;
+    if (data.tags !== undefined) {
+      updateData.transacao_tags = {
+        deleteMany: {},
+        create: data.tags.map(tagId => ({ tag_id: tagId }))
+      };
     }
 
-    if (!id || isNaN(parseInt(id))) {
-      res.status(400).json({
-        success: false,
-        error: 'ID inválido',
-        message: 'ID da receita deve ser um número válido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Validação dos dados
-    const dadosValidados = updateReceitaSchema.parse(req.body);
-    
-    // Verificar se a transação existe e é uma receita
-    const transacaoExistente = await prisma.transacoes.findFirst({
-      where: {
-        id: parseInt(id),
-        tipo: 'RECEITA',
-        proprietario_id: userId
-      },
-      include: {
-        transacao_participantes: true,
-        transacao_tags: true
-      }
+    const receitaAtualizada = await prisma.transacoes.update({
+      where: { id: parseInt(id, 10) },
+      data: updateData
     });
 
-    if (!transacaoExistente) {
-      res.status(404).json({
-        success: false,
-        error: 'Receita não encontrada',
-        message: 'Receita não encontrada ou você não tem permissão para editá-la',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Verificar tags se fornecidas
-    if (dadosValidados.tags && dadosValidados.tags.length > 0) {
-      const tagsExistentes = await prisma.tags.findMany({
-        where: {
-          id: { in: dadosValidados.tags },
-          criado_por: userId
-        }
-      });
-
-      if (tagsExistentes.length !== dadosValidados.tags.length) {
-        res.status(400).json({
-          success: false,
-          error: 'Tags inválidas',
-          message: 'Uma ou mais tags não existem ou não pertencem ao usuário',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-    }
-
-    // Executar atualização em transação
-    const resultado = await prisma.$transaction(async (prisma: any) => {
-      // Preparar dados para atualização
-      const dadosAtualizacao: any = {};
-      
-      if (dadosValidados.descricao !== undefined) {
-        dadosAtualizacao.descricao = dadosValidados.descricao;
-      }
-      
-      if (dadosValidados.local !== undefined) {
-        dadosAtualizacao.local = dadosValidados.local;
-      }
-      
-      if (dadosValidados.valor_recebido !== undefined) {
-        dadosAtualizacao.valor_total = dadosValidados.valor_recebido;
-        dadosAtualizacao.valor_parcela = dadosValidados.valor_recebido;
-      }
-      
-      if (dadosValidados.data_transacao !== undefined) {
-        dadosAtualizacao.data_transacao = new Date(dadosValidados.data_transacao);
-      }
-      
-      if (dadosValidados.observacoes !== undefined) {
-        dadosAtualizacao.observacoes = dadosValidados.observacoes;
-      }
-
-      // 1. Atualizar transação principal
-      const transacaoAtualizada = await prisma.transacoes.update({
-        where: { id: parseInt(id) },
-        data: dadosAtualizacao
-      });
-
-      // 2. Atualizar participante se valor mudou
-      if (dadosValidados.valor_recebido !== undefined) {
-        await prisma.transacao_participantes.updateMany({
-          where: {
-            transacao_id: parseInt(id),
-            pessoa_id: userId
-          },
-          data: {
-            valor_recebido: dadosValidados.valor_recebido
-          }
-        });
-      }
-
-      // 3. Atualizar tags se fornecidas
-      if (dadosValidados.tags !== undefined) {
-        // Remover tags antigas
-        await prisma.transacao_tags.deleteMany({
-          where: { transacao_id: parseInt(id) }
-        });
-
-        // Adicionar novas tags
-        if (dadosValidados.tags.length > 0) {
-          const tagsData = dadosValidados.tags.map(tagId => ({
-            transacao_id: parseInt(id),
-            tag_id: tagId
-          }));
-
-          await prisma.transacao_tags.createMany({
-            data: tagsData
-          });
-        }
-      }
-
-      return transacaoAtualizada;
-    });
-
-    res.json({
-      success: true,
-      message: 'Receita atualizada com sucesso',
-      data: {
-        id: resultado.id,
-        tipo: resultado.tipo,
-        descricao: resultado.descricao,
-        local: resultado.local,
-        valor_total: resultado.valor_total,
-        data_transacao: resultado.data_transacao.toISOString().split('T')[0],
-        observacoes: resultado.observacoes,
-        status_pagamento: resultado.status_pagamento,
-        criado_em: resultado.criado_em,
-        atualizado_em: resultado.atualizado_em,
-        // Campos específicos para receitas (compatibilidade)
-        fonte: resultado.local,
-        valor_recebido: resultado.valor_total
-      },
-      timestamp: new Date().toISOString()
-    });
-
+    res.json({ success: true, message: 'Receita atualizada com sucesso', data: receitaAtualizada });
   } catch (error) {
     console.error('Erro ao atualizar receita:', error);
-    
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        success: false,
-        error: 'Dados inválidos',
-        message: 'Verifique os dados fornecidos',
-        details: error.errors.map(err => ({
-          campo: err.path.join('.'),
-          mensagem: err.message
-        })),
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível atualizar a receita',
-      timestamp: new Date().toISOString()
-    });
+    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 }; 
