@@ -14,11 +14,24 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Formatar valor monetário em Real brasileiro
  */
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value)
+export function formatCurrency(value: any): string {
+  let num: number | undefined = undefined;
+  if (typeof value === 'string') {
+    num = Number(value.replace(',', '.'));
+  } else if (typeof value === 'number') {
+    num = value;
+  } else if (typeof value === 'object' && value !== null && 'toNumber' in value) {
+    // Suporte para Decimal do Prisma
+    num = Number(value.toNumber());
+  }
+  if (typeof num !== 'number' || isNaN(num)) {
+    if (process.env.NODE_ENV !== 'production') {
+      // Só loga no dev
+      console.warn('[formatCurrency] Valor inválido recebido:', value, 'Tipo:', typeof value);
+    }
+    return 'R$ 0,00';
+  }
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 /**

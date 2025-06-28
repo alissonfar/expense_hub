@@ -1,0 +1,207 @@
+---
+description: Rules específicas para desenvolvimento backend Node.js + Express + TypeScript. Padrões de controllers, Prisma ORM, validação Zod, autenticação JWT, middleware e arquitetura API REST
+globs: 
+alwaysApply: false
+---
+---
+description: "Rules específicas para desenvolvimento backend Node.js + Express + TypeScript. Padrões de controllers, Prisma ORM, validação Zod, autenticação JWT, middleware e arquitetura API REST"
+globs: [
+  "src/**/*.ts",
+  "routes/**/*.ts", 
+  "controllers/**/*.ts",
+  "services/**/*.ts",
+  "middleware/**/*.ts",
+  "utils/**/*.ts",
+  "prisma/**/*.ts",
+  "types/**/*.ts"
+]
+priority: 2
+tags: ["backend", "nodejs", "express", "typescript", "api"]
+applies_to: "backend_development"
+---
+
+# BACKEND RULES - NODE.JS API
+
+## PADRÕES DE CÓDIGO OBRIGATÓRIOS
+
+### TypeScript
+- **Tipagem estrita sempre** - evitar 'any', preferir 'unknown' quando necessário
+- **Interfaces para contratos** de dados e APIs
+- **Types para unions** e primitivos
+- **Usar generics** quando apropriado
+- **Request/Response sempre tipados**
+
+### Express Controllers
+- **Controllers magros** - lógica de negócio em services
+- **Middlewares reutilizáveis**
+- **Validação sequencial**: requireAuth → requireOwner → validateSchema → controller
+- **Try/catch** em todas funções async
+- **Tratamento de erro centralizado**
+
+### Logs Estratégicos Obrigatórios
+```typescript
+// Entrada de função
+logger.info(`[${functionName}] Iniciando operação`, { params })
+
+// Query database  
+logger.debug(`[${functionName}] Executando query`, { query })
+
+// Erro
+logger.error(`[${functionName}] Erro na operação`, { error, context })
+
+// Sucesso
+logger.info(`[${functionName}] Operação concluída`, { result })
+```
+
+### Prisma ORM
+- **SEMPRE usar select** para campos específicos quando não precisar de todos
+- **Transações** para operações relacionadas
+- **Tratamento adequado** de erros do Prisma
+- **Não expor dados sensíveis** (senhas, tokens)
+- **Queries otimizadas** - incluir apenas relacionamentos necessários
+
+### Validação com Zod
+- **Schemas reutilizáveis**
+- **Mensagens de erro em português brasileiro**
+- **Validação em params, query e body**
+- **Transform quando necessário** (trim, toLowerCase, etc.)
+- **Telefone**: `/^\(\d{2}\)\s\d{4,5}-\d{4}$/`
+- **Email**: `toLowerCase() + trim()`
+
+### Segurança
+- **Sanitização** de dados de entrada
+- **Rate limiting** em endpoints sensíveis
+- **Logs de tentativas** de acesso inválidas
+- **Headers de segurança** com Helmet
+- **CORS configurado** adequadamente
+
+## ARQUITETURA ESPECÍFICA DO PERSONAL EXPENSE HUB
+
+### Sistema de Autenticação
+- **JWT payload**: `{ user_id, email, nome, eh_proprietario }`
+- **requireAuth**: extrai token do Authorization header
+- **requireOwner**: verifica eh_proprietario
+- **bcrypt** para hash de senhas
+- **Primeiro usuário** = proprietário automático
+
+### Padrões de Controller Estabelecidos
+- **Funções async/await** com try/catch
+- **Validação sequencial**: usuário logado → permissões → schema
+- **Response padronizada**: `{ success, message, data, timestamp }`
+- **Paginação**: `{ page, limit, total, totalPages, hasNext, hasPrev }`
+- **Soft delete**: `ativo: false`
+- **Agregações** para estatísticas
+
+### Padrões de Rotas Estabelecidos
+- **Sequência middlewares**: requireAuth → requireOwner → validateSchema → controller
+- **Rota /info** para documentação automática
+- **Validação separada**: params, query, body
+- **Autenticação obrigatória** (exceto login/register)
+
+### Descoberta Dinâmica do Banco
+- **SEMPRE usar @prisma/schema.prisma** para verificar tabelas atuais
+- **NUNCA assumir** estrutura de banco estática
+- **Analisar relacionamentos** existentes antes de criar novos
+
+## CONVENÇÕES DE NOMENCLATURA
+
+### Arquivos e Funções
+- **Arquivos**: kebab-case (user-controller.ts)
+- **Variáveis/funções**: camelCase (getUserById)
+- **Classes/Interfaces**: PascalCase (UserService, UserInterface)
+- **Constantes**: UPPER_SNAKE_CASE (MAX_LOGIN_ATTEMPTS)
+- **Rotas**: kebab-case (/api/users/profile)
+
+## TRATAMENTO DE ERROS
+- **Classes de erro customizadas**
+- **Status codes HTTP apropriados**
+- **Mensagens de erro claras** para o usuário
+- **Logs detalhados** para debugging
+- **Não vazar informações sensíveis**
+
+## EXEMPLO DE ESTRUTURA DE CONTROLLER
+```typescript
+export const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
+  const logger = getLogger('getUserProfile');
+  
+  try {
+    logger.info('[getUserProfile] Iniciando busca do perfil', { 
+      userId: req.user.user_id 
+    });
+
+    const user = await prisma.usuario.findUnique({
+      where: { id: req.user.user_id },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        eh_proprietario: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      logger.warn('[getUserProfile] Usuário não encontrado', { 
+        userId: req.user.user_id 
+      });
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'Usuário não encontrado'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    logger.info('[getUserProfile] Perfil encontrado com sucesso');
+    
+    res.json({
+      success: true,
+      data: user,
+      message: 'Perfil recuperado com sucesso',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('[getUserProfile] Erro ao buscar perfil', { error, userId: req.user.user_id });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Erro interno do servidor'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+```
+
+## VALIDAÇÃO ZOD ESPECÍFICA
+```typescript
+// Exemplo de schema com mensagens em português
+export const createUserSchema = z.object({
+  nome: z.string()
+    .trim()
+    .min(2, 'Nome deve ter pelo menos 2 caracteres')
+    .max(100, 'Nome deve ter no máximo 100 caracteres'),
+  
+  email: z.string()
+    .email('Email deve ter um formato válido')
+    .toLowerCase()
+    .trim(),
+    
+  telefone: z.string()
+    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (11) 99999-9999'),
+    
+  senha: z.string()
+    .min(8, 'Senha deve ter pelo menos 8 caracteres')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, 
+           'Senha deve conter pelo menos: 1 letra minúscula, 1 maiúscula, 1 número e 1 caractere especial')
+});
+```
+
+## DESCOBERTA DINÂMICA DE ENDPOINTS
+- **SEMPRE usar @codebase** ou @routes para descobrir endpoints existentes
+- **NUNCA assumir** quantos endpoints existem
+- **Analisar estrutura atual** antes de criar novos

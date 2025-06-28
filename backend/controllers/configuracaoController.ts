@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { 
   configuracaoInterfaceSchema,
-  ConfiguracaoInterfaceInput
+  ConfiguracaoInterfaceInput,
+  TEMAS_DISPONÍVEIS
 } from '../schemas/configuracao';
 import { z } from 'zod';
 
@@ -15,6 +16,8 @@ import { z } from 'zod';
  */
 export const getConfiguracaoInterface = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[getConfiguracaoInterface] Buscando configurações de interface');
+
     const configuracoes = await req.prisma.configuracoes_sistema.findMany({
       where: {
         chave: {
@@ -27,15 +30,20 @@ export const getConfiguracaoInterface = async (req: Request, res: Response): Pro
       theme_interface: configuracoes.find(c => c.chave === 'theme_interface')?.valor || 'light'
     };
 
+    console.log('[getConfiguracaoInterface] Configurações obtidas:', config);
+
     res.json({
       success: true,
       message: 'Configurações de interface obtidas com sucesso',
-      data: config,
+      data: {
+        ...config,
+        temas_disponíveis: TEMAS_DISPONÍVEIS
+      },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Erro ao buscar configurações de interface:', error);
+    console.error('[getConfiguracaoInterface] Erro ao buscar configurações:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível buscar as configurações de interface',
@@ -50,6 +58,11 @@ export const getConfiguracaoInterface = async (req: Request, res: Response): Pro
  */
 export const updateConfiguracaoInterface = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[updateConfiguracaoInterface] Iniciando atualização', { 
+      user_id: (req as any).user?.user_id,
+      body: req.body 
+    });
+
     const userId = (req as any).user?.user_id;
     if (!userId) {
       res.status(401).json({
@@ -78,13 +91,15 @@ export const updateConfiguracaoInterface = async (req: Request, res: Response): 
     // Validar dados
     const dadosValidados: ConfiguracaoInterfaceInput = configuracaoInterfaceSchema.parse(req.body);
 
+    console.log('[updateConfiguracaoInterface] Dados validados:', dadosValidados);
+
     // Atualizar configurações
     await req.prisma.$transaction(async (prisma) => {
       const updates = [
         {
           chave: 'theme_interface',
           valor: dadosValidados.theme_interface,
-          descricao: 'Tema da interface do sistema (light, dark, auto)'
+          descricao: `Tema da interface do sistema (${TEMAS_DISPONÍVEIS[dadosValidados.theme_interface].nome})`
         }
       ];
 
@@ -93,6 +108,7 @@ export const updateConfiguracaoInterface = async (req: Request, res: Response): 
           where: { chave: update.chave },
           update: { 
             valor: update.valor,
+            descricao: update.descricao,
             atualizado_em: new Date()
           },
           create: {
@@ -104,20 +120,24 @@ export const updateConfiguracaoInterface = async (req: Request, res: Response): 
       }
     });
 
+    console.log('[updateConfiguracaoInterface] Configurações atualizadas com sucesso');
+
     res.json({
       success: true,
-      message: 'Configurações de interface atualizadas com sucesso!',
-      data: dadosValidados,
+      message: `Tema alterado para "${TEMAS_DISPONÍVEIS[dadosValidados.theme_interface].nome}" com sucesso!`,
+      data: {
+        ...dadosValidados,
+        temas_disponíveis: TEMAS_DISPONÍVEIS
+      },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('Erro ao atualizar configurações de interface:', error);
-    
     if (error instanceof z.ZodError) {
+      console.error('[updateConfiguracaoInterface] Erro de validação:', error.errors);
       res.status(400).json({
         error: 'Dados inválidos',
-        message: 'Verifique os dados fornecidos',
+        message: 'Tema selecionado não é válido',
         details: error.errors.map(err => ({
           campo: err.path.join('.'),
           mensagem: err.message
@@ -127,6 +147,7 @@ export const updateConfiguracaoInterface = async (req: Request, res: Response): 
       return;
     }
 
+    console.error('[updateConfiguracaoInterface] Erro interno:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível atualizar as configurações de interface',

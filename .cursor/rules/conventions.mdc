@@ -1,0 +1,27 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+### 5. CONVENÇÕES: `.cursor/rules/conventions.mdc`
+
+```yaml
+---
+description: "Convenções de nomenclatura e estrutura"
+globs: ["**/*"]
+priority: 4
+---
+
+# CONVENÇÕES DE NOMENCLATURA
+
+## ARQUIVOS E PASTAS
+- Arquivos: kebab-case (user-controller.ts)
+- Pastas: kebab-case (user-management/)
+
+## CÓDIGO
+- Variáveis/funções: camelCase (getUserById)
+- Classes/Interfaces: PascalCase (UserService, UserInterface)  
+- Constantes: UPPER_SNAKE_CASE (MAX_LOGIN_ATTEMPTS)
+- Rotas: kebab-case (/api/users/profile)
+
+## ESTRUTURA DE PROJETO

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { Plus, Filter, Search, Download, RefreshCw } from 'lucide-react'
+import { Plus, Filter, Search, Download, RefreshCw, Eye, Edit3 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,7 @@ import {
   TipoTransacao, 
   StatusPagamento 
 } from '@/types'
+import { formatCurrency as formatCurrencyUtil } from '@/lib/utils'
 
 export default function TransacoesPage() {
   const router = useRouter()
@@ -90,13 +91,6 @@ export default function TransacoesPage() {
   }
 
   // Formatação de valores
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value)
-  }
-
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('pt-BR').format(new Date(dateString))
   }
@@ -163,7 +157,7 @@ export default function TransacoesPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(computedStats.totalGastos)}
+                {formatCurrencyUtil(computedStats.totalGastos)}
               </div>
               <p className="text-xs text-muted-foreground">Total Gastos</p>
             </CardContent>
@@ -172,7 +166,7 @@ export default function TransacoesPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-green-600">
-                {formatCurrency(computedStats.totalReceitas)}
+                {formatCurrencyUtil(computedStats.totalReceitas)}
               </div>
               <p className="text-xs text-muted-foreground">Total Receitas</p>
             </CardContent>
@@ -183,7 +177,7 @@ export default function TransacoesPage() {
               <div className={`text-2xl font-bold ${
                 computedStats.saldo >= 0 ? 'text-green-600' : 'text-red-600'
               }`}>
-                {formatCurrency(computedStats.saldo)}
+                {formatCurrencyUtil(computedStats.saldo)}
               </div>
               <p className="text-xs text-muted-foreground">Saldo</p>
             </CardContent>
@@ -389,8 +383,7 @@ export default function TransacoesPage() {
               {transacoesFiltradas.map((transacao) => (
                 <div
                   key={transacao.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/transacoes/${transacao.id}`)}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
                 >
                   <div className="flex items-center space-x-4">
                     <div className="text-2xl">
@@ -453,14 +446,43 @@ export default function TransacoesPage() {
                     </div>
                   </div>
                   
-                  <div className="text-right">
-                    <div className={`text-lg font-semibold ${
-                      transacao.tipo === 'GASTO' ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {transacao.tipo === 'GASTO' ? '-' : '+'}
-                      {formatCurrency(transacao.valor_total)}
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <div className={`font-medium ${
+                        transacao.tipo === 'GASTO' ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {transacao.tipo === 'GASTO' ? '-' : '+'}
+                        {formatCurrencyUtil(transacao.valor_total)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDate(transacao.data_transacao)}
+                      </div>
                     </div>
-                    {getStatusBadge(transacao.status_pagamento)}
+                    
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/transacoes/${transacao.id}`)
+                        }}
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/transacoes/${transacao.id}/editar`)
+                        }}
+                        title="Editar transação"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}

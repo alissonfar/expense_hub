@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                    import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { 
   createGastoSchema, 
@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
 export const listTransacoes = async (req: Request, res: Response): Promise<void> => {
   try {
     const { 
-      tipo = 'GASTO',
+      tipo,
       status_pagamento,
       data_inicio,
       data_fim,
@@ -36,9 +36,12 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
     }: TransacaoQueryInput = req.query;
 
     // Construir filtros
-    const where: any = {
-      tipo: tipo // Por padrão, buscar apenas GASTOS
-    };
+    const where: any = {};
+    
+    // Aplicar filtro de tipo apenas se especificado
+    if (tipo) {
+      where.tipo = tipo;
+    }
     
     if (status_pagamento) {
       where.status_pagamento = status_pagamento;
@@ -132,7 +135,17 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       success: true,
       message: 'Transações listadas com sucesso',
       data: {
-        transacoes,
+        transacoes: transacoes.map((t: any) => ({
+          ...t,
+          valor_total: Number(t.valor_total), // Converter Decimal para Number
+          valor_parcela: Number(t.valor_parcela), // Converter Decimal para Number
+          transacao_participantes: t.transacao_participantes.map((p: any) => ({
+            ...p,
+            valor_devido: Number(p.valor_devido), // Converter Decimal para Number
+            valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
+            valor_pago: Number(p.valor_pago) // Converter Decimal para Number
+          }))
+        })),
         paginacao: {
           page,
           limit,
@@ -441,13 +454,13 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
         pessoas_transacoes_criado_porTopessoas: {
           select: { id: true, nome: true }
         },
-                  transacao_participantes: {
-            include: {
-              pessoas: {
-                select: { id: true, nome: true, email: true }
-              }
-            },
-          orderBy: { eh_proprietario: 'desc' }
+        transacao_participantes: {
+          include: {
+            pessoas: {
+              select: { id: true, nome: true, email: true }
+            }
+          },
+          orderBy: { valor_devido: 'desc' }
         },
         transacao_tags: {
           include: {
@@ -509,7 +522,18 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
       message: 'Transação encontrada com sucesso',
       data: {
         ...transacao,
-        parcelas_relacionadas,
+        valor_total: Number(transacao.valor_total), // Converter Decimal para Number
+        valor_parcela: Number(transacao.valor_parcela), // Converter Decimal para Number
+        parcelas_relacionadas: parcelas_relacionadas.map(p => ({
+          ...p,
+          valor_total: Number(p.valor_total) // Converter Decimal para Number
+        })),
+        transacao_participantes: transacao.transacao_participantes.map((p: any) => ({
+          ...p,
+          valor_devido: Number(p.valor_devido), // Converter Decimal para Number
+          valor_recebido: Number(p.valor_recebido), // Converter Decimal para Number
+          valor_pago: Number(p.valor_pago) // Converter Decimal para Number
+        })),
         estatisticas: {
           total_devido,
           total_pago,
@@ -777,18 +801,24 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
     });
 
     res.status(201).json({
+      success: true,
       message: 'Receita criada com sucesso',
-      receita: {
+      data: {
         id: resultado.id,
         tipo: resultado.tipo,
         descricao: resultado.descricao,
-        fonte: resultado.local, // Retornando como 'fonte' para compatibilidade da API
-        valor_recebido: resultado.valor_total,
+        local: resultado.local,
+        valor_total: resultado.valor_total,
         data_transacao: resultado.data_transacao.toISOString().split('T')[0],
         observacoes: resultado.observacoes,
-        status: resultado.status_pagamento,
-        criado_em: resultado.data_criacao
-      }
+        status_pagamento: resultado.status_pagamento,
+        criado_em: resultado.data_criacao,
+        atualizado_em: resultado.atualizado_em,
+        // Campos específicos para receitas (compatibilidade)
+        fonte: resultado.local,
+        valor_recebido: resultado.valor_total
+      },
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
@@ -796,16 +826,24 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
     
     if (error instanceof z.ZodError) {
       res.status(400).json({
+        success: false,
         error: 'Dados inválidos',
-        detalhes: error.errors.map(err => ({
+        message: 'Verifique os dados fornecidos',
+        details: error.errors.map(err => ({
           campo: err.path.join('.'),
           mensagem: err.message
-        }))
+        })),
+        timestamp: new Date().toISOString()
       });
       return;
     }
 
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      message: 'Não foi possível criar a receita',
+      timestamp: new Date().toISOString()
+    });
   }
 };
 
@@ -819,12 +857,22 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
     const { id } = req.params;
     
     if (!userId) {
-      res.status(401).json({ error: 'Usuário não autenticado' });
+      res.status(401).json({
+        success: false,
+        error: 'Usuário não autenticado',
+        message: 'Token de autenticação inválido ou expirado',
+        timestamp: new Date().toISOString()
+      });
       return;
     }
 
     if (!id || isNaN(parseInt(id))) {
-      res.status(400).json({ error: 'ID da receita inválido' });
+      res.status(400).json({
+        success: false,
+        error: 'ID inválido',
+        message: 'ID da receita deve ser um número válido',
+        timestamp: new Date().toISOString()
+      });
       return;
     }
 
@@ -845,8 +893,11 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!transacaoExistente) {
-      res.status(404).json({ 
-        error: 'Receita não encontrada ou você não tem permissão para editá-la' 
+      res.status(404).json({
+        success: false,
+        error: 'Receita não encontrada',
+        message: 'Receita não encontrada ou você não tem permissão para editá-la',
+        timestamp: new Date().toISOString()
       });
       return;
     }
@@ -861,8 +912,11 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
       });
 
       if (tagsExistentes.length !== dadosValidados.tags.length) {
-        res.status(400).json({ 
-          error: 'Uma ou mais tags não existem ou não pertencem ao usuário' 
+        res.status(400).json({
+          success: false,
+          error: 'Tags inválidas',
+          message: 'Uma ou mais tags não existem ou não pertencem ao usuário',
+          timestamp: new Date().toISOString()
         });
         return;
       }
@@ -937,18 +991,24 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
     });
 
     res.json({
+      success: true,
       message: 'Receita atualizada com sucesso',
-      receita: {
+      data: {
         id: resultado.id,
         tipo: resultado.tipo,
         descricao: resultado.descricao,
-        fonte: resultado.local, // Retornando como 'fonte' para compatibilidade da API
-        valor_recebido: resultado.valor_total,
+        local: resultado.local,
+        valor_total: resultado.valor_total,
         data_transacao: resultado.data_transacao.toISOString().split('T')[0],
         observacoes: resultado.observacoes,
-        status: resultado.status_pagamento,
-        atualizado_em: resultado.atualizado_em
-      }
+        status_pagamento: resultado.status_pagamento,
+        criado_em: resultado.criado_em,
+        atualizado_em: resultado.atualizado_em,
+        // Campos específicos para receitas (compatibilidade)
+        fonte: resultado.local,
+        valor_recebido: resultado.valor_total
+      },
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
@@ -956,15 +1016,23 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
     
     if (error instanceof z.ZodError) {
       res.status(400).json({
+        success: false,
         error: 'Dados inválidos',
-        detalhes: error.errors.map(err => ({
+        message: 'Verifique os dados fornecidos',
+        details: error.errors.map(err => ({
           campo: err.path.join('.'),
           mensagem: err.message
-        }))
+        })),
+        timestamp: new Date().toISOString()
       });
       return;
     }
 
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      message: 'Não foi possível atualizar a receita',
+      timestamp: new Date().toISOString()
+    });
   }
 }; 

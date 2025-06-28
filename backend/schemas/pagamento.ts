@@ -24,6 +24,13 @@ export const detalhePagamentoSchema = z.object({
  * Schema para criação de pagamento individual (compatibilidade)
  */
 export const createPagamentoIndividualSchema = z.object({
+  pessoa_id: z
+    .number()
+    .int('ID da pessoa deve ser um número inteiro')
+    .positive('ID da pessoa deve ser maior que zero')
+    .optional()
+    .describe('ID da pessoa que está realizando o pagamento. Se não fornecido, usa o usuário logado.'),
+  
   transacao_id: z
     .number()
     .int('ID da transação deve ser um número inteiro')
@@ -65,6 +72,13 @@ export const createPagamentoIndividualSchema = z.object({
  * Schema para criação de pagamento composto (múltiplas transações)
  */
 export const createPagamentoCompostoSchema = z.object({
+  pessoa_id: z
+    .number()
+    .int('ID da pessoa deve ser um número inteiro')
+    .positive('ID da pessoa deve ser maior que zero')
+    .optional()
+    .describe('ID da pessoa que está realizando o pagamento. Se não fornecido, usa o usuário logado.'),
+  
   transacoes: z
     .array(detalhePagamentoSchema)
     .min(1, 'Deve haver pelo menos uma transação para pagar')
@@ -76,6 +90,14 @@ export const createPagamentoCompostoSchema = z.object({
       },
       'Não pode haver transações duplicadas no mesmo pagamento'
     ),
+  
+  valor_total: z
+    .number()
+    .positive('Valor total pago deve ser maior que zero')
+    .multipleOf(0.01, 'Valor total pago deve ter no máximo 2 casas decimais')
+    .max(999999.99, 'Valor total pago não pode exceder R$ 999.999,99')
+    .optional()
+    .describe('Valor total efetivamente pago. Se omitido, será a soma dos valores aplicados.'),
   
   data_pagamento: z
     .string()
@@ -179,10 +201,8 @@ export const updatePagamentoSchema = z.object({
  * Schema para parâmetros de URL (ID do pagamento)
  */
 export const pagamentoParamsSchema = z.object({
-  id: z
-    .string()
-    .regex(/^\d+$/, 'ID deve ser um número válido')
-    .transform(val => parseInt(val))
+  id: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'number' ? val : parseInt(val))
     .refine(val => val > 0, 'ID deve ser maior que zero')
 });
 
@@ -237,16 +257,20 @@ export const pagamentoQuerySchema = z.object({
   
   // Paginação
   page: z
-    .string()
-    .regex(/^\d+$/, 'Página deve ser um número válido')
-    .transform(val => parseInt(val))
+    .union([z.string(), z.number()])
+    .transform(val => {
+      if (typeof val === 'number') return val;
+      return parseInt(val);
+    })
     .refine(val => val >= 1, 'Página deve ser maior ou igual a 1')
     .default('1'),
   
   limit: z
-    .string()
-    .regex(/^\d+$/, 'Limite deve ser um número válido')
-    .transform(val => parseInt(val))
+    .union([z.string(), z.number()])
+    .transform(val => {
+      if (typeof val === 'number') return val;
+      return parseInt(val);
+    })
     .refine(val => val >= 1 && val <= 100, 'Limite deve estar entre 1 e 100')
     .default('20'),
   

@@ -1,0 +1,189 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# PERSONAL EXPENSE HUB - CONFIGURAÇÃO PRINCIPAL
+
+## STACK TECNOLÓGICA
+- Node.js + Express + TypeScript
+- PostgreSQL + Prisma ORM  
+- JWT + bcrypt para autenticação
+- Zod para validação (mensagens em português BR)
+- Rate limiting, CORS, Helmet para segurança
+
+## PRINCÍPIOS FUNDAMENTAIS
+- **DESCOBERTA DINÂMICA OBRIGATÓRIA:** SEMPRE usar comandos @ para entender o código existente antes de implementar
+- SEMPRE explicar problemas de forma didática e simples
+- Código limpo, tipado e bem documentado
+- Logs estratégicos em pontos críticos
+- Limpeza obrigatória após correções (remover console.log, código comentado)
+
+## 🔍 METODOLOGIA DE DESCOBERTA DINÂMICA
+
+### FLUXO INVESTIGATIVO OBRIGATÓRIO ANTES DE IMPLEMENTAR
+1. **@codebase** - Análise geral do projeto (arquitetura, padrões, estrutura)
+2. **@routes** - Descobrir TODOS os endpoints existentes e seus padrões
+3. **@controllers** - Analisar implementações atuais e padrões estabelecidos
+4. **@schemas** - Verificar todas as validações existentes e seus formatos
+5. **@prisma/schema.prisma** - Entender estrutura completa do banco de dados
+6. **@middleware** - Descobrir middlewares disponíveis e como são usados
+7. **@types** - Verificar tipagens existentes e interfaces definidas
+8. **@utils** - Identificar utilitários e helpers já implementados
+9. **@docs** - Consultar documentação para contexto e decisões arquiteturais
+
+### 🧠 MENTALIDADE DE INVESTIGAÇÃO
+**ANTES DE ESCREVER QUALQUER LINHA DE CÓDIGO:**
+
+#### ❌ MENTALIDADE ERRADA:
+- "Vou criar baseado no que imagino que existe"
+- "Provavelmente tem X endpoints"  
+- "Deve ter essas tabelas no banco"
+- "Vou fazer igual a outros projetos que conheço"
+- "Assumo que segue padrão Y"
+
+#### ✅ MENTALIDADE CORRETA:
+- "Vou usar @codebase para DESCOBRIR como está implementado"
+- "Vou verificar @routes para VER endpoints existentes"
+- "Vou checar @prisma/schema.prisma para ENTENDER estrutura atual"
+- "Vou analisar @controllers para APRENDER os padrões deste projeto"
+- "Vou investigar @schemas para COMPREENDER as validações atuais"
+
+## 📋 CHECKLIST DE DESCOBERTA OBRIGATÓRIA
+
+### ANTES DE IMPLEMENTAR QUALQUER FUNCIONALIDADE:
+- [ ] **Arquitetura Geral:** Como o projeto está organizado? (@codebase)
+- [ ] **Endpoints Similares:** Existem endpoints parecidos com o que vou criar? (@routes)
+- [ ] **Padrões de Controller:** Como outros controllers são estruturados? (@controllers)
+- [ ] **Validações:** Que padrões de validação já existem? (@schemas)
+- [ ] **Banco de Dados:** Como estão as tabelas/relacionamentos? (@prisma/schema.prisma)
+- [ ] **Middlewares:** Que middlewares estão disponíveis? (@middleware)
+- [ ] **Tipos:** Que interfaces/tipos já existem? (@types)
+- [ ] **Utilitários:** Que helpers posso reutilizar? (@utils)
+- [ ] **Autenticação:** Como funciona o sistema de auth atual?
+- [ ] **Tratamento de Erros:** Qual padrão de error handling usado?
+
+## 🔍 PERGUNTAS INVESTIGATIVAS OBRIGATÓRIAS
+**DEVE RESPONDER ANTES DE IMPLEMENTAR:**
+
+1. **Contexto:** "O que já existe relacionado a isso no @codebase?"
+2. **Padrões:** "Como implementações similares são feitas em @controllers?"
+3. **Validação:** "Que validações e schemas existem em @schemas?"
+4. **Segurança:** "Que middlewares estão disponíveis em @middleware?"
+5. **Dados:** "Como está a estrutura atual em @prisma/schema.prisma?"
+6. **Tipagem:** "Que tipos/interfaces existem em @types?"
+7. **Reutilização:** "Que utilitários posso usar de @utils?"
+8. **Consistência:** "Como outros endpoints similares são implementados?"
+
+## 🎯 PROCESSO DE ANÁLISE DINÂMICA
+
+### ETAPA 1: RECONHECIMENTO GERAL
+```bash
+@codebase # Entender arquitetura geral, estrutura, padrões principais
+```
+
+### ETAPA 2: ANÁLISE ESPECÍFICA POR CAMADA
+```bash
+@routes        # Mapear todos os endpoints
+@controllers   # Estudar implementações atuais
+@middleware    # Descobrir proteções/validações disponíveis  
+@schemas       # Entender padrões de validação
+@types         # Ver tipagens existentes
+@utils         # Identificar utilitários reutilizáveis
+```
+
+### ETAPA 3: ANÁLISE DE DADOS
+```bash
+@prisma/schema.prisma  # Entender modelo de dados completo
+```
+
+### ETAPA 4: DOCUMENTAÇÃO
+```bash
+@docs  # Consultar decisões arquiteturais e contexto
+```
+
+## ESTRUTURA DE RESPOSTA PADRÃO
+```typescript
+// Sucesso
+{ 
+  success: true, 
+  data: {...}, 
+  message?: string,
+  timestamp: new Date().toISOString()
+}
+
+// Erro  
+{ 
+  success: false, 
+  error: { 
+    code: string, 
+    message: string, 
+    details?: [...] 
+  },
+  timestamp: new Date().toISOString()
+}
+```
+
+## 📚 ANÁLISE E EXPLICAÇÃO DE PROBLEMAS
+- SEMPRE explicar problemas com linguagem simples e didática
+- Detalhar o QUE está acontecendo, POR QUE está acontecendo, e COMO resolver
+- Apresentar múltiplas soluções quando possível, explicando prós e contras
+- Usar analogias do mundo real quando ajudar no entendimento
+- **SEMPRE mostrar O QUE DESCOBRIU durante a análise do código**
+
+## 🧹 LIMPEZA PÓS-CORREÇÃO ⚠️ CRÍTICO
+**APÓS CONFIRMAR QUE UM BUG FOI CORRIGIDO:**
+
+### PROCURAR E REMOVER "LIXO":
+- Console.log e logs de debug temporários
+- Código comentado de tentativas que não funcionaram
+- Variáveis não utilizadas
+- Imports desnecessários
+- Funções experimentais que não são mais usadas
+- Arquivos temporários criados para testes
+
+### CHECKLIST DE LIMPEZA:
+- [ ] Remover todos os console.log de debug
+- [ ] Apagar código comentado
+- [ ] Verificar imports não utilizados
+- [ ] Remover variáveis declaradas mas não usadas
+- [ ] Limpar funções experimentais
+- [ ] Verificar se todos os logs são realmente necessários
+- [ ] Confirmar que não há duplicação de código
+
+### MANTER APENAS:
+- Logs estratégicos permanentes (error, warn, info)
+- Código funcional e necessário
+- Comentários explicativos relevantes
+
+## 🤝 TRATAMENTO DE CONFLITOS
+- Se encontrar código inconsistente no @codebase, perguntar qual padrão seguir
+- Se houver múltiplas implementações similares, escolher a mais recente/robusta
+- Sempre explicar DECISÕES tomadas quando houver ambiguidade
+- **SEMPRE documentar O QUE FOI DESCOBERTO durante a investigação**
+
+## ⚡ PERFORMANCE E OTIMIZAÇÃO
+- Considerar ÍNDICES de banco para queries novas
+- Avaliar necessidade de PAGINAÇÃO em listagens
+- Verificar se precisa de CACHE para dados frequentes
+- Usar SELECT específicos no Prisma (não buscar tudo)
+
+## ✅ VALIDAÇÃO FINAL OBRIGATÓRIA
+
+### CHECKLIST ANTES DE ENTREGAR SOLUÇÃO
+1. **DESCOBERTA:** Analisei completamente o código existente?
+2. **FUNCIONALIDADE:** Testei se realmente funciona?
+3. **CONSISTÊNCIA:** Segue padrões descobertos no @codebase?
+4. **LOGS:** Adicionei logs estratégicos apropriados?
+5. **VALIDAÇÃO:** Usei schemas Zod com mensagens em português?
+6. **SEGURANÇA:** Apliquei middlewares de auth necessários?
+7. **TIPOS:** TypeScript está tipado corretamente?
+8. **LIMPEZA:** Removi todo código experimental/debug?
+9. **DOCUMENTAÇÃO:** Atualizei documentação relevante em docs/?
+10. **REUTILIZAÇÃO:** Usei utilitários existentes em @utils?
+
+---
+
+## 🎯 RESUMO: SEMPRE DESCOBRIR, NUNCA ASSUMIR
+
+**Esta rule força o agent a SER UM DETETIVE do código, investigando e entendendo profundamente antes de implementar qualquer solução.**

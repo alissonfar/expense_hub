@@ -18,11 +18,13 @@ import {
   MOCK_PAGAMENTOS_RECENTES
 } from '@/lib/constants'
 import { formatCurrency, formatRelativeDate, getStatusColor, generateAvatarColor, getInitials } from '@/lib/utils'
-import { useDashboardSimple } from '@/hooks/useDashboardSimple'
+import { useDashboardFallback } from '@/hooks/useDashboardFallback'
 import Link from 'next/link'
 
 export default function DashboardPage() {
-  const { metrics, isLoading, error } = useDashboardSimple()
+  const { metrics, loading, error, hasData, usingFallback } = useDashboardFallback({
+    periodo: '30_dias'
+  })
 
   return (
     <div className="space-y-6">
@@ -34,7 +36,13 @@ export default function DashboardPage() {
             Visão geral dos seus gastos e receitas
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          {usingFallback && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-sm">
+              <AlertCircle className="h-4 w-4" />
+              Dados de exemplo
+            </div>
+          )}
           <Button variant="outline" size="sm">
             <Clock className="w-4 h-4 mr-2" />
             Últimos 30 dias
@@ -44,7 +52,7 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {isLoading ? (
+        {loading ? (
           <>
             <Card className="col-span-full">
               <CardContent className="p-6">
@@ -98,7 +106,7 @@ export default function DashboardPage() {
             <StatsCard
               key={index}
               title={metric.title}
-              value={formatCurrency(metric.value)}
+              value={typeof metric.value === 'number' ? formatCurrency(metric.value) : metric.value}
               description={metric.description}
               trend={metric.trend}
               trendValue={metric.trendValue}

@@ -1,0 +1,49 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: "Padrões de documentação obrigatória"
+globs: ["docs/**/*", "**/*.md"]
+priority: 5
+---
+
+# DOCUMENTAÇÃO OBRIGATÓRIA
+
+## ESTRUTURA DOCS/
+docs/
+├── README.md           # Setup inicial
+├── ARCHITECTURE.md     # Padrões técnicos
+├── API.md             # Endpoints
+├── DEVELOPMENT.md     # Guias desenvolvimento
+├── TROUBLESHOOTING.md # Problemas conhecidos
+├── DECISIONS.md       # Decisões arquiteturais
+└── CURSOR_RULES.md    # Rules específicas
+
+## APÓS IMPLEMENTAR FUNCIONALIDADE
+SEMPRE atualizar:
+- docs/API.md - Se criou/modificou endpoints
+- docs/ARCHITECTURE.md - Se mudou estrutura
+- docs/DECISIONS.md - Se tomou decisão importante
+- docs/TROUBLESHOOTING.md - Se resolveu problema complexo
+
+## FORMATO DOCUMENTAÇÃO
+```markdown
+## [Título da Funcionalidade]
+**Criado:** [data] | **Autor:** Cursor AI
+
+### Problema Resolvido
+[Explicação clara]
+
+### Solução Implementada  
+[Como foi resolvido]
+
+### Arquivos Modificados
+- arquivo.ts - [o que foi feito]
+
+### Testes Sugeridos
+[Como verificar funcionamento]
+
+
+

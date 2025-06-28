@@ -35,6 +35,16 @@ api.interceptors.request.use(
 // Interceptor para tratamento de respostas e erros
 api.interceptors.response.use(
   (response) => {
+    // ✅ CORREÇÃO: Verificar se response tem status de erro cliente (400-499)
+    if (response.status >= 400 && response.status < 500) {
+      const errorMessage = getErrorMessage(response as any)
+      return Promise.reject({
+        response,
+        message: errorMessage,
+        isAxiosError: true
+      })
+    }
+    
     return response
   },
   (error: AxiosError) => {
@@ -100,9 +110,33 @@ function getErrorMessage(error: AxiosError): string {
   }
 }
 
-// Funções utilitárias para tipos de request
-export const apiGet = <T = any>(url: string, params?: any) => 
-  api.get<T>(url, { params })
+// Funções utilitárias para tipos de request - VERSÃO LIMPA
+export const apiGet = <T = any>(url: string, params?: any) => {
+  if (!params) {
+    return api.get<T>(url)
+  }
+  
+  // Converter todos os parâmetros para strings para compatibilidade com Zod
+  const stringParams: Record<string, string> = {}
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      stringParams[key] = String(value)
+    }
+  })
+  
+  // Usar paramsSerializer para forçar strings na URL
+  return api.get<T>(url, { 
+    params: stringParams,
+    paramsSerializer: {
+      serialize: (params) => {
+        return Object.entries(params)
+          .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+          .join('&')
+      }
+    }
+  })
+}
 
 export const apiPost = <T = any>(url: string, data?: any) => 
   api.post<T>(url, data)

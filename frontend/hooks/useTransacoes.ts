@@ -32,16 +32,15 @@ export function useTransacoes(
   // Cache para otimização
   const [cache, setCache] = useState<Map<string, TransacoesResponse>>(new Map())
 
-  // Gerar chave de cache baseada nos filtros
-  const cacheKey = useMemo(() => {
-    return JSON.stringify(filtros)
-  }, [filtros])
+  // Cache key removido para evitar dependências circulares
 
   // Função principal para buscar transações
   const fetchTransacoes = useCallback(async (forceFetch = false) => {
+    const currentCacheKey = JSON.stringify(filtros)
+    
     // Verificar cache primeiro (se não for força)
-    if (!forceFetch && cache.has(cacheKey)) {
-      const cachedData = cache.get(cacheKey)!
+    if (!forceFetch && cache.has(currentCacheKey)) {
+      const cachedData = cache.get(currentCacheKey)!
       setTransacoes(cachedData.transacoes)
       setPaginacao(cachedData.paginacao)
       setEstatisticas(cachedData.estatisticas)
@@ -75,15 +74,17 @@ export function useTransacoes(
         setPaginacao(novaPaginacao)
         setEstatisticas(novasEstatisticas)
 
-        // Salvar no cache
+        // Salvar no cache sem dependência circular
         setCache(prev => {
           const newCache = new Map(prev)
-          newCache.set(cacheKey, response.data.data)
+          newCache.set(currentCacheKey, response.data.data)
           
           // Limitar tamanho do cache (últimas 20 consultas)
           if (newCache.size > 20) {
             const firstKey = newCache.keys().next().value
-            newCache.delete(firstKey)
+            if (firstKey) {
+              newCache.delete(firstKey)
+            }
           }
           
           return newCache
@@ -100,9 +101,9 @@ export function useTransacoes(
     } finally {
       setLoading(false)
     }
-  }, [filtros, cacheKey, cache])
+  }, [filtros]) // Removido cacheKey e cache das dependências
 
-  // Debounce para otimizar chamadas
+  // Debounce para otimizar chamadas - CORRIGIDO para evitar loop
   useEffect(() => {
     if (!autoFetch) return
 
@@ -111,10 +112,10 @@ export function useTransacoes(
     }, debounceMs)
 
     return () => clearTimeout(timeoutId)
-  }, [fetchTransacoes, autoFetch, debounceMs])
+  }, [JSON.stringify(filtros), autoFetch, debounceMs]) // Usar JSON.stringify ao invés de fetchTransacoes
 
   // Funções utilitárias
-  const refetch = useCallback(() => fetchTransacoes(true), [fetchTransacoes])
+  const refetch = useCallback(() => fetchTransacoes(true), [])
   
   const clearCache = useCallback(() => {
     setCache(new Map())
@@ -138,13 +139,20 @@ export function useTransacoes(
   const computedStats = useMemo(() => {
     if (!transacoes.length) return null
 
+    // Garantir que os valores sejam números válidos
     const totalGastos = transacoes
       .filter(t => t.tipo === 'GASTO')
-      .reduce((acc, t) => acc + t.valor_total, 0)
+      .reduce((acc, t) => {
+        const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(String(t.valor_total)) || 0
+        return acc + valor
+      }, 0)
 
     const totalReceitas = transacoes
       .filter(t => t.tipo === 'RECEITA')
-      .reduce((acc, t) => acc + t.valor_total, 0)
+      .reduce((acc, t) => {
+        const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(String(t.valor_total)) || 0
+        return acc + valor
+      }, 0)
 
     const pendentes = transacoes.filter(t => t.status_pagamento === 'PENDENTE').length
     const pagas = transacoes.filter(t => t.status_pagamento === 'PAGO_TOTAL').length
@@ -203,6 +211,6 @@ export function useTransacoes(
     
     // Estado do cache
     cacheSize: cache.size,
-    isCached: cache.has(cacheKey)
+    isCached: cache.has(JSON.stringify(filtros))
   }
 } 

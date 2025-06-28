@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "env(\"DATABASE_URL\")" // O URL será lido do ambiente
+}
+
+// =================================================================
+//                    MODELOS DE GOVERNANÇA (CORE)
+// =================================================================
+
+// Representa um workspace/tenant isolado.
+model Hub {
+  id            Int      @id @default(autoincrement())
+  nome          String
+  ativo         Boolean  @default(true) // Usado para arquivamento (soft delete).
+  codigoAcesso  String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relações
+  membros     MembroHub[]
+  transacoes  Transacao[]
+  tags        Tag[]
+  pagamentos  Pagamento[]
+
+  @@map("hubs")
+}
+
+// Tabela de junção que define o papel de uma Pessoa em um Hub.
+model MembroHub {
+  hubId            Int
+  pessoaId         Int
+  role             Role             @default(COLABORADOR)
+  dataAccessPolicy DataAccessPolicy? // Política de acesso individual ou global.
+  ativo            Boolean          @default(true) // Soft delete – revoga acesso.
+  joinedAt         DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  hub    Hub    @relation(fields: [hubId], references: [id], onDelete: Cascade)
+  pessoa Pessoa @relation(fields: [pessoaId], references: [id], onDelete: Cascade)
+
+  @@id([hubId, pessoaId])
+  @@map("membros_hub")
+}
+
+// Papéis que uma pessoa pode ter dentro de um Hub.
+enum Role {
+  PROPRIETARIO  // Dono do Hub, poder total.
+  ADMINISTRADOR // Gerencia membros e configurações.
+  COLABORADOR   // Membro padrão, cria e interage com dados.
+  VISUALIZADOR  // Apenas leitura.
+}
+
+// Política de acesso a dados para o papel de COLABORADOR.
+enum DataAccessPolicy {
+  GLOBAL      // Vê todos os dados do Hub.
+  INDIVIDUAL  // Vê apenas os dados que criou.
+}
+
+
+// =================================================================
+//              MODELO DE USUÁRIO GLOBAL E DADOS DO TENANT
+// =================================================================
+
+// Representa a conta de um usuário na plataforma (global).
+model Pessoa {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  telefone  String?
+  ativo     Boolean  @default(true) // Status da conta na plataforma como um todo.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Permissão Global de Administrador do Sistema.
+  ehAdministrador Boolean @default(false)
+
+  // Relações
+  hubs      MembroHub[]
+
+  // Rastreabilidade de criação de itens
+  transacoesCriadas      Transacao[] @relation("CriadoPor")
+  tagsCriadas            Tag[]       @relation("TagCriadaPor")
+  pagamentosRegistrados  Pagamento[] @relation("RegistradoPor")
+  pagamentosEfetuados    Pagamento[] @relation("Pagador")
+  
+  // Participações em transações
+  participacoes          TransacaoParticipante[]
+
+  @@map("pessoas")
+}
+
+// Transação financeira, pertence a um Hub.
+model Transacao {
+  id             Int      @id @default(autoincrement())
+  ativo          Boolean  @default(true) // Para soft delete
+  descricao      String   @db.VarChar(200)
+  valorTotal     Decimal  @db.Decimal(10, 2)
+  dataTransacao  DateTime @db.Date
+  tipo           String   @db.VarChar(10) // "GASTO" ou "RECEITA"
+  local          String?  @db.VarChar(150)
+  observacoes    String?
+  confirmado     Boolean  @default(true)
+  statusPagamento String  @default("PENDENTE") @db.VarChar(15)
+  ehParcelado    Boolean? @default(false)
+  parcelaAtual   Int?     @default(1)
+  totalParcelas  Int?     @default(1)
+  grupoParcela   String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Chave do Tenant
+  hubId   Int
+  hub     Hub @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  // Rastreabilidade
+  criadoPorId Int
+  criadoPor   Pessoa @relation("CriadoPor", fields: [criadoPorId], references: [id], onDelete: NoAction)
+
+  // Relações
+  participantes          TransacaoParticipante[]
+  tags                   TransacaoTag[]
+  pagamentos             PagamentoTransacao[]
+  receitaExcedente       Pagamento?            @relation("PagamentoReceita")
+
+  @@index([hubId])
+  @@map("transacoes")
+}
+
+// Participante de uma transação, referencia uma Pessoa.
+model TransacaoParticipante {
+  id              Int      @id @default(autoincrement())
+  valorDevido     Decimal  @default(0) @db.Decimal(10, 2)
+  valorPago       Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relações
+  transacaoId Int
+  transacao   Transacao @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+  pessoaId    Int       // Referencia uma Pessoa.
+  pessoa      Pessoa    @relation(fields: [pessoaId], references: [id], onDelete: NoAction)
+  
+  @@unique([transacaoId, pessoaId])
+  @@map("transacao_participantes")
+}
+
+// Tag para categorizar transações, pertence a um Hub.
+model Tag {
+  id        Int      @id @default(autoincrement())
+  nome      String   @db.VarChar(50)
+  cor       String?  @default("#6B7280") @db.VarChar(7)
+  icone     String?  @db.VarChar(10)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Chave do Tenant
+  hubId     Int
+  hub       Hub @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  // Rastreabilidade
+  criadoPorId Int
+  criadoPor   Pessoa @relation("TagCriadaPor", fields: [criadoPorId], references: [id], onDelete: NoAction)
+  
+  // Relações
+  transacoes TransacaoTag[]
+
+  @@unique([hubId, nome])
+  @@index([hubId])
+  @@map("tags")
+}
+
+// Tabela de junção entre Transacao e Tag.
+model TransacaoTag {
+  transacaoId Int
+  tagId       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transacao Transacao @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+  tag       Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([transacaoId, tagId])
+  @@map("transacao_tags")
+}
+
+// Pagamento de transações, pertence a um Hub.
+model Pagamento {
+  id                  Int       @id @default(autoincrement())
+  ativo               Boolean   @default(true) // Para soft delete
+  valorTotal          Decimal   @db.Decimal(10, 2)
+  dataPagamento       DateTime  @db.Date
+  formaPagamento      String?   @default("PIX") @db.VarChar(15)
+  observacoes         String?
+  valorExcedente      Decimal?  @default(0) @db.Decimal(10, 2)
+  processarExcedente  Boolean?  @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Chave do Tenant
+  hubId               Int
+  hub                 Hub       @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  // Rastreabilidade e Pagador
+  registradoPorId     Int
+  registradoPor       Pessoa    @relation("RegistradoPor", fields: [registradoPorId], references: [id], onDelete: NoAction)
+  pessoaId            Int // Quem efetivamente pagou.
+  pessoa              Pessoa    @relation("Pagador", fields: [pessoaId], references: [id], onDelete: NoAction)
+
+  // Relação com receita gerada pelo excedente
+  receitaExcedenteId  Int?      @unique
+  receitaExcedente    Transacao? @relation("PagamentoReceita", fields: [receitaExcedenteId], references: [id], onDelete: SetNull)
+  
+  // Relações
+  transacoesPagas     PagamentoTransacao[]
+
+  @@index([hubId])
+  @@map("pagamentos")
+}
+
+// Tabela de junção entre Pagamento e Transacao.
+model PagamentoTransacao {
+  id            Int     @id @default(autoincrement())
+  valorAplicado Decimal @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relações
+  pagamentoId Int
+  pagamento   Pagamento @relation(fields: [pagamentoId], references: [id], onDelete: Cascade)
+  transacaoId Int
+  transacao   Transacao @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([pagamentoId, transacaoId])
+  @@map("pagamento_transacoes")
+}
+
+
+// =================================================================
+//                      CONFIGURAÇÕES GLOBAIS
+// =================================================================
+
+// Configurações globais do sistema.
+model ConfiguracaoSistema {
+  id          Int       @id @default(autoincrement())
+  chave       String    @unique @db.VarChar(50)
+  valor       String
+  descricao   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("configuracoes_sistema")
+} 
