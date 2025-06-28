@@ -17,6 +17,9 @@ module.exports = {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			sans: ["Inter", "sans-serif"],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -34,6 +37,14 @@ module.exports = {
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
+  			},
+  			success: {
+  				DEFAULT: "hsl(var(--success))",
+  				foreground: "hsl(var(--success-foreground))",
+  			},
+  			warning: {
+  				DEFAULT: "hsl(var(--warning))",
+  				foreground: "hsl(var(--warning-foreground))",
   			},
   			muted: {
   				DEFAULT: 'hsl(var(--muted))',
@@ -74,6 +85,12 @@ module.exports = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+      boxShadow: {
+        'neon-primary': '0 0 5px hsl(var(--primary)), 0 0 10px hsl(var(--primary))',
+        'neon-success': '0 0 5px hsl(var(--success)), 0 0 10px hsl(var(--success))',
+        'neon-destructive': '0 0 5px hsl(var(--destructive)), 0 0 10px hsl(var(--destructive))',
+        'neon-warning': '0 0 5px hsl(var(--warning)), 0 0 10px hsl(var(--warning))',
+      },
   		keyframes: {
   			'accordion-down': {
   				from: {
