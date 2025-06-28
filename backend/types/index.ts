@@ -1,19 +1,72 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient, Role, DataAccessPolicy } from '@prisma/client';
+
+// =============================================
+// EXPORTAR TIPOS DO PRISMA
+// =============================================
+export { Role, DataAccessPolicy };
 
 // =============================================
 // EXTENSÕES DO EXPRESS
 // =============================================
 
+// Contexto de autenticação que será injetado em cada request
+export interface AuthContext {
+  pessoaId: number;
+  hubId: number;
+  role: Role;
+  dataAccessPolicy: DataAccessPolicy | null; // Nulo se não for COLABORADOR
+  ehAdministrador: boolean; // Superusuário do sistema
+}
+
 declare global {
   namespace Express {
     interface Request {
       prisma: PrismaClient;
+      auth?: AuthContext; // Contexto de autenticação e autorização
     }
   }
 }
 
 // =============================================
-// TIPOS DE DADOS DA APLICAÇÃO
+// TIPOS PARA AUTENTICAÇÃO E JWT
+// =============================================
+
+// Dados básicos de um usuário para geração de token (sem contexto de Hub)
+export interface UserIdentifier {
+  pessoaId: number;
+  nome: string;
+  email: string;
+  ehAdministrador: boolean;
+}
+
+// Payload que será embarcado no JWT, representando o acesso a UM hub específico
+export interface JWTPayload extends AuthContext {
+  iat: number;
+  exp: number;
+}
+
+// Resposta da API de login/registro
+export interface AuthResponse {
+  token: string;
+  refreshToken: string;
+  user: {
+    id: number;
+    nome: string;
+    email: string;
+    ehAdministrador: boolean;
+  };
+  hubs: HubInfo[]; // Lista de hubs que o usuário pode acessar
+}
+
+export interface HubInfo {
+  id: number;
+  nome: string;
+  role: Role;
+}
+
+
+// =============================================
+// TIPOS DE DADOS DA APLICAÇÃO (MIGRADOS)
 // =============================================
 
 // Tipos para Pessoas
@@ -21,7 +74,7 @@ export interface PessoaCreate {
   nome: string;
   email?: string;
   telefone?: string;
-  eh_proprietario?: boolean;
+  // eh_proprietario foi removido, agora é via MembroHub
 }
 
 export interface PessoaUpdate {
@@ -41,9 +94,10 @@ export interface TransacaoCreate {
   repetir_mensalmente?: boolean;
   numero_parcelas?: number;
   valor_parcela?: number;
-  proprietario_id: number;
+  proprietario_id: number; // Mantido para rastreabilidade
   participantes: ParticipanteCreate[];
   tags?: number[];
+  // hubId será injetado pelo sistema, não enviado pelo client
 }
 
 export interface ParticipanteCreate {
@@ -60,6 +114,7 @@ export interface PagamentoCreate {
   data_pagamento?: Date;
   metodo_pagamento?: string;
   observacoes?: string;
+  // hubId será injetado pelo sistema
 }
 
 // Tipos para Tags
@@ -67,7 +122,12 @@ export interface TagCreate {
   nome: string;
   cor?: string;
   descricao?: string;
+  // hubId será injetado pelo sistema
 }
+
+// =============================================
+// TIPOS GENÉRICOS DE API E UTILITÁRIOS
+// =============================================
 
 // Tipos para Respostas da API
 export interface ApiResponse<T = any> {
@@ -128,123 +188,9 @@ export interface ResumoTransacao {
   tags: string[];
 }
 
-// =============================================
-// TIPOS PARA AUTENTICAÇÃO (PRÓXIMA FASE)
-// =============================================
-
-export interface AuthUser {
-  id: number;
-  nome: string;
-  email: string;
-  eh_proprietario: boolean;
-}
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterData {
-  nome: string;
-  email: string;
-  password: string;
-  telefone?: string;
-}
-
-export interface JWTPayload {
-  user_id: number;
-  email: string;
-  eh_proprietario: boolean;
-  iat: number;
-  exp: number;
-}
-
-// =============================================
-// TIPOS DE CONFIGURAÇÃO E VALIDAÇÃO
-// =============================================
-
 export interface ValidationError {
   field: string;
   message: string;
-}
-
-export interface AuthPayload {
-  userId: number;
-  email: string;
-  eh_proprietario: boolean;
-}
-
-export interface DatabaseConfig {
-  url: string;
-  shadowUrl?: string;
-}
-
-export interface ServerConfig {
-  port: number;
-  nodeEnv: 'development' | 'production' | 'test';
-  jwtSecret: string;
-  jwtExpiresIn: string;
-  bcryptRounds: number;
-  frontendUrl: string;
-}
-
-// =============================================
-// TIPOS PARA REQUESTS E RESPONSES
-// =============================================
-
-export interface CreateUserRequest {
-  nome: string;
-  email: string;
-  senha: string;
-  telefone?: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  senha: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: number;
-    nome: string;
-    email: string;
-    eh_proprietario: boolean;
-  };
-}
-
-export interface CreatePessoaRequest {
-  nome: string;
-  email: string;
-  telefone?: string;
-  senha: string;
-}
-
-export interface CreateTransacaoRequest {
-  tipo: 'GASTO' | 'RECEITA';
-  descricao: string;
-  local?: string;
-  valor_total: number;
-  data_transacao: string;
-  eh_parcelado?: boolean;
-  total_parcelas?: number;
-  observacoes?: string;
-  participantes?: {
-    pessoa_id: number;
-    valor_devido?: number;
-    valor_recebido?: number;
-  }[];
-  tags?: number[];
-}
-
-export interface CreatePagamentoRequest {
-  transacao_id: number;
-  pessoa_id: number;
-  valor_pago: number;
-  data_pagamento: string;
-  forma_pagamento?: 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS';
-  observacoes?: string;
 }
 
 // =============================================

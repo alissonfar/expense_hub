@@ -1,26 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
-import { JWTPayload } from '../types';
+import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
+import { Role } from '../types';
 
 // =============================================
-// EXTENSÃO DO REQUEST PARA INCLUIR USER
-// =============================================
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JWTPayload;
-    }
-  }
-}
-
-// =============================================
-// MIDDLEWARE DE AUTENTICAÇÃO
+// MIDDLEWARE DE AUTENTICAÇÃO E CONTEXTO
 // =============================================
 
 /**
- * Middleware para verificar se o usuário está autenticado
+ * Middleware para verificar se o usuário está autenticado via JWT de acesso.
+ * Injeta o `AuthContext` (payload do token) no objeto `req`.
+ * Essencial para todas as rotas protegidas.
  */
 export const requireAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -29,44 +19,86 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     if (!token) {
       res.status(401).json({
-        error: 'Token não fornecido',
+        error: 'TokenNãoFornecido',
         message: 'Acesso negado. Token de autenticação é obrigatório.',
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    const decoded = verifyToken(token);
-    req.user = decoded;
+    // `verifyAccessToken` agora retorna o AuthContext completo
+    const decoded = verifyAccessToken(token);
+    
+    // Injeta o contexto de autorização no request para uso posterior
+    req.auth = decoded;
     
     next();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Token inválido';
     res.status(401).json({
-      error: 'Token inválido',
+      error: 'TokenInvalido',
       message: errorMessage,
       timestamp: new Date().toISOString()
     });
   }
 };
 
+// =============================================
+// MIDDLEWARE DE AUTORIZAÇÃO (RBAC)
+// =============================================
+
 /**
- * Middleware para verificar se o usuário é proprietário
+ * Factory de middleware para verificar se o usuário possui um dos papéis (roles) permitidos no Hub atual.
+ * DEVE ser usado DEPOIS de `requireAuth`.
+ * @param allowedRoles Array de papéis permitidos para acessar o recurso.
  */
-export const requireOwner = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.user) {
+export const requireHubRole = (allowedRoles: Role[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    // req.auth é injetado pelo middleware 'requireAuth'
+    if (!req.auth) {
+      res.status(401).json({
+        error: 'NaoAutenticado',
+        message: 'Este recurso requer autenticação prévia.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    const { role: userRole } = req.auth;
+    
+    if (!allowedRoles.includes(userRole)) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
+        seuPapel: userRole,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    next();
+  };
+};
+
+/**
+ * Middleware para verificar se o usuário é um Administrador do Sistema.
+ * Concede acesso irrestrito a recursos, sobrepondo-se às regras de Hub.
+ * DEVE ser usado DEPOIS de `requireAuth`.
+ */
+export const requireAdminSystem = (req: Request, res: Response, next: NextFunction): void => {
+  if (!req.auth) {
     res.status(401).json({
-      error: 'Usuário não autenticado',
-      message: 'Token de autenticação é obrigatório',
+      error: 'NaoAutenticado',
+      message: 'Este recurso requer autenticação prévia.',
       timestamp: new Date().toISOString()
     });
     return;
   }
 
-  if (!req.user.eh_proprietario) {
+  if (!req.auth.ehAdministrador) {
     res.status(403).json({
-      error: 'Acesso negado',
-      message: 'Apenas proprietários podem acessar este recurso',
+      error: 'AcessoNegado',
+      message: 'Acesso restrito a Administradores do Sistema.',
       timestamp: new Date().toISOString()
     });
     return;
@@ -75,157 +107,84 @@ export const requireOwner = (req: Request, res: Response, next: NextFunction): v
   next();
 };
 
-/**
- * Middleware opcional de autenticação (não falha se não houver token)
- */
-export const optionalAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = extractTokenFromHeader(authHeader);
-
-    if (token) {
-      const decoded = verifyToken(token);
-      req.user = decoded;
-    }
-    
-    next();
-  } catch (error) {
-    // Ignora erros de token em auth opcional
-    next();
-  }
-};
-
-/**
- * Middleware para verificar se o usuário pode acessar seus próprios dados ou é proprietário
- */
-export const requireSelfOrOwner = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    res.status(401).json({
-      error: 'Usuário não autenticado',
-      message: 'Token de autenticação é obrigatório',
-      timestamp: new Date().toISOString()
-    });
-    return;
-  }
-
-  const targetUserId = parseInt(req.params.id || req.params.userId || '0');
-  const currentUserId = req.user.user_id;
-  const isOwner = req.user.eh_proprietario;
-
-  if (currentUserId === targetUserId || isOwner) {
-    next();
-    return;
-  }
-
-  res.status(403).json({
-    error: 'Acesso negado',
-    message: 'Você só pode acessar seus próprios dados',
-    timestamp: new Date().toISOString()
-  });
-};
-
 // =============================================
-// MIDDLEWARE DE VALIDAÇÃO
+// MIDDLEWARE DE VALIDAÇÃO (SCHEMA)
 // =============================================
 
 /**
- * Cria middleware de validação para schemas Zod
+ * Cria middleware de validação para o corpo (body) da requisição usando Zod.
  */
 export const validateSchema = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const validatedData = schema.parse(req.body);
-      req.body = validatedData;
+      req.body = schema.parse(req.body);
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }));
-
         res.status(400).json({
-          error: 'Dados inválidos',
-          message: 'Verifique os campos e tente novamente',
-          details: errors,
+          error: 'DadosInvalidos',
+          message: 'Verifique os campos e tente novamente.',
+          details: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          })),
           timestamp: new Date().toISOString()
         });
-        return;
+        return; // CRITICAL: Adicionar return aqui!
       }
-
-      res.status(400).json({
-        error: 'Erro de validação',
-        message: 'Dados fornecidos são inválidos',
-        timestamp: new Date().toISOString()
-      });
+      res.status(500).json({ error: 'ErroInterno', message: 'Erro ao processar validação.' });
     }
   };
 };
 
 /**
- * Middleware para validar parâmetros da URL
+ * Cria middleware de validação para parâmetros da URL usando Zod.
  */
 export const validateParams = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const validatedParams = schema.parse(req.params);
-      req.params = validatedParams;
+      req.params = schema.parse(req.params);
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }));
-
         res.status(400).json({
-          error: 'Parâmetros inválidos',
-          message: 'Verifique os parâmetros da URL',
-          details: errors,
+          error: 'ParametrosInvalidos',
+          message: 'Verifique os parâmetros da URL.',
+          details: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          })),
           timestamp: new Date().toISOString()
         });
-        return;
+        return; // CRITICAL: Adicionar return aqui!
       }
-
-      res.status(400).json({
-        error: 'Erro de validação',
-        message: 'Parâmetros fornecidos são inválidos',
-        timestamp: new Date().toISOString()
-      });
+      res.status(500).json({ error: 'ErroInterno', message: 'Erro ao processar validação de parâmetros.' });
     }
   };
 };
 
 /**
- * Middleware para validar query parameters
+ * Cria middleware de validação para query parameters usando Zod.
  */
 export const validateQuery = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const validatedQuery = schema.parse(req.query);
-      req.query = validatedQuery;
+      req.query = schema.parse(req.query);
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }));
-
         res.status(400).json({
-          error: 'Query parameters inválidos',
-          message: 'Verifique os parâmetros de consulta',
-          details: errors,
+          error: 'QueryParametersInvalidos',
+          message: 'Verifique os parâmetros de consulta.',
+          details: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          })),
           timestamp: new Date().toISOString()
         });
-        return;
+        return; // CRITICAL: Adicionar return aqui!
       }
-
-      res.status(400).json({
-        error: 'Erro de validação',
-        message: 'Query parameters fornecidos são inválidos',
-        timestamp: new Date().toISOString()
-      });
+      res.status(500).json({ error: 'ErroInterno', message: 'Erro ao processar validação de query.' });
     }
   };
 };

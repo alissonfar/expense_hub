@@ -1,187 +1,129 @@
 import { Router } from 'express';
 import {
-  listPessoas,
-  createPessoa,
-  getPessoa,
-  updatePessoa,
-  deletePessoa
+  listMembros,
+  convidarMembro,
+  getMembro,
+  updateMembro,
+  removerMembro
 } from '../controllers/pessoaController';
 import {
   requireAuth,
-  requireOwner,
+  requireHubRole,
   validateSchema,
   validateParams,
   validateQuery
 } from '../middleware/auth';
+import { injectPrismaClient } from '../middleware/prisma';
 import {
-  createPessoaSchema,
-  updatePessoaSchema,
-  pessoaParamsSchema,
-  pessoaQuerySchema
+  createMembroSchema,
+  updateMembroSchema,
+  membroParamsSchema,
+  listMembrosQuerySchema
 } from '../schemas/pessoa';
 
 // =============================================
-// CONFIGURAÇÃO DAS ROTAS DE PESSOAS
+// CONFIGURAÇÃO DAS ROTAS DE MEMBROS DO HUB
 // =============================================
-
 const router = Router();
 
-// =============================================
-// TODAS AS ROTAS REQUEREM AUTENTICAÇÃO
-// =============================================
+// Todas as rotas de membros requerem autenticação em um Hub.
+router.use(requireAuth);
+router.use(injectPrismaClient);
 
 // =============================================
 // ROTA DE INFORMAÇÕES (DEVE VIR ANTES DE /:id)
 // =============================================
-
-/**
- * GET /api/pessoas/info
- * Retorna informações sobre as rotas de pessoas
- */
 router.get('/info', (req, res) => {
   res.json({
-    message: '👥 Sistema de Gestão de Pessoas - Personal Expense Hub',
-    version: '1.0.0',
+    message: '👥 API de Gestão de Membros do Hub',
+    version: '2.0.0',
     status: 'Operacional',
-    permissions: {
-      viewing: 'Usuários autenticados podem visualizar pessoas',
-      management: 'Apenas proprietário pode criar/editar/desativar pessoas'
-    },
     endpoints: {
       list: {
         method: 'GET',
-        path: '/api/pessoas',
-        description: 'Lista todas as pessoas',
-        auth: 'Requerida',
-        query: {
-          ativo: 'boolean (opcional) - Filtrar por status ativo',
-          proprietario: 'boolean (opcional) - Filtrar por proprietário',
-          page: 'number (opcional) - Página (padrão: 1)',
-          limit: 'number (opcional) - Itens por página (padrão: 20, máx: 100)'
-        }
+        path: '/api/membros',
+        description: 'Lista todos os membros do Hub atual.',
+        auth: 'Membro do Hub',
       },
-      create: {
+      invite: {
         method: 'POST',
-        path: '/api/pessoas',
-        description: 'Cria uma nova pessoa',
-        auth: 'Proprietário',
-        body: {
-          nome: 'string (obrigatório) - Nome completo',
-          email: 'string (obrigatório) - Email único',
-          telefone: 'string (opcional) - Formato: (XX) XXXXX-XXXX',
-          eh_proprietario: 'boolean (opcional) - Apenas um proprietário permitido'
-        }
+        path: '/api/membros',
+        description: 'Convida um novo membro para o Hub. Cria a pessoa se não existir.',
+        auth: 'PROPRIETARIO ou ADMINISTRADOR do Hub',
       },
       details: {
         method: 'GET',
-        path: '/api/pessoas/:id',
-        description: 'Busca detalhes de uma pessoa',
-        auth: 'Requerida',
-        params: {
-          id: 'number (obrigatório) - ID da pessoa'
-        }
+        path: '/api/membros/:id',
+        description: 'Busca detalhes de um membro específico do Hub pelo ID da Pessoa.',
+        auth: 'Membro do Hub',
       },
       update: {
         method: 'PUT',
-        path: '/api/pessoas/:id',
-        description: 'Atualiza dados de uma pessoa',
-        auth: 'Proprietário',
-        params: {
-          id: 'number (obrigatório) - ID da pessoa'
-        },
-        body: {
-          nome: 'string (opcional) - Nome completo',
-          email: 'string (opcional) - Email único',
-          telefone: 'string (opcional) - Formato: (XX) XXXXX-XXXX'
-        }
+        path: '/api/membros/:id',
+        description: 'Atualiza o role ou status de um membro.',
+        auth: 'PROPRIETARIO ou ADMINISTRADOR do Hub',
       },
-      delete: {
+      remove: {
         method: 'DELETE',
-        path: '/api/pessoas/:id',
-        description: 'Desativa uma pessoa (soft delete)',
-        auth: 'Proprietário',
-        params: {
-          id: 'number (obrigatório) - ID da pessoa'
-        },
-        restrictions: [
-          'Não pode desativar proprietário',
-          'Não pode desativar pessoa com pendências'
-        ]
+        path: '/api/membros/:id',
+        description: 'Desativa um membro do Hub (soft delete).',
+        auth: 'PROPRIETARIO ou ADMINISTRADOR do Hub',
       }
-    },
-    businessRules: [
-      '✅ Email único no sistema',
-      '✅ Apenas um proprietário permitido',
-      '✅ Soft delete (ativo = false)',
-      '✅ Não permite desativar proprietário',
-      '✅ Não permite desativar com pendências',
-      '✅ Telefone opcional mas formato específico',
-      '✅ Participantes não têm login inicialmente'
-    ],
-    features: [
-      '✅ Listagem com paginação',
-      '✅ Filtros por status e role',
-      '✅ Validação completa de dados',
-      '✅ Estatísticas por pessoa',
-      '✅ Controle de permissões',
-      '✅ Auditoria de mudanças'
-    ],
-    timestamp: new Date().toISOString()
+    }
   });
 });
 
+// =============================================
+// ROTAS PRINCIPAIS
+// =============================================
+
 /**
- * GET /api/pessoas
- * Lista todas as pessoas (com filtros opcionais)
+ * GET /
+ * Lista todos os membros do Hub.
  */
 router.get('/',
-  requireAuth,
-  validateQuery(pessoaQuerySchema),
-  listPessoas
+  validateQuery(listMembrosQuerySchema),
+  listMembros
 );
 
 /**
- * POST /api/pessoas
- * Cria uma nova pessoa (apenas proprietário)
+ * POST /
+ * Convida um novo membro para o Hub.
  */
 router.post('/',
-  requireAuth,
-  requireOwner,
-  validateSchema(createPessoaSchema),
-  createPessoa
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
+  validateSchema(createMembroSchema),
+  convidarMembro
 );
 
 /**
- * GET /api/pessoas/:id
- * Busca detalhes de uma pessoa específica
+ * GET /:id
+ * Busca detalhes de um membro específico.
  */
 router.get('/:id',
-  requireAuth,
-  validateParams(pessoaParamsSchema),
-  getPessoa
+  validateParams(membroParamsSchema),
+  getMembro
 );
 
 /**
- * PUT /api/pessoas/:id
- * Atualiza dados de uma pessoa (apenas proprietário)
+ * PUT /:id
+ * Atualiza um membro (role, status).
  */
 router.put('/:id',
-  requireAuth,
-  requireOwner,
-  validateParams(pessoaParamsSchema),
-  validateSchema(updatePessoaSchema),
-  updatePessoa
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
+  validateParams(membroParamsSchema),
+  validateSchema(updateMembroSchema),
+  updateMembro
 );
 
 /**
- * DELETE /api/pessoas/:id
- * Desativa uma pessoa (apenas proprietário)
+ * DELETE /:id
+ * Remove um membro do Hub (soft delete).
  */
 router.delete('/:id',
-  requireAuth,
-  requireOwner,
-  validateParams(pessoaParamsSchema),
-  deletePessoa
+  requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR']),
+  validateParams(membroParamsSchema),
+  removerMembro
 );
 
 export default router; 

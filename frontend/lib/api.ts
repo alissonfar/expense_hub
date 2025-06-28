@@ -16,7 +16,7 @@ api.interceptors.request.use(
   (config) => {
     // Pegar token do localStorage (apenas no client-side)
     if (typeof window !== 'undefined') {
-      const rawToken = localStorage.getItem('auth_token')
+      const rawToken = localStorage.getItem('access_token')
       // Remover aspas extras se existirem (caso token foi salvo como JSON string)
       const token = rawToken ? rawToken.replace(/^"(.*)"$/, '$1') : null
       
@@ -48,11 +48,15 @@ api.interceptors.response.use(
     return response
   },
   (error: AxiosError) => {
-    // Se token expirou ou inválido (401), limpar localStorage
+    // Se token expirou ou inválido (401), limpar localStorage para
+    // acionar o listener de 'storage' no AuthProvider, que fará o logout.
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
         localStorage.removeItem('user_data')
+        localStorage.removeItem('user_hubs')
+        localStorage.removeItem('selected_hub')
       }
     }
 

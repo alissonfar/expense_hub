@@ -1,24 +1,34 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { apiPost, apiGet } from './api'
+import { useRouter } from 'next/navigation'
+import { apiPost } from './api'
 import { API_ENDPOINTS } from './constants'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 
-// Tipos do usuário e auth (compatível com backend)
+// --- NOVOS TIPOS MULTI-TENANT ---
+
+export interface Hub {
+  id: string;
+  nome: string;
+  role: 'PROPRIETARIO' | 'ADMINISTRADOR' | 'COLABORADOR' | 'VISUALIZADOR';
+}
+
 export interface User {
   id: string
   nome: string
   email: string
-  eh_proprietario: boolean
-  created_at?: string
+  // eh_proprietario foi removido
 }
 
 export interface AuthState {
   user: User | null
-  token: string | null
+  hubs: Hub[]
+  selectedHub: Hub | null
+  refreshToken: string | null
+  accessToken: string | null
   isLoading: boolean
-  isAuthenticated: boolean
+  isAuthenticated: boolean // Agora significa que temos um accessToken válido
 }
 
 export interface LoginCredentials {
@@ -36,7 +46,8 @@ export interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
-  refreshUser: () => Promise<void>
+  selectHub: (hubId: string) => Promise<void>
+  // refreshUser foi removido, a lógica será outra
 }
 
 // Contexto
@@ -44,57 +55,103 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 // Provider
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useLocalStorage<string | null>('auth_token', null)
+  const router = useRouter()
+  
+  // --- GERENCIAMENTO DE ESTADO COM LOCALSTORAGE ---
   const [userData, setUserData] = useLocalStorage<User | null>('user_data', null)
+  const [hubs, setHubs] = useLocalStorage<Hub[]>('user_hubs', [])
+  const [selectedHub, setSelectedHub] = useLocalStorage<Hub | null>('selected_hub', null)
+  const [refreshToken, setRefreshToken] = useLocalStorage<string | null>('refresh_token', null)
+  const [accessToken, setAccessToken] = useLocalStorage<string | null>('access_token', null)
+  
   const [isLoading, setIsLoading] = useState(true)
 
-  const isAuthenticated = !!token && !!userData
+  // A sessão é considerada autenticada se tivermos um accessToken
+  const isAuthenticated = !!accessToken && !!userData && !!selectedHub
 
-  // Função de login
+  // --- FUNÇÕES DE AUTENTICAÇÃO ATUALIZADAS ---
+
   const login = async (credentials: LoginCredentials) => {
     try {
       setIsLoading(true)
-      
       const response = await apiPost(API_ENDPOINTS.AUTH.LOGIN, credentials)
       
-      // Backend retorna: { success: true, data: { token, user }, ... }
-      const { data } = response.data
-      const { token: newToken, user } = data
+      // Backend retorna: { success, data: { refreshToken, user, hubs } }
+      const { refreshToken: newRefreshToken, user, hubs: userHubs } = response.data.data
 
-      if (!newToken || !user) {
-        throw new Error('Resposta inválida do servidor')
+      if (!newRefreshToken || !user || !userHubs) {
+        throw new Error('Resposta de login inválida do servidor')
       }
 
-      // Salvar no localStorage
-      setToken(newToken)
+      // 1. Limpa o estado antigo
+      logout(true) // silent logout
+
+      // 2. Salva os dados essenciais
+      setRefreshToken(newRefreshToken)
       setUserData(user)
-      
+      setHubs(userHubs)
+
+      // 3. Redireciona para seleção de Hub
+      router.push('/select-hub')
+
     } catch (error: any) {
       throw new Error(error.message || 'Erro ao fazer login')
     } finally {
       setIsLoading(false)
     }
   }
-
-  // Função de registro
-  const register = async (data: RegisterData) => {
+  
+  const selectHub = async (hubId: string) => {
+    if (!refreshToken) {
+      throw new Error('Refresh token não encontrado para selecionar um hub.')
+    }
     try {
       setIsLoading(true)
-      
-      const response = await apiPost(API_ENDPOINTS.AUTH.REGISTER, data)
-      
-      // Backend retorna: { success: true, data: { token, user }, ... }
-      const { data: responseData } = response.data
-      const { token: newToken, user } = responseData
+      const response = await apiPost(API_ENDPOINTS.AUTH.SELECT_HUB, { hubId, refreshToken })
 
-      if (!newToken || !user) {
-        throw new Error('Resposta inválida do servidor')
+      // Backend retorna: { success, data: { accessToken } }
+      const { accessToken: newAccessToken } = response.data.data
+      const hubToSelect = hubs.find(h => h.id === hubId)
+
+      if (!newAccessToken || !hubToSelect) {
+        throw new Error('Não foi possível obter o token de acesso ou encontrar o hub.')
       }
 
-      // Salvar no localStorage
-      setToken(newToken)
-      setUserData(user)
+      setAccessToken(newAccessToken)
+      setSelectedHub(hubToSelect)
+
+      router.push('/dashboard') // Ou para a última página visitada
+
+    } catch (error: any) {
+      // Se falhar, deslogar para segurança
+      logout()
+      throw new Error(error.message || 'Erro ao selecionar o Hub.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const register = async (data: RegisterData) => {
+    // A lógica de registro agora é a mesma do login, pois o backend
+    // cria o usuário, o primeiro hub e já loga.
+    try {
+      setIsLoading(true)
+      const response = await apiPost(API_ENDPOINTS.AUTH.REGISTER, data)
+
+      // Backend retorna: { success, data: { refreshToken, user, hubs } }
+      const { refreshToken: newRefreshToken, user, hubs: userHubs } = response.data.data
+
+      if (!newRefreshToken || !user || !userHubs) {
+        throw new Error('Resposta de registro inválida do servidor')
+      }
       
+      logout(true); // silent logout
+      setRefreshToken(newRefreshToken)
+      setUserData(user)
+      setHubs(userHubs)
+
+      router.push('/select-hub')
+
     } catch (error: any) {
       throw new Error(error.message || 'Erro ao criar conta')
     } finally {
@@ -102,109 +159,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Função de logout
-  const logout = () => {
-    try {
-      // Chamar endpoint de logout (optional, backend pode não precisar)
-      apiPost(API_ENDPOINTS.AUTH.LOGOUT).catch(() => {
-        // Ignorar erros do logout no backend
-      })
-    } catch (error) {
-      // Ignorar erros
-    } finally {
-      // Limpar dados locais sempre
-      setToken(null)
-      setUserData(null)
+  const logout = (silent = false) => {
+    // Limpeza completa do estado de autenticação
+    setAccessToken(null)
+    setRefreshToken(null)
+    setUserData(null)
+    setHubs([])
+    setSelectedHub(null)
+    
+    // Limpa o localStorage diretamente para garantir
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user_data')
+      localStorage.removeItem('user_hubs')
+      localStorage.removeItem('selected_hub')
+    }
+
+    if (!silent) {
+      router.push('/login')
     }
   }
 
-  // Função para atualizar dados do usuário
-  const refreshUser = async () => {
-    if (!token) {
-      throw new Error('Token não encontrado')
-    }
+  // --- EFEITOS PARA GERENCIAR O ESTADO DA SESSÃO ---
 
-    try {
-      const response = await apiGet(API_ENDPOINTS.AUTH.ME)
-      
-      // Backend pode retornar user direto ou dentro de data
-      const user = response.data.data || response.data
-      
-      if (!user) {
-        throw new Error('Dados do usuário não encontrados na resposta')
-      }
-      
-      setUserData(user)
-    } catch (error: any) {
-      // Re-throw o erro para o caller decidir o que fazer
-      throw error
-    }
-  }
-
-  // Verificar token na inicialização
+  // Efeito inicial para verificar o estado da sessão ao carregar a aplicação
   useEffect(() => {
-    const checkAuth = async () => {
-      // Se não tem token, não precisa fazer nada
-      if (!token) {
-        setIsLoading(false)
-        return
-      }
-
-      // Se tem token e dados do usuário, está ok
-      if (token && userData) {
-        setIsLoading(false)
-        return
-      }
-
-      // Se tem token mas não tem userData, tentar buscar
-      if (token && !userData) {
-        try {
-          await refreshUser()
-        } catch (error: any) {
-          // Só fazer logout se for erro 401 (token inválido)
-          if (error.response?.status === 401) {
-            logout()
-          }
-          // Para outros erros, manter sessão
-        }
-      }
-      
+    // Se não há refresh token, o usuário não está logado.
+    if (!refreshToken) {
       setIsLoading(false)
+      return;
     }
 
-    checkAuth()
-  }, [token, userData]) // Depender de ambos
+    // Se temos um access token, consideramos o usuário logado e pronto.
+    if (accessToken && userData && selectedHub) {
+      setIsLoading(false)
+      return;
+    }
 
-  // Monitorar mudanças no localStorage (para logout automático em caso de 401)
+    // Se temos um refresh token mas não um access token (ex: aba fechada e reaberta),
+    // o usuário precisa selecionar um hub novamente.
+    if (refreshToken && !accessToken) {
+       router.push('/select-hub');
+    }
+    
+    setIsLoading(false)
+  }, []) // Executa apenas uma vez
+
+  // Monitorar mudanças no localStorage para sincronizar abas
   useEffect(() => {
-    const handleStorageChange = () => {
-      const currentToken = localStorage.getItem('auth_token')
-      const currentUser = localStorage.getItem('user_data')
-      
-      // Se token foi removido externamente (pelo interceptor), fazer logout local
-      if (!currentToken && token) {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'access_token' && !event.newValue) {
         logout()
       }
     }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', handleStorageChange)
-      
-      return () => {
-        window.removeEventListener('storage', handleStorageChange)
-      }
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
     }
-  }, [token])
+  }, [logout])
+
 
   const contextValue: AuthContextType = {
     user: userData,
-    token,
+    hubs,
+    selectedHub,
+    refreshToken,
+    accessToken,
     isLoading,
     isAuthenticated,
     login,
     register,
     logout,
-    refreshUser
+    selectHub
   }
 
   return (

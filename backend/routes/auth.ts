@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   register,
   login,
+  selectHub,
   getProfile,
   updateProfile,
   changePassword,
@@ -15,6 +16,7 @@ import {
 import {
   registerSchema,
   loginSchema,
+  selectHubSchema,
   updateProfileSchema,
   changePasswordSchema
 } from '../schemas/auth';
@@ -26,12 +28,12 @@ import {
 const router = Router();
 
 // =============================================
-// ROTAS PÚBLICAS (SEM AUTENTICAÇÃO)
+// ROTAS PÚBLICAS (NÃO REQUEREM ACCESS TOKEN)
 // =============================================
 
 /**
  * POST /api/auth/register
- * Registra um novo usuário
+ * Registra um novo usuário e seu primeiro Hub.
  */
 router.post('/register', 
   strictRateLimit,
@@ -41,7 +43,8 @@ router.post('/register',
 
 /**
  * POST /api/auth/login
- * Faz login do usuário
+ * Autentica o usuário e retorna a lista de Hubs disponíveis.
+ * Retorna um Refresh Token.
  */
 router.post('/login',
   strictRateLimit,
@@ -49,13 +52,24 @@ router.post('/login',
   login
 );
 
+/**
+ * POST /api/auth/select-hub
+ * Recebe um hubId e um Refresh Token, retorna um Access Token para aquele Hub.
+ */
+router.post('/select-hub',
+    strictRateLimit,
+    validateSchema(selectHubSchema),
+    selectHub
+);
+
+
 // =============================================
-// ROTAS PROTEGIDAS (REQUEREM AUTENTICAÇÃO)
+// ROTAS PROTEGIDAS (REQUEREM ACCESS TOKEN DE UM HUB)
 // =============================================
 
 /**
  * GET /api/auth/me
- * Retorna dados do usuário logado
+ * Retorna dados do usuário logado, com base no contexto do token.
  */
 router.get('/me',
   requireAuth,
@@ -64,7 +78,7 @@ router.get('/me',
 
 /**
  * PUT /api/auth/profile
- * Atualiza perfil do usuário logado
+ * Atualiza perfil do usuário logado.
  */
 router.put('/profile',
   requireAuth,
@@ -74,7 +88,7 @@ router.put('/profile',
 
 /**
  * PUT /api/auth/change-password
- * Altera senha do usuário logado
+ * Altera senha do usuário logado.
  */
 router.put('/change-password',
   requireAuth,
@@ -85,12 +99,9 @@ router.put('/change-password',
 
 /**
  * POST /api/auth/logout
- * Faz logout do usuário (invalida token)
+ * Ação de logout do lado do servidor (atualmente um placeholder).
  */
-router.post('/logout',
-  requireAuth,
-  logout
-);
+router.post('/logout', logout);
 
 // =============================================
 // ROTA DE INFORMAÇÕES (PARA DEBUG/DESENVOLVIMENTO)
@@ -98,105 +109,32 @@ router.post('/logout',
 
 /**
  * GET /api/auth/info
- * Retorna informações sobre as rotas de autenticação
+ * Retorna informações sobre as rotas de autenticação (atualizado para Multi-Tenant).
  */
 router.get('/info', (req, res) => {
   res.json({
-    message: '🔐 Sistema de Autenticação - Personal Expense Hub',
-    version: '1.0.0',
+    message: '🔐 Sistema de Autenticação Multi-Tenant - Hub',
+    version: '2.0.0',
     status: 'Operacional',
+    authFlow: [
+        "1. POST /api/auth/register: Cria usuário e o primeiro Hub.",
+        "2. POST /api/auth/login: Fornece credenciais, recebe lista de Hubs e um Refresh Token.",
+        "3. POST /api/auth/select-hub: Envia o Refresh Token (Header) e um hubId (Body), recebe um Access Token específico para o Hub.",
+        "4. Em todas as outras requisições protegidas: Envia o Access Token no Header 'Authorization: Bearer <token>'."
+    ],
     endpoints: {
       public: {
-        register: {
-          method: 'POST',
-          path: '/api/auth/register',
-          description: 'Registra um novo usuário',
-          body: {
-            nome: 'string (obrigatório)',
-            email: 'string (obrigatório)',
-            password: 'string (obrigatório)',
-            telefone: 'string (opcional)'
-          }
-        },
-        login: {
-          method: 'POST',
-          path: '/api/auth/login',
-          description: 'Faz login do usuário',
-          body: {
-            email: 'string (obrigatório)',
-            password: 'string (obrigatório)'
-          }
-        }
+        register: { method: 'POST', path: '/api/auth/register' },
+        login: { method: 'POST', path: '/api/auth/login' },
+        selectHub: { method: 'POST', path: '/api/auth/select-hub' }
       },
       protected: {
-        profile: {
-          method: 'GET',
-          path: '/api/auth/me',
-          description: 'Retorna dados do usuário logado',
-          headers: {
-            Authorization: 'Bearer <token>'
-          }
-        },
-        updateProfile: {
-          method: 'PUT',
-          path: '/api/auth/profile',
-          description: 'Atualiza perfil do usuário',
-          headers: {
-            Authorization: 'Bearer <token>'
-          },
-          body: {
-            nome: 'string (opcional)',
-            email: 'string (opcional)',
-            telefone: 'string (opcional)'
-          }
-        },
-        changePassword: {
-          method: 'PUT',
-          path: '/api/auth/change-password',
-          description: 'Altera senha do usuário',
-          headers: {
-            Authorization: 'Bearer <token>'
-          },
-          body: {
-            currentPassword: 'string (obrigatório)',
-            newPassword: 'string (obrigatório)',
-            confirmPassword: 'string (obrigatório)'
-          }
-        },
-        logout: {
-          method: 'POST',
-          path: '/api/auth/logout',
-          description: 'Faz logout do usuário',
-          headers: {
-            Authorization: 'Bearer <token>'
-          }
-        }
+        profile: { method: 'GET', path: '/api/auth/me' },
+        updateProfile: { method: 'PUT', path: '/api/auth/profile' },
+        changePassword: { method: 'PUT', path: '/api/auth/change-password' },
+        logout: { method: 'POST', path: '/api/auth/logout' },
       }
     },
-    security: {
-      passwordRequirements: [
-        'Mínimo 8 caracteres',
-        'Pelo menos 1 letra minúscula',
-        'Pelo menos 1 letra maiúscula',
-        'Pelo menos 1 número',
-        'Pelo menos 1 caractere especial',
-        'Sem espaços em branco'
-      ],
-      tokenExpiration: '7 dias',
-      refreshTokenExpiration: '30 dias',
-      rateLimiting: 'Aplicado em rotas sensíveis'
-    },
-    features: [
-      '✅ Registro de usuários',
-      '✅ Login com JWT',
-      '✅ Perfil do usuário',
-      '✅ Atualização de dados',
-      '✅ Mudança de senha',
-      '✅ Validação de dados',
-      '✅ Hash de senhas',
-      '✅ Rate limiting',
-      '✅ Primeiro usuário = proprietário'
-    ],
     timestamp: new Date().toISOString()
   });
 });

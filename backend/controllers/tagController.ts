@@ -88,7 +88,7 @@ export const listTags = async (req: Request, res: Response): Promise<void> => {
  */
 export const createTag = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user) {
+    if (!req.auth) {
       res.status(401).json({
         error: 'Usuário não autenticado',
         message: 'Token de autenticação é obrigatório',
@@ -99,9 +99,12 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
 
     const { nome, cor, icone }: CreateTagInput = req.body;
 
-    // Verificar se nome já existe
-    const existingTag = await req.prisma.tags.findUnique({
-      where: { nome }
+    // Verificar se nome já existe (deve usar busca por hubId e nome)
+    const existingTag = await req.prisma.tags.findFirst({
+      where: { 
+        hubId: req.auth.hubId,
+        nome 
+      }
     });
 
     if (existingTag) {
@@ -120,8 +123,9 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
         cor: cor || '#6B7280',
         icone: icone || null,
         ativo: true,
-        criado_por: req.user.user_id,
-        criado_em: new Date()
+        criado_por: req.auth.pessoaId,
+        criado_em: new Date(),
+        hubId: req.auth.hubId
       },
       select: {
         id: true,

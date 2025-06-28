@@ -1,110 +1,89 @@
 import { z } from 'zod';
+import { Role, DataAccessPolicy } from '@prisma/client';
 
 // =============================================
-// SCHEMAS DE VALIDAÇÃO PARA PESSOAS
+// SCHEMAS DE VALIDAÇÃO PARA MEMBROS
 // =============================================
+
+const roleEnum = z.enum([Role.PROPRIETARIO, Role.ADMINISTRADOR, Role.COLABORADOR, Role.VISUALIZADOR]);
+const dataAccessPolicyEnum = z.enum([DataAccessPolicy.GLOBAL, DataAccessPolicy.INDIVIDUAL]);
 
 /**
- * Schema para criação de pessoa
+ * Schema para convidar/criar um novo membro para um Hub.
  */
-export const createPessoaSchema = z.object({
-  nome: z
-    .string()
-    .min(2, 'Nome deve ter pelo menos 2 caracteres')
-    .max(100, 'Nome deve ter no máximo 100 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ\s]+$/, 'Nome deve conter apenas letras e espaços'),
-  
+export const createMembroSchema = z.object({
   email: z
     .string()
-    .min(1, 'Email é obrigatório')
     .email('Email inválido')
     .max(255, 'Email deve ter no máximo 255 caracteres')
     .toLowerCase()
     .transform(email => email.trim()),
   
-  telefone: z
-    .string()
-    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (XX) XXXXX-XXXX')
-    .optional()
-    .or(z.literal('')),
-  
-  eh_proprietario: z
-    .boolean()
-    .default(false)
-    .optional()
-});
-
-/**
- * Schema para edição de pessoa
- */
-export const updatePessoaSchema = z.object({
   nome: z
     .string()
     .min(2, 'Nome deve ter pelo menos 2 caracteres')
-    .max(100, 'Nome deve ter no máximo 100 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ\s]+$/, 'Nome deve conter apenas letras e espaços')
-    .optional(),
-  
-  email: z
-    .string()
-    .email('Email inválido')
-    .max(255, 'Email deve ter no máximo 255 caracteres')
-    .toLowerCase()
-    .transform(email => email.trim())
-    .optional(),
-  
-  telefone: z
-    .string()
-    .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (XX) XXXXX-XXXX')
-    .optional()
-    .or(z.literal(''))
+    .max(100, 'Nome deve ter no máximo 100 caracteres'),
+
+  role: roleEnum.refine(role => role !== Role.PROPRIETARIO, {
+    message: "Não é possível atribuir o papel de 'PROPRIETARIO'. Apenas um proprietário é permitido e é definido na criação do Hub."
+  }),
+
+  dataAccessPolicy: dataAccessPolicyEnum.optional().nullable()
+}).refine(data => {
+    // Se o role for COLABORADOR, a política de acesso é obrigatória.
+    if (data.role === Role.COLABORADOR) {
+        return data.dataAccessPolicy != null;
+    }
+    return true;
+}, {
+    message: "A Política de Acesso (dataAccessPolicy) é obrigatória para o papel 'COLABORADOR'.",
+    path: ["dataAccessPolicy"],
 });
 
 /**
- * Schema para validação de parâmetros (ID)
+ * Schema para atualização de um membro.
  */
-export const pessoaParamsSchema = z.object({
-  id: z
-    .string()
-    .regex(/^\d+$/, 'ID deve ser um número válido')
-    .transform(id => parseInt(id, 10))
-    .refine(id => id > 0, 'ID deve ser maior que zero')
+export const updateMembroSchema = z.object({
+  role: roleEnum.optional(),
+  
+  ativo: z.boolean().optional(),
+  
+  dataAccessPolicy: dataAccessPolicyEnum.optional().nullable()
+}).refine(data => {
+    if (data.role === Role.COLABORADOR && data.dataAccessPolicy === undefined) {
+        return false; // Se está mudando para colaborador, a política é necessária
+    }
+    return true;
+}, {
+    message: "Ao definir o papel como 'COLABORADOR', a Política de Acesso (dataAccessPolicy) deve ser fornecida.",
+    path: ["dataAccessPolicy"],
 });
 
 /**
- * Schema para query parameters (filtros)
+ * Schema para validação de parâmetros de rota (ID do membro).
  */
-export const pessoaQuerySchema = z.object({
-  ativo: z
-    .string()
-    .optional()
-    .transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
+export const membroParamsSchema = z.object({
+  id: z.coerce.number().int().positive('O ID do membro deve ser um número inteiro positivo.')
+});
+
+/**
+ * Schema para query parameters na listagem de membros.
+ */
+export const listMembrosQuerySchema = z.object({
+  ativo: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
   
-  proprietario: z
-    .string()
-    .optional()
-    .transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
+  role: roleEnum.optional(),
   
-  page: z
-    .string()
-    .regex(/^\d+$/, 'Página deve ser um número válido')
-    .transform(page => parseInt(page, 10))
-    .refine(page => page > 0, 'Página deve ser maior que zero')
-    .optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
   
-  limit: z
-    .string()
-    .regex(/^\d+$/, 'Limite deve ser um número válido')
-    .transform(limit => parseInt(limit, 10))
-    .refine(limit => limit > 0 && limit <= 100, 'Limite deve ser entre 1 e 100')
-    .optional()
+  limit: z.coerce.number().int().positive().max(100).optional().default(20)
 });
 
 // =============================================
 // TIPOS INFERIDOS DOS SCHEMAS
 // =============================================
 
-export type CreatePessoaInput = z.infer<typeof createPessoaSchema>;
-export type UpdatePessoaInput = z.infer<typeof updatePessoaSchema>;
-export type PessoaParamsInput = z.infer<typeof pessoaParamsSchema>;
-export type PessoaQueryInput = z.infer<typeof pessoaQuerySchema>; 
+export type CreateMembroInput = z.infer<typeof createMembroSchema>;
+export type UpdateMembroInput = z.infer<typeof updateMembroSchema>;
+export type MembroParamsInput = z.infer<typeof membroParamsSchema>;
+export type ListMembrosQueryInput = z.infer<typeof listMembrosQuerySchema>;

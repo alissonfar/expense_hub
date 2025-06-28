@@ -38,7 +38,12 @@ export const registerSchema = z.object({
     .string()
     .regex(/^\(\d{2}\)\s\d{4,5}-\d{4}$/, 'Telefone deve estar no formato (XX) XXXXX-XXXX')
     .optional()
-    .or(z.literal(''))
+    .or(z.literal('')),
+
+  nomeHub: z
+    .string()
+    .min(3, 'O nome do Hub deve ter pelo menos 3 caracteres')
+    .max(50, 'O nome do Hub deve ter no máximo 50 caracteres')
 });
 
 /**
@@ -138,6 +143,16 @@ export const refreshTokenSchema = z.object({
     .min(1, 'Refresh token é obrigatório')
 });
 
+/**
+ * Schema para selecionar um Hub
+ */
+export const selectHubSchema = z.object({
+  hubId: z
+    .number()
+    .int()
+    .positive('ID do Hub deve ser um número positivo')
+});
+
 // =============================================
 // TIPOS INFERIDOS DOS SCHEMAS
 // =============================================
@@ -146,6 +161,4 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>;
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
-export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>; 
+export type SelectHubInput = z.infer<typeof selectHubSchema>; 

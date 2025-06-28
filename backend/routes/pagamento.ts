@@ -17,11 +17,11 @@ import {
 } from '../schemas/pagamento';
 import {
   requireAuth,
-  requireOwner,
   validateSchema,
   validateParams,
   validateQuery
 } from '../middleware/auth';
+import { injectPrismaClient } from '../middleware/prisma';
 
 // =============================================
 // CONFIGURAÇÃO DAS ROTAS DE PAGAMENTOS
@@ -297,6 +297,7 @@ router.get('/info', (req, res) => {
  */
 router.get('/configuracoes/excedente',
   requireAuth,
+  injectPrismaClient,
   getConfiguracaoExcedente
 );
 
@@ -306,7 +307,7 @@ router.get('/configuracoes/excedente',
  */
 router.put('/configuracoes/excedente',
   requireAuth,
-  requireOwner,
+  injectPrismaClient,
   validateSchema(configuracaoExcedenteSchema),
   updateConfiguracaoExcedente
 );
@@ -321,6 +322,7 @@ router.put('/configuracoes/excedente',
  */
 router.get('/',
   requireAuth,
+  injectPrismaClient,
   validateQuery(pagamentoQuerySchema),
   listPagamentos
 );
@@ -331,6 +333,7 @@ router.get('/',
  */
 router.post('/',
   requireAuth,
+  injectPrismaClient,
   validateSchema(createPagamentoSchema),
   createPagamento
 );
@@ -341,6 +344,7 @@ router.post('/',
  */
 router.get('/:id',
   requireAuth,
+  injectPrismaClient,
   validateParams(pagamentoParamsSchema),
   getPagamento
 );
@@ -351,6 +355,7 @@ router.get('/:id',
  */
 router.put('/:id',
   requireAuth,
+  injectPrismaClient,
   validateParams(pagamentoParamsSchema),
   validateSchema(updatePagamentoSchema),
   updatePagamento
@@ -362,6 +367,7 @@ router.put('/:id',
  */
 router.delete('/:id',
   requireAuth,
+  injectPrismaClient,
   validateParams(pagamentoParamsSchema),
   deletePagamento
 );

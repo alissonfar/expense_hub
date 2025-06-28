@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express from 'express';
 import {
   getConfiguracaoInterface,
   updateConfiguracaoInterface,
@@ -11,15 +11,15 @@ import {
 } from '../schemas/configuracao';
 import {
   requireAuth,
-  requireOwner,
   validateSchema
 } from '../middleware/auth';
+import { injectPrismaClient } from '../middleware/prisma';
 
 // =============================================
 // CONFIGURAÇÃO DAS ROTAS DE CONFIGURAÇÕES
 // =============================================
 
-const router = Router();
+const router = express.Router();
 
 // =============================================
 // ROTA DE INFORMAÇÕES (DEVE VIR ANTES DE OUTRAS)
@@ -123,6 +123,7 @@ router.get('/info', (req, res) => {
  */
 router.get('/interface',
   requireAuth,
+  injectPrismaClient,
   getConfiguracaoInterface
 );
 
@@ -132,7 +133,7 @@ router.get('/interface',
  */
 router.put('/interface',
   requireAuth,
-  requireOwner,
+  injectPrismaClient,
   validateSchema(configuracaoInterfaceSchema),
   updateConfiguracaoInterface
 );

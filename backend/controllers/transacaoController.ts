@@ -190,10 +190,10 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
       tags = []
     }: CreateGastoInput = req.body;
 
-    // Verificar se usuário logado é proprietário
+    // Verificar se usuário logado está ativo (permissão já validada pelo middleware requireAuth)
     const usuarioLogado = await prisma.pessoas.findUnique({
       where: { id: userId },
-      select: { eh_proprietario: true, ativo: true }
+      select: { ativo: true }
     });
 
     if (!usuarioLogado) {
@@ -214,14 +214,7 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    if (!usuarioLogado.eh_proprietario) {
-      res.status(403).json({
-        success: false,
-        message: 'Apenas proprietários podem criar transações',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
+    // Permissão para criar transações já validada pelo middleware de auth
 
     // Validar se as pessoas existem
     const pessoasIds = participantes.map(p => p.pessoa_id);
@@ -738,7 +731,7 @@ export const deleteTransacao = async (req: Request, res: Response): Promise<void
  */
 export const createReceita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.user_id;
+    const userId = req.auth?.pessoaId;
     if (!userId) {
       res.status(401).json({ error: 'Usuário não autenticado' });
       return;
@@ -853,7 +846,7 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
  */
 export const updateReceita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.user_id;
+    const userId = req.auth?.pessoaId;
     const { id } = req.params;
     
     if (!userId) {

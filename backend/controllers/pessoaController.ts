@@ -1,508 +1,224 @@
 import { Request, Response } from 'express';
-import { CreatePessoaInput, UpdatePessoaInput, PessoaParamsInput, PessoaQueryInput } from '../schemas/pessoa';
+import { CreateMembroInput, UpdateMembroInput, MembroParamsInput, ListMembrosQueryInput } from '../schemas/pessoa';
+import { prisma as globalPrisma } from '../utils/prisma';
+import { Prisma } from '@prisma/client';
 
 // =============================================
-// CONTROLLER DE PESSOAS
+// CONTROLLER DE MEMBROS DO HUB
 // =============================================
 
 /**
- * Lista todas as pessoas (com filtros opcionais)
- * GET /api/pessoas
+ * Lista todos os membros do Hub atual.
  */
-export const listPessoas = async (req: Request, res: Response): Promise<void> => {
+export const listMembros = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { ativo, proprietario, page = 1, limit = 20 }: PessoaQueryInput = req.query;
-
-    // Construir filtros
-    const where: any = {};
-    
-    if (ativo !== undefined) {
-      where.ativo = ativo;
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
+      return;
     }
-    
-    if (proprietario !== undefined) {
-      where.eh_proprietario = proprietario;
-    }
+    const { page = 1, limit = 20, ativo, role } = req.query as unknown as ListMembrosQueryInput;
+    const { hubId } = req.auth;
 
-    // Calcular offset para paginação
+    const where: Prisma.MembroHubWhereInput = { hubId };
+    if (ativo !== undefined) where.ativo = ativo;
+    if (role) where.role = role;
+
     const offset = (page - 1) * limit;
 
-    // Buscar pessoas com paginação
-    const [pessoas, total] = await Promise.all([
-      req.prisma.pessoas.findMany({
+    const [membros, total] = await req.prisma.$transaction([
+      req.prisma.membroHub.findMany({
         where,
-        select: {
-          id: true,
-          nome: true,
-          email: true,
-          telefone: true,
-          eh_proprietario: true,
-          ativo: true,
-          data_cadastro: true,
-          atualizado_em: true
+        include: {
+          pessoa: {
+            select: { id: true, nome: true, email: true, telefone: true, ativo: true }
+          }
         },
-        orderBy: [
-          { eh_proprietario: 'desc' }, // Proprietários primeiro
-          { nome: 'asc' }
-        ],
+        orderBy: { pessoa: { nome: 'asc' } },
         skip: offset,
-        take: limit
+        take: limit,
       }),
-      req.prisma.pessoas.count({ where })
+      req.prisma.membroHub.count({ where })
     ]);
 
     const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
-      message: `${pessoas.length} pessoa(s) encontrada(s)`,
-      data: pessoas,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      },
+      data: membros,
+      pagination: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Erro ao listar pessoas:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível listar as pessoas',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Erro ao listar membros:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível listar os membros do Hub.' });
   }
 };
 
 /**
- * Cria uma nova pessoa (apenas proprietário)
- * POST /api/pessoas
+ * Convida/adiciona um novo membro a um Hub.
  */
-export const createPessoa = async (req: Request, res: Response): Promise<void> => {
+export const convidarMembro = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nome, email, telefone, eh_proprietario }: CreatePessoaInput = req.body;
-
-    // Verificar se email já existe
-    if (email) {
-      const existingUser = await req.prisma.pessoas.findUnique({
-        where: { email }
-      });
-
-      if (existingUser) {
-        res.status(409).json({
-          error: 'Email já cadastrado',
-          message: 'Este email já está sendo usado por outra pessoa',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-    }
-
-    // Verificar se já existe um proprietário (se tentando criar outro)
-    if (eh_proprietario) {
-      const existingOwner = await req.prisma.pessoas.findFirst({
-        where: { eh_proprietario: true }
-      });
-
-      if (existingOwner) {
-        res.status(400).json({
-          error: 'Proprietário já existe',
-          message: 'Já existe um proprietário no sistema. Apenas um proprietário é permitido.',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
-    }
-
-    // Verificar se email foi fornecido (obrigatório no schema)
-    if (!email) {
-      res.status(400).json({
-        error: 'Email obrigatório',
-        message: 'Email é obrigatório para criar uma pessoa',
-        timestamp: new Date().toISOString()
-      });
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
       return;
     }
+    const { email, nome, role, dataAccessPolicy }: CreateMembroInput = req.body;
+    const { hubId } = req.auth;
 
-    // Criar pessoa
-    const novaPessoa = await req.prisma.pessoas.create({
-      data: {
-        nome,
-        email,
-        telefone: telefone || null,
-        eh_proprietario: eh_proprietario || false,
-        ativo: true,
-        data_cadastro: new Date(),
-        atualizado_em: new Date(),
-        senha_hash: '' // Participantes não têm acesso ao sistema inicialmente
-      },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        telefone: true,
-        eh_proprietario: true,
-        ativo: true,
-        data_cadastro: true,
-        atualizado_em: true
-      }
+    const membroExistente = await req.prisma.membroHub.findFirst({
+      where: { hubId, pessoa: { email } }
+    });
+
+    if (membroExistente) {
+      res.status(409).json({ error: 'MembroJaExiste', message: 'Uma pessoa com este email já é membro deste Hub.' });
+      return;
+    }
+    
+    const novoMembro = await globalPrisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const pessoa = await tx.pessoas.upsert({
+        where: { email },
+        update: {},
+        create: {
+          email,
+          nome,
+          senha_hash: 'CONVITE_PENDENTE_' + new Date().toISOString(), 
+        }
+      });
+
+      return tx.membroHub.create({
+        data: {
+          hubId,
+          pessoaId: pessoa.id,
+          role,
+          dataAccessPolicy: (role === 'COLABORADOR' ? dataAccessPolicy : null) as any,
+        },
+        include: {
+          pessoa: { select: { id: true, nome: true, email: true }}
+        }
+      });
     });
 
     res.status(201).json({
       success: true,
-      message: eh_proprietario ? 'Proprietário criado com sucesso!' : 'Pessoa adicionada com sucesso!',
-      data: novaPessoa,
+      message: 'Membro convidado com sucesso para o Hub.',
+      data: novoMembro,
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Erro ao criar pessoa:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível criar a pessoa',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Erro ao convidar membro:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível convidar o membro.' });
   }
 };
 
 /**
- * Busca detalhes de uma pessoa específica
- * GET /api/pessoas/:id
+ * Busca detalhes de um membro específico do Hub.
  */
-export const getPessoa = async (req: Request, res: Response): Promise<void> => {
+export const getMembro = async (req: Request, res: Response): Promise<void> => {
   try {
-    const idParam = req.params.id;
-    if (!idParam) {
-      res.status(400).json({
-        error: 'ID não fornecido',
-        message: 'ID da pessoa é obrigatório',
-        timestamp: new Date().toISOString()
-      });
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
       return;
     }
-    
-    const id = parseInt(idParam, 10);
-    if (isNaN(id)) {
-      res.status(400).json({
-        error: 'ID inválido',
-        message: 'ID deve ser um número válido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
+    const { id: pessoaId } = req.params as unknown as MembroParamsInput;
+    const { hubId } = req.auth;
 
-    const pessoa = await req.prisma.pessoas.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        telefone: true,
-        eh_proprietario: true,
-        ativo: true,
-        data_cadastro: true,
-        atualizado_em: true
+    const membro = await req.prisma.membroHub.findUnique({
+      where: { hubId_pessoaId: { hubId, pessoaId } },
+      include: {
+        pessoa: { select: { id: true, nome: true, email: true, telefone: true, ativo: true } }
       }
     });
 
-    if (!pessoa) {
-      res.status(404).json({
-        error: 'Pessoa não encontrada',
-        message: 'A pessoa solicitada não existe ou foi removida',
-        timestamp: new Date().toISOString()
-      });
+    if (!membro) {
+      res.status(404).json({ error: 'MembroNaoEncontrado', message: 'Membro não encontrado neste Hub.' });
       return;
     }
-
-    // Buscar transações da pessoa
-    const transacoes = await req.prisma.transacoes.findMany({
-      where: {
-        transacao_participantes: {
-          some: { pessoa_id: id }
-        }
-      },
-      select: {
-        id: true,
-        descricao: true,
-        valor_total: true,
-        data_transacao: true,
-        tipo: true,
-        status_pagamento: true,
-        transacao_participantes: {
-          where: { pessoa_id: id },
-          select: {
-            valor_devido: true,
-            valor_pago: true
-          }
-        }
-      },
-      orderBy: { data_transacao: 'desc' }
-    });
-
-    // =========================================================================
-    // CÁLCULO DE ESTATÍSTICAS FINANCEIRAS (LÓGICA CORRIGIDA E UNIFICADA)
-    // =========================================================================
-
-    let totalDevidoGeral = 0;
-    let totalPagoPorEstaPessoa = 0;
     
-    // Iterar sobre as participações da pessoa para calcular o que ela deve e o que ela já pagou
-    const participacoes = await req.prisma.transacao_participantes.findMany({
-        where: { pessoa_id: id },
-        select: { valor_devido: true, valor_pago: true }
-    });
-
-    participacoes.forEach(p => {
-        totalDevidoGeral += Number(p.valor_devido) || 0;
-        totalPagoPorEstaPessoa += Number(p.valor_pago) || 0;
-    });
-
-    // O que a pessoa ainda deve (pendente)
-    const totalDevidoPendente = Math.max(0, totalDevidoGeral - totalPagoPorEstaPessoa);
-
-    // Calcular o total que a pessoa tem a receber de outros.
-    // Isso acontece quando o total que ela pagou excede o total que ela devia.
-    const totalReceberPendente = Math.max(0, totalPagoPorEstaPessoa - totalDevidoGeral);
-    
-    // O saldo líquido é a diferença direta entre o que ela tem a receber e o que ela ainda deve.
-    const saldoLiquido = totalReceberPendente - totalDevidoPendente;
-
-    const estatisticas = {
-      total_transacoes: participacoes.length,
-      total_devido_geral: totalDevidoGeral,
-      total_pago_geral: totalPagoPorEstaPessoa,
-      total_devido_pendente: totalDevidoPendente,
-      total_receber_pendente: totalReceberPendente,
-      saldo_liquido: saldoLiquido
-    };
-    
-    // =========================================================================
-
-    res.json({
-      success: true,
-      message: 'Pessoa encontrada com sucesso',
-      data: {
-        ...pessoa,
-        transacoes,
-        estatisticas
-      },
-      timestamp: new Date().toISOString()
-    });
-
+    res.json({ success: true, data: membro, timestamp: new Date().toISOString() });
   } catch (error) {
-    console.error('Erro ao buscar pessoa:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível buscar os dados da pessoa',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Erro ao buscar membro:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível obter detalhes do membro.' });
   }
 };
 
 /**
- * Atualiza dados de uma pessoa
- * PUT /api/pessoas/:id
+ * Atualiza dados de um membro do Hub (role, status).
  */
-export const updatePessoa = async (req: Request, res: Response): Promise<void> => {
+export const updateMembro = async (req: Request, res: Response): Promise<void> => {
   try {
-    const idParam = req.params.id;
-    if (!idParam) {
-      res.status(400).json({
-        error: 'ID não fornecido',
-        message: 'ID da pessoa é obrigatório',
-        timestamp: new Date().toISOString()
-      });
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
       return;
     }
-    
-    const id = parseInt(idParam, 10);
-    if (isNaN(id)) {
-      res.status(400).json({
-        error: 'ID inválido',
-        message: 'ID deve ser um número válido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-    const { nome, email, telefone }: UpdatePessoaInput = req.body;
+    const { id: pessoaId } = req.params as unknown as MembroParamsInput;
+    const { role, ativo, dataAccessPolicy }: UpdateMembroInput = req.body;
+    const { hubId } = req.auth;
 
-    // Verificar se pessoa existe
-    const pessoaExistente = await req.prisma.pessoas.findUnique({
-      where: { id }
+    // Verificar se o usuário é proprietário através do MembroHub
+    const proprietario = await req.prisma.membroHub.findFirst({
+      where: { hubId, role: 'PROPRIETARIO', ativo: true },
+      select: { pessoaId: true }
     });
 
-    if (!pessoaExistente) {
-      res.status(404).json({
-        error: 'Pessoa não encontrada',
-        message: 'A pessoa que você está tentando editar não existe',
-        timestamp: new Date().toISOString()
-      });
+    if (proprietario?.pessoaId === pessoaId) {
+      res.status(403).json({ error: 'AcaoProibida', message: 'O proprietário do Hub não pode ser modificado.' });
       return;
     }
 
-    // Se email está sendo alterado, verificar se não existe
-    if (email && email !== pessoaExistente.email) {
-      const existingUser = await req.prisma.pessoas.findFirst({
-        where: {
-          email,
-          id: { not: id }
-        }
-      });
-
-      if (existingUser) {
-        res.status(409).json({
-          error: 'Email já cadastrado',
-          message: 'Este email já está sendo usado por outra pessoa',
-          timestamp: new Date().toISOString()
-        });
-        return;
-      }
+    const dataToUpdate: Prisma.MembroHubUpdateInput = {};
+    if (role !== undefined) dataToUpdate.role = role;
+    if (ativo !== undefined) dataToUpdate.ativo = ativo;
+    if (dataAccessPolicy !== undefined) {
+      dataToUpdate.dataAccessPolicy = role === 'COLABORADOR' ? dataAccessPolicy : null;
     }
 
-    // Preparar dados para atualização
-    const dataToUpdate: any = {
-      atualizado_em: new Date()
-    };
-
-    if (nome) dataToUpdate.nome = nome;
-    if (email !== undefined) dataToUpdate.email = email;
-    if (telefone !== undefined) dataToUpdate.telefone = telefone || null;
-
-    // Atualizar dados
-    const pessoaAtualizada = await req.prisma.pessoas.update({
-      where: { id },
+    const membroAtualizado = await req.prisma.membroHub.update({
+      where: { hubId_pessoaId: { hubId, pessoaId } },
       data: dataToUpdate,
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        telefone: true,
-        eh_proprietario: true,
-        ativo: true,
-        data_cadastro: true,
-        atualizado_em: true
+      include: {
+        pessoa: { select: { id: true, nome: true, email: true } }
       }
     });
 
-    res.json({
-      success: true,
-      message: 'Pessoa atualizada com sucesso!',
-      data: pessoaAtualizada,
-      timestamp: new Date().toISOString()
-    });
-
+    res.json({ success: true, message: 'Membro atualizado com sucesso.', data: membroAtualizado, timestamp: new Date().toISOString() });
   } catch (error) {
-    console.error('Erro ao atualizar pessoa:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível atualizar os dados da pessoa',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Erro ao atualizar membro:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível atualizar o membro.' });
   }
 };
 
 /**
- * Desativa uma pessoa (soft delete)
- * DELETE /api/pessoas/:id
+ * Remove um membro de um Hub (soft delete).
  */
-export const deletePessoa = async (req: Request, res: Response): Promise<void> => {
+export const removerMembro = async (req: Request, res: Response): Promise<void> => {
   try {
-    const idParam = req.params.id;
-    if (!idParam) {
-      res.status(400).json({
-        error: 'ID não fornecido',
-        message: 'ID da pessoa é obrigatório',
-        timestamp: new Date().toISOString()
-      });
+    if (!req.auth) {
+      res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
       return;
     }
-    
-    const id = parseInt(idParam, 10);
-    if (isNaN(id)) {
-      res.status(400).json({
-        error: 'ID inválido',
-        message: 'ID deve ser um número válido',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
+    const { id: pessoaId } = req.params as unknown as MembroParamsInput;
+    const { hubId } = req.auth;
 
-    // Verificar se pessoa existe
-    const pessoa = await req.prisma.pessoas.findUnique({
-      where: { id }
+    // Verificar se o usuário é proprietário através do MembroHub
+    const proprietario = await req.prisma.membroHub.findFirst({
+        where: { hubId, role: 'PROPRIETARIO', ativo: true },
+        select: { pessoaId: true }
     });
 
-    if (!pessoa) {
-      res.status(404).json({
-        error: 'Pessoa não encontrada',
-        message: 'A pessoa que você está tentando remover não existe',
-        timestamp: new Date().toISOString()
-      });
+    if (proprietario?.pessoaId === pessoaId) {
+      res.status(403).json({ error: 'AcaoProibida', message: 'O proprietário do Hub não pode ser removido.' });
       return;
     }
 
-    // Não permitir desativar proprietário
-    if (pessoa.eh_proprietario) {
-      res.status(400).json({
-        error: 'Operação não permitida',
-        message: 'Não é possível desativar o proprietário do sistema',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Verificar se pessoa tem transações pendentes
-    const transacoesPendentes = await req.prisma.transacao_participantes.findFirst({
-      where: {
-        pessoa_id: id,
-        transacoes: {
-          status_pagamento: { in: ['PENDENTE', 'PAGO_PARCIAL'] }
-        }
-      }
+    await req.prisma.membroHub.update({
+      where: { hubId_pessoaId: { hubId, pessoaId } },
+      data: { ativo: false }
     });
 
-    if (transacoesPendentes) {
-      res.status(400).json({
-        error: 'Pessoa com pendências',
-        message: 'Não é possível desativar pessoa com transações pendentes. Quite as dívidas primeiro.',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Desativar pessoa (soft delete)
-    const pessoaDesativada = await req.prisma.pessoas.update({
-      where: { id },
-      data: {
-        ativo: false,
-        atualizado_em: new Date()
-      },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        ativo: true,
-        atualizado_em: true
-      }
-    });
-
-    res.json({
-      success: true,
-      message: 'Pessoa desativada com sucesso!',
-      data: pessoaDesativada,
-      timestamp: new Date().toISOString()
-    });
-
+    res.status(204).send();
   } catch (error) {
-    console.error('Erro ao desativar pessoa:', error);
-    res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: 'Não foi possível desativar a pessoa',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Erro ao remover membro:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível remover o membro do Hub.' });
   }
 }; 

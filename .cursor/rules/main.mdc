@@ -183,7 +183,3 @@ alwaysApply: true
 10. **REUTILIZAÇÃO:** Usei utilitários existentes em @utils?
 
 ---
-
-## 🎯 RESUMO: SEMPRE DESCOBRIR, NUNCA ASSUMIR
-
-**Esta rule força o agent a SER UM DETETIVE do código, investigando e entendendo profundamente antes de implementar qualquer solução.**

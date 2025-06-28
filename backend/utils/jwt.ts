@@ -1,54 +1,103 @@
 import * as jwt from 'jsonwebtoken';
-import { JWTPayload, AuthUser } from '../types';
+import { JWTPayload, AuthContext, UserIdentifier } from '../types';
 
 // =============================================
 // CONFIGURAÇÕES JWT
 // =============================================
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-dev-env';
+const REFRESH_SECRET = process.env.REFRESH_SECRET || 'fallback-refresh-secret-for-dev-env';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h'; // Token de acesso curto
+const REFRESH_EXPIRES_IN = process.env.REFRESH_EXPIRES_IN || '30d'; // Refresh token longo
 
 // =============================================
 // FUNÇÕES DE TOKEN
 // =============================================
 
 /**
- * Gera um token JWT para o usuário
+ * Gera um token de acesso JWT com o contexto completo de autorização do Hub.
+ * @param context O contexto de autorização do usuário para um Hub específico.
+ * @returns O token JWT assinado.
  */
-export const generateToken = (user: AuthUser): string => {
-  const payload = {
-    user_id: user.id,
-    email: user.email,
-    eh_proprietario: user.eh_proprietario
+export const generateAccessToken = (context: AuthContext): string => {
+  const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
+    pessoaId: context.pessoaId,
+    hubId: context.hubId,
+    role: context.role,
+    dataAccessPolicy: context.dataAccessPolicy,
+    ehAdministrador: context.ehAdministrador,
   };
 
   try {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   } catch (error) {
-    throw new Error('Erro ao gerar token');
+    // Log do erro real em um sistema de produção
+    throw new Error('Erro ao gerar token de acesso');
   }
 };
 
 /**
- * Verifica e decodifica um token JWT
+ * Gera um refresh token contendo apenas a identidade do usuário.
+ * @param user A identidade básica do usuário.
+ * @returns O refresh token JWT assinado.
  */
-export const verifyToken = (token: string): JWTPayload => {
+export const generateRefreshToken = (user: UserIdentifier): string => {
+  const payload = {
+    pessoaId: user.pessoaId,
+    ehAdministrador: user.ehAdministrador
+  };
+
+  try {
+    return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  } catch (error) {
+    throw new Error('Erro ao gerar refresh token');
+  }
+};
+
+/**
+ * Verifica e decodifica um token de acesso JWT.
+ * @param token O token a ser verificado.
+ * @returns O payload decodificado se o token for válido.
+ */
+export const verifyAccessToken = (token: string): JWTPayload => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      throw new Error('Token expirado');
+      throw new Error('Token de acesso expirado');
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      throw new Error('Token inválido');
+      throw new Error('Token de acesso inválido');
     }
-    throw new Error('Erro na verificação do token');
+    throw new Error('Erro na verificação do token de acesso');
   }
 };
 
 /**
- * Decodifica um token sem verificar (para debug)
+ * Verifica e decodifica um refresh token.
+ * @param token O refresh token a ser verificado.
+ * @returns O payload decodificado se o token for válido.
+ */
+export const verifyRefreshToken = (token: string): { pessoaId: number; ehAdministrador: boolean } => {
+  try {
+    const decoded = jwt.verify(token, REFRESH_SECRET) as { pessoaId: number, ehAdministrador: boolean };
+    return decoded;
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new Error('Refresh token expirado. Faça login novamente.');
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      throw new Error('Refresh token inválido.');
+    }
+    throw new Error('Erro na verificação do refresh token');
+  }
+};
+
+/**
+ * Decodifica um token sem verificar a assinatura (útil para obter dados do payload rapidamente).
+ * @param token O token a ser decodificado.
+ * @returns O payload decodificado ou null se houver erro.
  */
 export const decodeToken = (token: string): JWTPayload | null => {
   try {
@@ -59,7 +108,9 @@ export const decodeToken = (token: string): JWTPayload | null => {
 };
 
 /**
- * Extrai token do header Authorization
+ * Extrai o token do header 'Authorization'.
+ * @param authHeader O conteúdo do header.
+ * @returns O token ou null se não encontrado ou mal formatado.
  */
 export const extractTokenFromHeader = (authHeader: string | undefined): string | null => {
   if (!authHeader) return null;
@@ -87,22 +138,5 @@ export const isTokenExpiringSoon = (token: string): boolean => {
     return timeToExpiry < 86400;
   } catch {
     return true;
-  }
-};
-
-/**
- * Gera um refresh token (versão mais longa)
- */
-export const generateRefreshToken = (user: AuthUser): string => {
-  const payload = {
-    user_id: user.id,
-    email: user.email,
-    eh_proprietario: user.eh_proprietario
-  };
-
-  try {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
-  } catch (error) {
-    throw new Error('Erro ao gerar refresh token');
   }
 }; 

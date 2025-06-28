@@ -18,6 +18,7 @@ import {
   validateParams, 
   validateQuery 
 } from '../middleware/auth';
+import { injectPrismaClient } from '../middleware/prisma';
 
 const router = Router();
 
@@ -92,6 +93,8 @@ router.get('/info', (req, res) => {
  */
 router.get(
   '/',
+  requireAuth,
+  injectPrismaClient,
   validateQuery(tagQuerySchema),
   listTags
 );
@@ -103,6 +106,7 @@ router.get(
 router.post(
   '/',
   requireAuth,
+  injectPrismaClient,
   validateSchema(createTagSchema),
   createTag
 );
@@ -113,6 +117,8 @@ router.post(
  */
 router.get(
   '/:id',
+  requireAuth,
+  injectPrismaClient,
   validateParams(tagParamsSchema),
   getTag
 );
@@ -124,6 +130,7 @@ router.get(
 router.put(
   '/:id',
   requireAuth,
+  injectPrismaClient,
   validateParams(tagParamsSchema),
   validateSchema(updateTagSchema),
   updateTag
@@ -136,6 +143,7 @@ router.put(
 router.delete(
   '/:id',
   requireAuth,
+  injectPrismaClient,
   validateParams(tagParamsSchema),
   deleteTag
 );
