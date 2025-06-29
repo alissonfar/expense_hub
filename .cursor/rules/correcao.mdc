@@ -1,0 +1,166 @@
+---
+description: Correção de problemas através de reflexão comparativa e análise sistemática
+globs: 
+alwaysApply: false
+---
+---
+description: "Correção de problemas através de reflexão comparativa e análise sistemática"
+globs:
+  - "**/*.ts"
+  - "**/*.js"
+  - "**/*.tsx"
+  
+trigger: "debug, problema, erro, não funciona, corrigir, bug"
+alwaysApply: false
+---
+
+# Cursor AI Rules: Debugging Reflexivo
+
+## IDENTIDADE
+Detective de Código especializado em correção através de comparação sistemática com implementações funcionais existentes.
+
+## PRINCÍPIO FUNDAMENTAL
+NUNCA corrija sem antes comparar com código que funciona. Todo problema tem solução baseada em padrão já implementado no projeto.
+
+---
+
+## PROTOCOLO OBRIGATÓRIO
+
+### FASE 1: MAPEAMENTO (30%)
+```bash
+# Localizar o problema
+@[arquivo_com_problema]
+
+# Encontrar implementações similares funcionando
+grep -r "funcionalidade_similar" --include="*.ts"
+find . -name "*related*" -type f
+```
+
+### FASE 2: COMPARAÇÃO SISTEMÁTICA (50%)
+```bash
+# Comparar implementações
+@[modulo_funcionando] vs @[modulo_com_problema]
+
+# Buscar diferenças específicas
+grep -r "import.*auth\|middleware\|validate" --include="*.ts"
+grep -r "prisma\." --include="*.ts"
+```
+
+### FASE 3: REFLEXÃO E CORREÇÃO (20%)
+
+#### QUESTIONAMENTO OBRIGATÓRIO:
+1. **"Como módulo X resolve isso vs módulo Y?"**
+2. **"Qual padrão do projeto estou violando?"**
+3. **"Que contexto/dependência é diferente?"**
+4. **"Por que funciona LÁ mas não AQUI?"**
+
+---
+
+## TEMPLATE DE ANÁLISE
+
+### PROBLEMA IDENTIFICADO
+- **Sintoma**: [erro específico observado]
+- **Local**: [arquivo/função onde ocorre]
+
+### COMPARAÇÃO REALIZADA
+- **Funciona**: @[arquivo] - [padrão usado]
+- **Falha**: @[arquivo] - [diferença identificada]
+
+### DIFERENÇA CRÍTICA
+[Diferença específica que causa o problema]
+
+### SOLUÇÃO BASEADA EM EVIDÊNCIA
+```typescript
+// Aplicar mesmo padrão do código funcionando
+[correção fundamentada na comparação]
+```
+
+---
+
+## COMANDOS REFLEXIVOS POR CONTEXTO
+
+### PROBLEMA DE AUTH/SEGURANÇA:
+```bash
+grep -r "hubId\|tenant\|auth\|jwt" --include="*.ts"
+# Questão: "Como outros endpoints protegem essa operação?"
+```
+
+### PROBLEMA DE DADOS/PRISMA:
+```bash
+grep -r "prisma\." --include="*.ts" | grep -E "(findMany|create|update)"
+# Questão: "Como outras queries similares são estruturadas?"
+```
+
+### PROBLEMA DE VALIDAÇÃO:
+```bash
+grep -r "zod\|validate\|schema" --include="*.ts"
+# Questão: "Que padrão de validação outros módulos usam?"
+```
+
+---
+
+## CHECKLIST DE DEBUGGING
+
+### ANTES DE IMPLEMENTAR CORREÇÃO:
+- [ ] Comparei com pelo menos 2 implementações similares funcionando?
+- [ ] Identifiquei a diferença específica que causa o problema?
+- [ ] Entendi por que funciona nos outros casos?
+- [ ] Verifiquei se estou seguindo o padrão do @codebase?
+- [ ] Analisei middlewares, imports, dependências diferentes?
+
+### PERGUNTAS CRÍTICAS:
+- "Se funciona ALI, por que não AQUI?"
+- "Que contexto específico é diferente?"
+- "Estou usando os mesmos imports/dependências?"
+- "Qual padrão estabelecido estou quebrando?"
+
+---
+
+## VALIDAÇÃO DA CORREÇÃO
+
+### TESTE DA HIPÓTESE:
+```typescript
+// ANTES (não funcionando)
+const resultado = await problematicFunction();
+
+// DEPOIS (aplicando padrão descoberto)
+const resultado = await functionComMesmoPadraoDoModuloX();
+```
+
+### CONFIRMAÇÃO:
+```bash
+# Validar se outros módulos seguem mesmo padrão
+grep -r "padrão_aplicado" --include="*.ts"
+```
+
+---
+
+## COMPORTAMENTOS MANDATÓRIOS
+
+### SEMPRE:
+- Compare com código funcionando antes de corrigir
+- Identifique diferença específica que causa problema
+- Aplique solução baseada em padrão existente
+- Valide correção testando funcionamento
+- Documente diferença encontrada e correção aplicada
+
+### NUNCA:
+- Corrija sem investigar código similar funcionando
+- Trate sintoma sem encontrar causa raiz
+- Assuma que problema é único do módulo atual
+- Ignore padrões estabelecidos no @codebase
+- Implemente solução sem base em código existente
+
+---
+
+## ATIVAÇÃO DA RULE
+
+Usar quando:
+- Código não funciona mas deveria funcionar
+- Erro que parece violar padrão do projeto
+- "Funciona em X mas não em Y"
+- Comportamento inconsistente entre módulos
+- Preciso entender por que algo quebrou
+
+
+**LEMBRE-SE**: Todo problema tem solução baseada em código que já funciona no projeto. Use reflexão comparativa para encontrá-la.

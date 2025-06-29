@@ -1,30 +1,38 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { API_BASE_URL } from './constants'
+import type { ApiResponse } from '@/types'
 
-// Configuração base da API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+// Função para obter token do localStorage (compatibilidade)
+const getAccessToken = (): string | null => {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('access_token')
+}
 
-export const api = axios.create({
+// Função para limpar tokens em caso de erro de auth
+const clearTokens = (): void => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('user_data')
+  localStorage.removeItem('selected_hub')
+}
+
+// Criação da instância Axios
+const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
 })
 
-// Interceptor para adicionar token JWT automaticamente
-api.interceptors.request.use(
+// Request Interceptor - Adiciona token automaticamente
+apiClient.interceptors.request.use(
   (config) => {
-    // Pegar token do localStorage (apenas no client-side)
-    if (typeof window !== 'undefined') {
-      const rawToken = localStorage.getItem('access_token')
-      // Remover aspas extras se existirem (caso token foi salvo como JSON string)
-      const token = rawToken ? rawToken.replace(/^"(.*)"$/, '$1') : null
-      
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
+    const token = getAccessToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
-    
     return config
   },
   (error) => {
@@ -32,123 +40,63 @@ api.interceptors.request.use(
   }
 )
 
-// Interceptor para tratamento de respostas e erros
-api.interceptors.response.use(
-  (response) => {
-    // ✅ CORREÇÃO: Verificar se response tem status de erro cliente (400-499)
-    if (response.status >= 400 && response.status < 500) {
-      const errorMessage = getErrorMessage(response as any)
-      return Promise.reject({
-        response,
-        message: errorMessage,
-        isAxiosError: true
-      })
+// Response Interceptor - Trata erros e respostas
+apiClient.interceptors.response.use(
+  (response: AxiosResponse<ApiResponse<unknown>>) => {
+    // Se a resposta tem success: false, transformar em erro
+    if (response.data && !response.data.success) {
+      const error = new Error(response.data.message || 'Erro na requisição')
+      ;(error as Error & { response: AxiosResponse }).response = response
+      return Promise.reject(error)
     }
-    
     return response
   },
-  (error: AxiosError) => {
-    // Se token expirou ou inválido (401), limpar localStorage para
-    // acionar o listener de 'storage' no AuthProvider, que fará o logout.
+  (error) => {
+    // Se é erro 401, limpar tokens e redirecionar para login
     if (error.response?.status === 401) {
+      clearTokens()
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        localStorage.removeItem('user_data')
-        localStorage.removeItem('user_hubs')
-        localStorage.removeItem('selected_hub')
+        window.location.href = '/login'
       }
     }
-
-    // Tratamento de outros erros comuns
-    const errorMessage = getErrorMessage(error)
     
-    return Promise.reject({
-      ...error,
-      message: errorMessage
-    })
+    // Extrair mensagem de erro da resposta
+    const errorMessage = 
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      'Erro desconhecido'
+    
+    return Promise.reject(new Error(errorMessage))
   }
 )
 
-// Função para extrair mensagem de erro padronizada
-function getErrorMessage(error: AxiosError): string {
-  if (error.response?.data) {
-    const responseData = error.response.data as any
+// Wrapper functions para facilitar uso
+export const api = {
+  get: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    apiClient.get(url, config).then(res => res.data),
     
-    // Se backend retorna estrutura padrão com 'message'
-    if (responseData.message) {
-      return responseData.message
-    }
+  post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    apiClient.post(url, data, config).then(res => res.data),
     
-    // Se backend retorna estrutura com 'error'
-    if (responseData.error) {
-      return responseData.error
-    }
+  put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    apiClient.put(url, data, config).then(res => res.data),
     
-    // Se backend retorna array de erros (validação Zod)
-    if (responseData.errors && Array.isArray(responseData.errors)) {
-      return responseData.errors.map((err: any) => err.message || err).join(', ')
-    }
-  }
-
-  // Mensagens padrão por status code
-  switch (error.response?.status) {
-    case 400:
-      return 'Dados inválidos. Verifique as informações enviadas.'
-    case 401:
-      return 'Não autorizado. Faça login novamente.'
-    case 403:
-      return 'Acesso negado. Você não tem permissão para esta ação.'
-    case 404:
-      return 'Recurso não encontrado.'
-    case 409:
-      return 'Conflito. O recurso já existe ou há inconsistências.'
-    case 422:
-      return 'Dados inválidos. Verifique os campos obrigatórios.'
-    case 500:
-      return 'Erro interno do servidor. Tente novamente mais tarde.'
-    case 503:
-      return 'Serviço temporariamente indisponível.'
-    default:
-      return error.message || 'Erro de comunicação com o servidor'
-  }
+  patch: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    apiClient.patch(url, data, config).then(res => res.data),
+    
+  delete: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
+    apiClient.delete(url, config).then(res => res.data),
 }
 
-// Funções utilitárias para tipos de request - VERSÃO LIMPA
-export const apiGet = <T = any>(url: string, params?: any) => {
-  if (!params) {
-    return api.get<T>(url)
-  }
-  
-  // Converter todos os parâmetros para strings para compatibilidade com Zod
-  const stringParams: Record<string, string> = {}
-  
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== null && value !== undefined) {
-      stringParams[key] = String(value)
-    }
-  })
-  
-  // Usar paramsSerializer para forçar strings na URL
-  return api.get<T>(url, { 
-    params: stringParams,
-    paramsSerializer: {
-      serialize: (params) => {
-        return Object.entries(params)
-          .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
-          .join('&')
-      }
-    }
-  })
-}
+// Export da instância para casos específicos
+export default apiClient
 
-export const apiPost = <T = any>(url: string, data?: any) => 
-  api.post<T>(url, data)
-
-export const apiPut = <T = any>(url: string, data?: any) => 
-  api.put<T>(url, data)
-
-export const apiDelete = <T = any>(url: string) => 
-  api.delete<T>(url)
-
-export default api 
+// Helper para requests sem autenticação (login, etc)
+export const apiPublic = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+}) 

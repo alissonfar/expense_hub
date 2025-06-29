@@ -1,0 +1,231 @@
+Vou explicar os **contextos específicos** onde cada rule deve ser ativada e como combiná-las estrategicamente:
+
+## **CONTEXTOS DE USO INDIVIDUAL**
+
+### **Rule 1: Agente Investigativo** 
+**Quando usar:**
+- Implementando funcionalidade completamente nova
+- Começando em projeto desconhecido
+- "Como faço X neste sistema?"
+- Não sei que padrões seguir
+
+**Exemplo prático:**
+```
+"Preciso criar um endpoint de relatórios"
+→ Use Rule 1 para descobrir padrões de endpoints existentes
+```
+
+### **Rule 2: Debugging Reflexivo**
+**Quando usar:**
+- Algo parou de funcionar
+- "Funcionava antes, agora não funciona mais"
+- Comportamento inconsistente entre módulos
+- Erro que não consigo explicar
+
+**Exemplo prático:**
+```
+"O endpoint de usuários não está retornando dados do hub correto"
+→ Use Rule 2 para comparar com endpoints que funcionam
+```
+
+### **Rule 3: Arquitetura Preventiva**
+**Quando usar:**
+- Modificando módulo que é usado por outros
+- Alterando interfaces/tipos públicos
+- Refatorando código central do sistema
+- "Esta mudança pode quebrar algo?"
+
+**Exemplo prático:**
+```
+"Preciso alterar a interface User para adicionar novos campos"
+→ Use Rule 3 para mapear todos os impactos
+```
+
+### **Rule 8: Documentação Evolutiva**
+**Quando usar:**
+- Criando/modificando APIs públicas
+- Alterando workflows existentes
+- Adicionando funcionalidades que usuários vão usar
+- "Como outros vão saber usar isto?"
+
+**Exemplo prático:**
+```
+"Criando novo sistema de autenticação"
+→ Use Rule 8 para atualizar docs de auth
+```
+
+### **Rule 9: Refatoração Segura**
+**Quando usar:**
+- Código está difícil de manter
+- Performance precisa melhorar
+- Estrutura está confusa mas funciona
+- "Como limpo isso sem quebrar?"
+
+**Exemplo prático:**
+```
+"Função de 200 linhas que faz muitas coisas"
+→ Use Rule 9 para dividir sem quebrar
+```
+
+---
+
+## **COMBINAÇÕES ESTRATÉGICAS**
+
+### **🔄 Rule 1 + Rule 3** (Mais Comum)
+**Contexto:** Implementando funcionalidade que pode impactar sistema
+
+**Fluxo:**
+1. **Rule 1**: Descobrir padrões e arquitetura atual
+2. **Rule 3**: Analisar onde nova funcionalidade se encaixa
+3. **Implementar** baseado nas evidências coletadas
+
+**Exemplo:**
+```
+"Criar sistema de notificações"
+1. Rule 1: Como notificações existentes funcionam?
+2. Rule 3: Onde novo sistema impacta arquitetura atual?
+3. Implementar seguindo padrões descobertos
+```
+
+### **🔍 Rule 2 + Rule 1**
+**Contexto:** Debugging em sistema desconhecido
+
+**Fluxo:**
+1. **Rule 2**: Comparar com código que funciona
+2. **Rule 1**: Se não entender padrões, investigar mais fundo
+
+**Exemplo:**
+```
+"Auth não funciona neste módulo mas funciona em outros"
+1. Rule 2: Comparar implementações de auth
+2. Rule 1: Se padrão não estiver claro, investigar @middleware
+```
+
+### **🛠️ Rule 9 + Rule 3**
+**Contexto:** Refatoração de módulo crítico
+
+**Fluxo:**
+1. **Rule 3**: Mapear todos os dependentes
+2. **Rule 9**: Executar refatoração segura baseada no mapeamento
+
+**Exemplo:**
+```
+"Refatorar service de usuários (usado em 15 lugares)"
+1. Rule 3: Mapear todos os 15 dependentes
+2. Rule 9: Refatorar mantendo interface inalterada
+```
+
+### **📚 Rule 8 + qualquer outra**
+**Contexto:** Qualquer mudança que afete usuários/desenvolvedores
+
+**Fluxo:**
+- Execute rule principal (1, 2, 3 ou 9)
+- **Sempre termine com Rule 8** se mudança é pública
+
+**Exemplo:**
+```
+"Corrigir bug em API pública"
+1. Rule 2: Debuggar e corrigir
+2. Rule 8: Atualizar docs se comportamento mudou
+```
+
+---
+
+## **CENÁRIOS COMPLEXOS (3+ Rules)**
+
+### **🏗️ Cenário: "Migração de Sistema Legacy"**
+**Sequência:** Rule 1 → Rule 3 → Rule 9 → Rule 8
+
+```
+1. Rule 1: Entender sistema atual completamente
+2. Rule 3: Mapear impactos da migração
+3. Rule 9: Executar migração incremental
+4. Rule 8: Documentar novo sistema
+```
+
+### **🚨 Cenário: "Bug Crítico em Produção"**
+**Sequência:** Rule 2 → Rule 3 → Rule 8
+
+```
+1. Rule 2: Encontrar causa comparando com código que funciona
+2. Rule 3: Verificar se correção não quebra outras coisas
+3. Rule 8: Atualizar docs se necessário
+```
+
+### **✨ Cenário: "Nova Funcionalidade Complexa"**
+**Sequência:** Rule 1 → Rule 3 → Rule 8
+
+```
+1. Rule 1: Descobrir padrões para implementar
+2. Rule 3: Analisar onde se encaixa na arquitetura
+3. Rule 8: Documentar nova funcionalidade
+```
+
+---
+
+## **MATRIZ DE DECISÃO RÁPIDA**
+
+| Situação | Rule Principal | Rules Complementares |
+|----------|----------------|---------------------|
+| **Novo no projeto** | Rule 1 | + Rule 8 (se público) |
+| **Algo quebrou** | Rule 2 | + Rule 3 (se crítico) |
+| **Vou modificar módulo usado por outros** | Rule 3 | + Rule 1 (se não conheço dependentes) |
+| **Criando API/funcionalidade pública** | Rule 1 | + Rule 3 + Rule 8 |
+| **Limpando código bagunçado** | Rule 9 | + Rule 3 (se crítico) |
+| **Sistema não funciona consistentemente** | Rule 2 | + Rule 1 (se padrões não estão claros) |
+
+---
+
+## **SINAIS DE QUANDO COMBINAR**
+
+### **Combine Rule 1 + outra quando:**
+- Não entende completamente o contexto
+- Primeira vez mexendo nesta parte do sistema
+- Padrões não estão claros
+
+### **Combine Rule 3 + outra quando:**
+- Módulo é usado em múltiplos lugares
+- Mudança pode ter efeito cascata
+- Mexendo em código "central" do sistema
+
+### **Combine Rule 8 + outra quando:**
+- Mudança afeta usuários externos
+- API pública está sendo alterada
+- Workflow documentado vai mudar
+
+### **Use Rule 2 isolada quando:**
+- Problema é bem específico e localizado
+- Já conhece bem o sistema
+- É claramente uma regressão
+
+### **Use Rule 9 isolada quando:**
+- Refatoração é puramente interna
+- Interface pública não muda
+- Código não é crítico para outros módulos
+
+---
+
+## **FLUXO DE DECISÃO PRÁTICO**
+
+```
+1. "O que estou tentando fazer?"
+   ├─ Implementar algo novo → Rule 1
+   ├─ Corrigir algo quebrado → Rule 2  
+   ├─ Modificar algo existente → Rule 3
+   ├─ Limpar código → Rule 9
+   └─ Documentar → Rule 8
+
+2. "Esta mudança afeta outros?"
+   ├─ Sim → Adicionar Rule 3
+   └─ Não → Continuar
+
+3. "Mudança é pública/visível?"
+   ├─ Sim → Adicionar Rule 8
+   └─ Não → Continuar
+
+4. "Entendo completamente o contexto?"
+   ├─ Não → Adicionar Rule 1
+   └─ Sim → Executar rules selecionadas
+```
+
+**A chave é:** comece com uma rule principal baseada no seu objetivo, depois adicione complementares baseadas no contexto e impacto da mudança.

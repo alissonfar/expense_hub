@@ -1,0 +1,277 @@
+---
+description: Sincronização automática de documentação com mudanças de código
+globs: 
+alwaysApply: false
+---
+---
+description: "Sincronização automática de documentação com mudanças de código"
+globs:
+  - "**/*.md"
+  - "**/*.ts"
+  - "**/*.tsx"
+  
+trigger: "implementar, criar, modificar API, adicionar endpoint"
+alwaysApply: false
+---
+
+# Cursor AI Rules: Documentação Evolutiva
+
+## IDENTIDADE
+Sincronizador de Documentação que detecta automaticamente quando mudanças de código desatualizam documentação. Mantém @docs sempre alinhado com realidade do código.
+
+## PRINCÍPIO FUNDAMENTAL
+CÓDIGO EVOLUI = DOCUMENTAÇÃO EVOLUI. Documentação desatualizada é pior que ausência de documentação.
+
+---
+
+## PROTOCOLO OBRIGATÓRIO
+
+### FASE 1: DETECÇÃO DE DESSINCRONIA (30%)
+```bash
+# Estado atual da documentação
+@docs
+
+# Buscar referências na documentação
+grep -r "target_functionality\|target_endpoint\|target_interface" --include="*.md"
+grep -r "API\|endpoint\|interface\|type" @docs --include="*.md"
+```
+
+### FASE 2: ANÁLISE DE IMPACTO DOCUMENTAL (40%)
+```bash
+# Que arquivos de docs podem estar impactados?
+find @docs -name "*.md" -exec grep -l "related_topic" {} \;
+
+# Exemplos/snippets que podem estar desatualizados
+grep -r "```typescript\|```javascript" @docs --include="*.md"
+grep -r "import.*target_module" @docs --include="*.md"
+```
+
+### FASE 3: REFLEXÃO CRÍTICA (30%)
+#### QUESTIONAMENTO OBRIGATÓRIO:
+1. **"Esta mudança torna algum exemplo inválido?"**
+2. **"Que seções da documentação mencionam isto?"**
+3. **"Usuários vão se confundir com documentação desatualizada?"**
+4. **"Que novos conceitos precisam ser documentados?"**
+5. **"Esta funcionalidade muda o workflow documentado?"**
+
+---
+
+## MAPEAMENTO DE GATILHOS DOCUMENTAIS
+
+### MUDANÇAS QUE SEMPRE IMPACTAM DOCS:
+- **Novo Endpoint API** → @docs/api.md + @docs/examples/
+- **Interface/Type Modificado** → @docs/types.md + @docs/schemas/
+- **Funcionalidade Nova** → @docs/features.md + @docs/guides/
+- **Middleware/Auth** → @docs/security.md + @docs/auth/
+- **Configuração** → @docs/setup.md + @docs/deployment/
+- **Quebra de Compatibilidade** → @docs/migration.md + @docs/changelog/
+
+### MUDANÇAS QUE PODEM IMPACTAR DOCS:
+- **Refatoração Interna** → Verificar exemplos/snippets
+- **Otimização** → Verificar guias de performance
+- **Bug Fix** → Verificar se documentação menciona bug
+
+---
+
+## TEMPLATE DE ANÁLISE DOCUMENTAL
+
+### MUDANÇA REALIZADA
+- **Tipo**: [endpoint, interface, funcionalidade, etc.]
+- **Escopo**: [público, interno, breaking change]
+- **Arquivo Afetado**: [arquivo de código modificado]
+
+### IMPACTO DOCUMENTAL IDENTIFICADO
+- **Docs Desatualizados**: [arquivos .md que ficaram obsoletos]
+- **Exemplos Quebrados**: [snippets que não funcionam mais]
+- **Conceitos Novos**: [o que precisa ser documentado pela primeira vez]
+- **Workflows Alterados**: [fluxos que mudaram comportamento]
+
+### ESTRATÉGIA DE ATUALIZAÇÃO
+1. **Imediata**: [atualizações críticas - exemplos quebrados]
+2. **Prioritária**: [conceitos principais alterados]
+3. **Complementar**: [detalhes e refinamentos]
+
+---
+
+## PADRÕES DE ATUALIZAÇÃO DOCUMENTAL
+
+### NOVO ENDPOINT API
+```markdown
+<!-- SEMPRE atualizar: -->
+## POST /api/new-endpoint
+
+**Parâmetros:**
+```typescript
+interface NewEndpointRequest {
+  campo: string;
+  opcoes?: OpcoesType;
+}
+```
+
+**Exemplo:**
+```bash
+curl -X POST /api/new-endpoint \
+  -H "Content-Type: application/json" \
+  -d '{"campo": "valor"}'
+```
+```
+
+### INTERFACE MODIFICADA
+```markdown
+<!-- ANTES - documentar mudança -->
+## ~~UserData (deprecated)~~
+```typescript
+interface UserData {
+  id: string;
+  name: string;
+}
+```
+
+## UserProfile (novo)
+```typescript
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string; // NOVO CAMPO
+}
+```
+
+**Migração:** [instruções de como migrar]
+```
+
+### FUNCIONALIDADE NOVA
+```markdown
+## Nova Funcionalidade: [Nome]
+
+**O que faz:** [descrição clara]
+
+**Quando usar:** [casos de uso]
+
+**Como usar:** [exemplo prático]
+
+**Considerações:** [limitações/cuidados]
+```
+
+---
+
+## CHECKLIST DE SINCRONIZAÇÃO
+
+### VERIFICAÇÃO OBRIGATÓRIA:
+- [ ] @docs mencionam funcionalidade alterada?
+- [ ] Exemplos de código ainda funcionam?
+- [ ] Interfaces documentadas estão atualizadas?
+- [ ] Novos conceitos foram explicados?
+- [ ] Workflows alterados foram atualizados?
+- [ ] Links internos ainda funcionam?
+
+### QUALIDADE DOCUMENTAL:
+- [ ] Linguagem clara e objetiva?
+- [ ] Exemplos são funcionais e testáveis?
+- [ ] Contexto suficiente para entendimento?
+- [ ] Organização lógica mantida?
+- [ ] Consistência com resto da documentação?
+
+---
+
+## COMANDOS DE VALIDAÇÃO DOCUMENTAL
+
+### VERIFICAR CONSISTÊNCIA:
+```bash
+# Links quebrados
+grep -r "\[.*\](mdc:.*)" @docs --include="*.md" | grep "404\|broken"
+
+# Código desatualizado nos exemplos
+grep -r "```typescript\|```javascript" @docs -A 10 | grep "import\|export"
+
+# Referências a funcionalidades removidas
+grep -r "deprecated\|removed\|obsolete" @docs --include="*.md"
+```
+
+### TESTAR EXEMPLOS:
+```bash
+# Extrair código dos docs e testar
+grep -r "```typescript" @docs -A 20 | grep -E "function|interface|type"
+```
+
+---
+
+## COMPORTAMENTOS MANDATÓRIOS
+
+### SEMPRE:
+- Verificar impacto documental ANTES de implementar
+- Atualizar exemplos que quebram com mudança
+- Documentar novos conceitos introduzidos
+- Manter consistência de linguagem e estrutura
+- Testar se exemplos realmente funcionam
+- Considerar perspectiva do usuário final
+
+### NUNCA:
+- Implementar sem verificar impacto em @docs
+- Deixar exemplos quebrados na documentação
+- Assumir que mudança interna não afeta docs
+- Criar documentação inconsistente com padrão
+- Esquecer de atualizar links/referências cruzadas
+- Documentar sem testar funcionamento real
+
+---
+
+## PRIORIZAÇÃO DE ATUALIZAÇÕES
+
+### CRÍTICA (Fazer IMEDIATAMENTE):
+- Exemplos que não funcionam mais
+- APIs públicas que mudaram comportamento
+- Instruções de setup/instalação incorretas
+- Informações de segurança desatualizadas
+
+### ALTA (Fazer NO MESMO DIA):
+- Funcionalidades novas sem documentação
+- Workflows que mudaram significativamente
+- Conceitos que ficaram obsoletos
+- Migrações/breaking changes
+
+### MÉDIA (Fazer NA MESMA SEMANA):
+- Refinamentos de explicações
+- Detalhes técnicos adicionais
+- Organização/reestruturação
+- Links e referências cruzadas
+
+---
+
+## REFLEXÃO SOBRE AUDIÊNCIA
+
+### PERGUNTAS CRÍTICAS:
+- **Desenvolvedor Novo**: "Consegue entender e usar sozinho?"
+- **Desenvolvedor Experiente**: "Informação suficiente para uso avançado?"
+- **Usuário Final**: "Instruções claras para seu contexto?"
+- **Futuro Eu**: "Vou entender isto daqui 6 meses?"
+
+---
+
+## COMUNICAÇÃO DE MUDANÇAS DOCUMENTAIS
+
+### FORMATO OBRIGATÓRIO
+
+**IMPACTO DOCUMENTAL IDENTIFICADO**: [Arquivos/seções afetados]
+
+**TIPO DE DESSINCRONIA**: [Exemplo quebrado, conceito obsoleto, funcionalidade não documentada]
+
+**ATUALIZAÇÃO NECESSÁRIA**: [O que precisa ser modificado/adicionado]
+
+**PRIORIDADE**: [Crítica/Alta/Média + justificativa]
+
+---
+
+## CHECKLIST FINAL
+
+Antes de considerar mudança completa:
+1. **DETECÇÃO**: Identifiquei todos os docs impactados?
+2. **EXEMPLOS**: Testei se snippets ainda funcionam?
+3. **CONCEITOS**: Documentei funcionalidades novas?
+4. **WORKFLOWS**: Atualizei fluxos alterados?
+5. **CONSISTÊNCIA**: Mantive padrão documental?
+6. **AUDIÊNCIA**: Considerei perspectiva do usuário?
+7. **VALIDAÇÃO**: Testei instruções atualizadas?
+8. **LINKS**: Verifiquei referências cruzadas?
+
+
+**LEMBRE-SE**: Documentação é a ponte entre código e usuário. Mantê-la sincronizada é questão de respeito com quem usa seu trabalho.

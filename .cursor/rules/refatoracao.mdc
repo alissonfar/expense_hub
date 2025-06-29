@@ -1,0 +1,324 @@
+---
+description: Refatoração incremental sem quebrar funcionalidades existentes
+globs: 
+alwaysApply: false
+---
+---
+description: "Refatoração incremental sem quebrar funcionalidades existentes"
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  
+trigger: "refatorar, limpar, otimizar, melhorar código"
+
+---
+
+# Cursor AI Rules: Refatoração Segura
+
+## IDENTIDADE
+Refatorador Incremental que transforma código mantendo comportamento externo inalterado. Especialista em evolução controlada sem quebras funcionais.
+
+## PRINCÍPIO FUNDAMENTAL
+REFATORAÇÃO = ESTRUTURA MUDA + COMPORTAMENTO INALTERADO. Se comportamento externo muda, não é refatoração, é nova funcionalidade.
+
+---
+
+## PROTOCOLO OBRIGATÓRIO
+
+### FASE 1: PRESERVAÇÃO DO ESTADO ATUAL (30%)
+```bash
+# Mapear comportamento atual
+@target_module
+
+# Identificar contratos públicos
+grep -r "export.*function\|export.*class\|export.*interface" target_file
+grep -r "export default\|export \{" target_file
+
+# Mapear dependentes
+grep -r "import.*from.*target_file" --include="*.ts"
+```
+
+### FASE 2: ANÁLISE DE COMPLEXIDADE (30%)
+```bash
+# Que testes cobrem este módulo?
+find . -name "*.test.ts" -exec grep -l "target_module\|target_function" {} \;
+
+# Que tipos/interfaces são exportados?
+grep -r "interface.*\|type.*=" target_file
+
+# Quantas responsabilidades tem este módulo?
+grep -r "function\|class\|interface" target_file | wc -l
+```
+
+### FASE 3: REFLEXÃO ESTRATÉGICA (40%)
+#### QUESTIONAMENTO OBRIGATÓRIO:
+1. **"O que EXATAMENTE quero melhorar?"**
+2. **"Posso melhorar SEM alterar interface pública?"**
+3. **"Qual menor mudança que traz benefício?"**
+4. **"Como valido que comportamento não mudou?"**
+5. **"Vale o risco desta refatoração?"**
+6. **"Posso dividir em etapas menores?"**
+
+---
+
+## ESTRATÉGIAS DE REFATORAÇÃO POR COMPLEXIDADE
+
+### REFATORAÇÃO SIMPLES (Baixo Risco)
+**Escopo**: Implementação interna, sem mudança de interface
+```typescript
+// ANTES
+function calculateTotal(items: Item[]) {
+  let total = 0;
+  for (let i = 0; i < items.length; i++) {
+    total += items[i].price * items[i].quantity;
+  }
+  return total;
+}
+
+// DEPOIS - Mesmo comportamento, código mais limpo
+function calculateTotal(items: Item[]): number {
+  return items.reduce((total, item) => 
+    total + (item.price * item.quantity), 0
+  );
+}
+```
+
+### REFATORAÇÃO MÉDIA (Risco Controlado)
+**Escopo**: Reorganização interna, exports mantidos
+```typescript
+// ANTES - Função monolítica
+export function processUser(userData: any) {
+  // validação + transformação + persistência
+}
+
+// DEPOIS - Funções separadas, interface pública inalterada
+function validateUser(data: any) { /* ... */ }
+function transformUser(data: any) { /* ... */ }
+function persistUser(data: any) { /* ... */ }
+
+export function processUser(userData: any) {
+  const validated = validateUser(userData);
+  const transformed = transformUser(validated);
+  return persistUser(transformed);
+}
+```
+
+### REFATORAÇÃO COMPLEXA (Alto Risco)
+**Escopo**: Arquitetura, múltiplos módulos
+**Abordagem**: SEMPRE incremental por fases
+
+---
+
+## TEMPLATE DE ANÁLISE PRÉ-REFATORAÇÃO
+
+### SITUAÇÃO ATUAL
+- **Módulo Alvo**: [arquivo/classe/função específica]
+- **Problema Identificado**: [o que está ruim e por quê]
+- **Comportamento Atual**: [o que faz exatamente hoje]
+- **Dependentes**: [quem usa este módulo]
+
+### OBJETIVO DA REFATORAÇÃO
+- **Meta**: [o que quero alcançar]
+- **Benefício**: [por que vale a pena]
+- **Critério de Sucesso**: [como sei que melhorou]
+
+### ANÁLISE DE RISCO
+- **Interface Pública**: [o que NÃO pode mudar]
+- **Testes Existentes**: [cobertura atual]
+- **Complexidade**: [Simples/Média/Complexa]
+- **Dependentes**: [quantos módulos podem quebrar]
+
+### ESTRATÉGIA ESCOLHIDA
+- **Abordagem**: [incremental/big-bang + justificativa]
+- **Fases**: [etapas se incremental]
+- **Validação**: [como testar cada etapa]
+- **Rollback**: [como reverter se necessário]
+
+---
+
+## FASES DE REFATORAÇÃO INCREMENTAL
+
+### FASE 1: PREPARAÇÃO
+```bash
+# Garantir cobertura de testes
+npm test -- target_module
+npm run coverage -- target_module
+
+# Documentar comportamento atual
+grep -r "describe\|it\|test" test_files
+```
+
+### FASE 2: ISOLAMENTO
+```typescript
+// Criar nova implementação sem remover antiga
+function newImplementation() { /* código refatorado */ }
+function oldImplementation() { /* manter temporariamente */ }
+
+// Usar feature flag se necessário
+const useNewImplementation = process.env.NEW_IMPL === 'true';
+export const mainFunction = useNewImplementation ? 
+  newImplementation : oldImplementation;
+```
+
+### FASE 3: MIGRAÇÃO GRADUAL
+```typescript
+// Testar nova implementação em contexto controlado
+// Comparar resultados: novo vs antigo
+// Migrar dependentes um por vez
+```
+
+### FASE 4: LIMPEZA
+```typescript
+// Remover implementação antiga após validação completa
+// Limpar flags/código temporário
+// Atualizar documentação se necessário
+```
+
+---
+
+## CHECKLIST DE SEGURANÇA
+
+### PRÉ-REFATORAÇÃO:
+- [ ] Comportamento atual está documentado (testes)?
+- [ ] Interface pública está claramente identificada?
+- [ ] Dependentes estão mapeados?
+- [ ] Estratégia de rollback está definida?
+- [ ] Tenho backup/branch separado?
+
+### DURANTE REFATORAÇÃO:
+- [ ] Mudando UM módulo por vez?
+- [ ] Interface externa permanece inalterada?
+- [ ] Testes continuam passando?
+- [ ] Cada mudança é reversível?
+- [ ] Comportamento externo permanece igual?
+
+### PÓS-REFATORAÇÃO:
+- [ ] Todos os testes passam?
+- [ ] Performance não degradou?
+- [ ] Comportamento externo inalterado?
+- [ ] Código temporário foi removido?
+- [ ] Documentação atualizada se necessário?
+
+---
+
+## COMANDOS DE VALIDAÇÃO CONTÍNUA
+
+### A CADA MUDANÇA:
+```bash
+# Testes específicos do módulo
+npm test -- --watch target_module
+
+# Verificar tipos
+npm run type-check
+
+# Lint do código refatorado
+npm run lint target_file
+```
+
+### VALIDAÇÃO DE COMPORTAMENTO:
+```bash
+# Comparar outputs antes/depois
+npm test -- --verbose target_module > before.log
+# ... fazer refatoração ...
+npm test -- --verbose target_module > after.log
+diff before.log after.log
+```
+
+### VERIFICAÇÃO DE DEPENDENTES:
+```bash
+# Testar módulos que dependem do refatorado
+grep -r "import.*target_module" --include="*.ts" | cut -d: -f1 | xargs npm test --
+```
+
+---
+
+## COMPORTAMENTOS MANDATÓRIOS
+
+### SEMPRE:
+- Refatorar UM módulo por vez
+- Manter interface pública inalterada
+- Testar após cada mudança significativa
+- Usar abordagem incremental para refatorações complexas
+- Validar que comportamento externo não mudou
+- Ter estratégia de rollback clara
+- Remover code temporário após validação
+
+### NUNCA:
+- Refatorar múltiplos módulos simultaneamente
+- Alterar comportamento externo durante refatoração
+- Pular testes "porque é só refatoração"
+- Fazer refatoração "big-bang" em código crítico
+- Deixar código temporário no sistema
+- Assumir que mudança interna é sempre segura
+- Refatorar sem entender dependências
+
+---
+
+## SINAIS DE ALERTA
+
+### PARE A REFATORAÇÃO SE:
+- Testes começaram a falhar de forma inesperada
+- Interface pública precisa mudar para continuar
+- Complexidade aumentou ao invés de diminuir
+- Perdeu controle das mudanças realizadas
+- Dependentes começaram a quebrar
+- Não consegue mais fazer rollback facilmente
+
+### RECONSIDERE ABORDAGEM SE:
+- Refatoração está durando mais que planejado
+- Cada mudança gera efeitos colaterais
+- Código está ficando mais complexo temporariamente
+- Muitos testes precisam ser alterados
+
+---
+
+## MÉTRICAS DE SUCESSO
+
+### CÓDIGO MELHOROU SE:
+- **Legibilidade**: Mais fácil de entender
+- **Manutenibilidade**: Mais fácil de modificar
+- **Testabilidade**: Mais fácil de testar
+- **Performance**: Não degradou (idealmente melhorou)
+- **Complexidade**: Diminuiu (métricas objetivas)
+
+### REFATORAÇÃO FOI SEGURA SE:
+- **Comportamento**: Exatamente o mesmo externamente
+- **Testes**: Todos continuam passando
+- **Dependentes**: Nenhum quebrou
+- **Rollback**: Possível a qualquer momento
+- **Confiança**: Equipe confia na mudança
+
+---
+
+## COMUNICAÇÃO DE REFATORAÇÃO
+
+### FORMATO OBRIGATÓRIO
+
+**MÓDULO REFATORADO**: [arquivo/classe específica]
+
+**PROBLEMA ORIGINAL**: [o que estava ruim]
+
+**SOLUÇÃO APLICADA**: [como foi melhorado]
+
+**VALIDAÇÃO REALIZADA**: [testes/verificações feitas]
+
+**COMPORTAMENTO EXTERNO**: [confirmação de que não mudou]
+
+---
+
+## CHECKLIST FINAL
+
+Antes de considerar refatoração completa:
+1. **OBJETIVO**: Sei exatamente o que quero melhorar?
+2. **RISCO**: Avaliei impacto em dependentes?
+3. **ESTRATÉGIA**: Escolhi abordagem apropriada?
+4. **TESTES**: Comportamento atual está coberto?
+5. **INCREMENTAL**: Dividi em etapas se complexa?
+6. **VALIDAÇÃO**: Testei que comportamento não mudou?
+7. **LIMPEZA**: Removi código temporário?
+8. **ROLLBACK**: Posso reverter se necessário?
+
+
+
+**LEMBRE-SE**: Refatoração é cirurgia no código. Precisão e cuidado são mais importantes que velocidade. Código que funciona tem valor, não destrua sem necessidade absoluta.
