@@ -150,8 +150,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         user: userIdentifier,
         hubs,
+        refreshToken,
       },
-      refreshToken, // O refresh token é geral e pode ser usado para obter novos access tokens
       timestamp: new Date().toISOString(),
     });
 
@@ -202,13 +202,21 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
       ehAdministrador: userIdentifier.ehAdministrador,
     };
     
+    const hubContext = {
+      id: membership.hubId,
+      nome: (await prisma.hub.findUnique({ where: { id: membership.hubId } }))?.nome || '',
+      role: membership.role,
+      dataAccessPolicy: membership.dataAccessPolicy,
+      ehAdministrador: userIdentifier.ehAdministrador,
+    };
     const accessToken = generateAccessToken(authContext);
 
     res.json({
       success: true,
       message: `Acesso ao Hub concedido.`,
       data: {
-        accessToken
+        accessToken,
+        hubContext
       },
       timestamp: new Date().toISOString(),
     });

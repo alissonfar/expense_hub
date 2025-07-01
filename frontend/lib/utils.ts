@@ -1,42 +1,56 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+/**
+ * Utilitário para combinar classes CSS com Tailwind
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Função para formatar moeda brasileira
+/**
+ * Formatar valores monetários em Real brasileiro
+ */
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: 'BRL'
+    currency: 'BRL',
   }).format(value)
 }
 
-// Função para formatar datas
-export function formatDate(date: Date | string): string {
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(date))
+/**
+ * Formatar datas no padrão brasileiro
+ */
+export function formatDate(date: string | Date): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('pt-BR').format(dateObj)
 }
 
-// Função para formatar data e hora
-export function formatDateTime(date: Date | string): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date))
+/**
+ * Formatar data para input HTML
+ */
+export function formatDateForInput(date: string | Date): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toISOString().split('T')[0]
 }
 
-// Função para debounce
-export function debounce<T extends (...args: unknown[]) => unknown>(
+/**
+ * Capitalizar primeira letra
+ */
+export function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
+/**
+ * Debounce function
+ */
+export function debounce<T extends (...args: any[]) => any>(
   func: T,
-  wait: number
+  delay: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
+  let timeoutId: NodeJS.Timeout
   return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(() => func(...args), wait)
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => func(...args), delay)
   }
 } 

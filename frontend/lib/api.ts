@@ -1,37 +1,39 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import { API_BASE_URL } from './constants'
-import type { ApiResponse } from '@/types'
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios'
 
-// Função para obter token do localStorage (compatibilidade)
-const getAccessToken = (): string | null => {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('access_token')
-}
+// Configuração base da API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 
-// Função para limpar tokens em caso de erro de auth
-const clearTokens = (): void => {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('user_data')
-  localStorage.removeItem('selected_hub')
-}
-
-// Criação da instância Axios
-const apiClient: AxiosInstance = axios.create({
+/**
+ * Cliente Axios configurado para comunicação com o backend
+ */
+export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request Interceptor - Adiciona token automaticamente
-apiClient.interceptors.request.use(
+/**
+ * Interceptor para adicionar token de autenticação
+ */
+api.interceptors.request.use(
   (config) => {
-    const token = getAccessToken()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Se estamos no cliente, tentar pegar o token do store
+    if (typeof window !== 'undefined') {
+      // Importar dinamicamente para evitar problemas de SSR
+      import('@/lib/stores/auth-store').then(({ useAuthStore }) => {
+        const state = useAuthStore.getState()
+        if (state.accessToken) {
+          config.headers.Authorization = `Bearer ${state.accessToken}`
+        }
+      }).catch(() => {
+        // Fallback para localStorage se o store não estiver disponível
+        const token = localStorage.getItem('accessToken')
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
+      })
     }
     return config
   },
@@ -40,63 +42,94 @@ apiClient.interceptors.request.use(
   }
 )
 
-// Response Interceptor - Trata erros e respostas
-apiClient.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse<unknown>>) => {
-    // Se a resposta tem success: false, transformar em erro
-    if (response.data && !response.data.success) {
-      const error = new Error(response.data.message || 'Erro na requisição')
-      ;(error as Error & { response: AxiosResponse }).response = response
-      return Promise.reject(error)
-    }
-    return response
+/**
+ * Interceptor para tratamento de respostas e erros
+ */
+api.interceptors.response.use(
+  (response: AxiosResponse) => {
+    // Retornar apenas os dados da resposta
+    return response.data
   },
-  (error) => {
-    // Se é erro 401, limpar tokens e redirecionar para login
+  (error: AxiosError) => {
+    // Tratamento de erros de autenticação
     if (error.response?.status === 401) {
-      clearTokens()
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        // Limpar tokens do localStorage
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        
+        // Limpar store de autenticação
+        import('@/lib/stores/auth-store').then(({ useAuthStore }) => {
+          useAuthStore.getState().clearAuth()
+        }).catch(() => {
+          // Fallback se o store não estiver disponível
+          window.location.href = '/auth/login'
+        })
       }
     }
     
-    // Extrair mensagem de erro da resposta
-    const errorMessage = 
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      'Erro desconhecido'
+    // Padronizar formato de erro
+    const errorMessage = error.response?.data || {
+      error: 'ErroConexao',
+      message: 'Erro de conexão com o servidor'
+    }
     
-    return Promise.reject(new Error(errorMessage))
+    return Promise.reject(errorMessage)
   }
 )
 
-// Wrapper functions para facilitar uso
-export const api = {
-  get: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
-    apiClient.get(url, config).then(res => res.data),
-    
-  post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
-    apiClient.post(url, data, config).then(res => res.data),
-    
-  put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
-    apiClient.put(url, data, config).then(res => res.data),
-    
-  patch: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
-    apiClient.patch(url, data, config).then(res => res.data),
-    
-  delete: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> =>
-    apiClient.delete(url, config).then(res => res.data),
+/**
+ * Tipos para respostas da API
+ */
+export interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  message?: string
+  error?: string
+  timestamp: string
 }
 
-// Export da instância para casos específicos
-export default apiClient
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  data: T[]
+  paginacao: {
+    page: number
+    limit: number
+    total: number
+    pages: number
+  }
+}
 
-// Helper para requests sem autenticação (login, etc)
-export const apiPublic = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
+/**
+ * Utilitários para chamadas específicas
+ */
+export const apiUtils = {
+  /**
+   * GET request with automatic error handling
+   */
+  get: <T>(url: string, params?: any): Promise<ApiResponse<T>> => {
+    return api.get(url, { params })
   },
-}) 
+  
+  /**
+   * POST request with automatic error handling
+   */
+  post: <T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> => {
+    return api.post(url, data, config)
+  },
+  
+  /**
+   * PUT request with automatic error handling
+   */
+  put: <T>(url: string, data?: any): Promise<ApiResponse<T>> => {
+    return api.put(url, data)
+  },
+  
+  /**
+   * DELETE request with automatic error handling
+   */
+  delete: <T>(url: string): Promise<ApiResponse<T>> => {
+    return api.delete(url)
+  },
+}
+
+export default api 

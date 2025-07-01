@@ -2,50 +2,296 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   🎨 PERSONAL EXPENSE HUB - DESIGN SYSTEM
+   ============================================ */
+
 @layer base {
+  /* =============================================
+     VARIÁVEIS CSS - PALETA AZUL PROFISSIONAL
+     ============================================= */
+  
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* === CORES PRIMÁRIAS (AZUL ELEGANTE) === */
+    --primary: 221 83% 53%;        /* #2563eb - Azul vibrante */
+    --primary-foreground: 210 20% 98%;
+    --primary-hover: 221 83% 45%;   /* Hover mais escuro */
+    --primary-active: 221 83% 40%;  /* Active ainda mais escuro */
+    
+    /* === CORES SECUNDÁRIAS (AZUL ACINZENTADO) === */
+    --secondary: 210 40% 98%;       /* #f8fafc - Azul muito claro */
+    --secondary-foreground: 222.2 84% 4.9%;
+    --secondary-hover: 210 40% 96%;
+    
+    /* === CORES DE ACENTO (AZUL ELÉTRICO) === */
+    --accent: 217 91% 60%;          /* #3b82f6 - Azul elétrico */
+    --accent-foreground: 210 20% 98%;
+    --accent-hover: 217 91% 55%;
+    
+    /* === SISTEMA DE CORES BASE === */
+    --background: 0 0% 100%;        /* Branco puro */
+    --foreground: 222.2 84% 4.9%;   /* Texto principal escuro */
+    
+    --muted: 210 40% 96%;           /* #f1f5f9 - Azul acinzentado claro */
+    --muted-foreground: 215.4 16.3% 46.9%;
+    
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
+    
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
+    
+    /* === BORDAS E SEPARADORES === */
+    --border: 214.3 31.8% 91.4%;   /* #e2e8f0 - Azul acinzentado */
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 221 83% 53%;            /* Mesma cor do primary */
+    
+    /* === ESTADOS E FEEDBACK === */
+    --destructive: 0 84% 60%;       /* Vermelho para ações destrutivas */
+    --destructive-foreground: 210 20% 98%;
+    
+    --warning: 38 92% 50%;          /* Amarelo para avisos */
+    --warning-foreground: 48 96% 89%;
+    
+    --success: 142 76% 36%;         /* Verde para sucesso */
+    --success-foreground: 210 20% 98%;
+    
+    --info: 199 89% 48%;           /* Azul info */
+    --info-foreground: 210 20% 98%;
+    
+    /* === CORES FINANCEIRAS === */
+    --finance-income: 142 76% 36%;     /* Verde para receitas */
+    --finance-income-bg: 142 76% 96%;
+    --finance-expense: 0 84% 60%;      /* Vermelho para despesas */
+    --finance-expense-bg: 0 84% 96%;
+    --finance-pending: 38 92% 50%;     /* Amarelo para pendente */
+    --finance-pending-bg: 38 92% 95%;
+    --finance-paid: 142 76% 36%;       /* Verde para pago */
+    --finance-paid-bg: 142 76% 96%;
+    
+    /* === SOMBRAS AZULADAS === */
+    --shadow-light: 221 83% 53% / 0.05;
+    --shadow-medium: 221 83% 53% / 0.1;
+    --shadow-strong: 221 83% 53% / 0.15;
+    
+    /* === GRADIENTES === */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(217 91% 60%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(214.3 31.8% 91.4%) 100%);
+    
+    /* === CONFIGURAÇÕES DE RADIUS === */
     --radius: 0.5rem;
+    --radius-sm: 0.25rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
   }
 
+  /* =============================================
+     TEMA ESCURO (DARK MODE)
+     ============================================= */
+  
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* === CORES PRIMÁRIAS (AZUL MAIS VIBRANTE NO DARK) === */
+    --primary: 217 91% 60%;         /* #3b82f6 - Azul mais claro no dark */
+    --primary-foreground: 222.2 84% 4.9%;
+    --primary-hover: 217 91% 65%;
+    --primary-active: 217 91% 70%;
+    
+    /* === CORES SECUNDÁRIAS === */
+    --secondary: 222.2 84% 4.9%;    /* Escuro */
+    --secondary-foreground: 210 40% 98%;
+    --secondary-hover: 217.2 32.6% 17.5%;
+    
+    /* === CORES DE ACENTO === */
+    --accent: 217.2 32.6% 17.5%;    /* Azul escuro */
+    --accent-foreground: 210 40% 98%;
+    --accent-hover: 217.2 32.6% 20%;
+    
+    /* === SISTEMA DE CORES BASE === */
+    --background: 222.2 84% 4.9%;   /* Escuro principal */
+    --foreground: 210 40% 98%;      /* Texto claro */
+    
+    --muted: 217.2 32.6% 17.5%;     /* Azul escuro mutado */
+    --muted-foreground: 215 20.2% 65.1%;
+    
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
+    
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
+    
+    /* === BORDAS E SEPARADORES === */
+    --border: 217.2 32.6% 17.5%;    /* Azul escuro para bordas */
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --ring: 217 91% 60%;             /* Ring azul vibrante */
+    
+    /* === CORES FINANCEIRAS (DARK) === */
+    --finance-income: 142 84% 47%;     /* Verde mais vibrante */
+    --finance-income-bg: 142 84% 8%;
+    --finance-expense: 0 90% 67%;      /* Vermelho mais suave */
+    --finance-expense-bg: 0 90% 8%;
+    --finance-pending: 38 100% 67%;    /* Amarelo mais suave */
+    --finance-pending-bg: 38 100% 8%;
+    --finance-paid: 142 84% 47%;       /* Verde vibrante */
+    --finance-paid-bg: 142 84% 8%;
+    
+    /* === SOMBRAS ESCURAS === */
+    --shadow-light: 0 0% 0% / 0.1;
+    --shadow-medium: 0 0% 0% / 0.2;
+    --shadow-strong: 0 0% 0% / 0.3;
+  }
+
+  /* =============================================
+     CONFIGURAÇÕES GLOBAIS
+     ============================================= */
+  
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* =============================================
+     TIPOGRAFIA MELHORADA
+     ============================================= */
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-4xl lg:text-5xl;
+  }
+  
+  h2 {
+    @apply text-3xl lg:text-4xl;
+  }
+  
+  h3 {
+    @apply text-2xl lg:text-3xl;
+  }
+  
+  h4 {
+    @apply text-xl lg:text-2xl;
+  }
+  
+  /* =============================================
+     COMPONENTES FINANCEIROS
+     ============================================= */
+  
+  .finance-card {
+    @apply bg-card border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .finance-value-positive {
+    @apply text-green-600 dark:text-green-400 font-semibold;
+  }
+  
+  .finance-value-negative {
+    @apply text-red-600 dark:text-red-400 font-semibold;
+  }
+  
+  .finance-value-neutral {
+    @apply text-muted-foreground font-medium;
+  }
+  
+  /* === BADGES DE STATUS === */
+  .status-badge-paid {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+  }
+  
+  .status-badge-pending {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+  }
+  
+  .status-badge-overdue {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+  }
+
+  /* =============================================
+     EFEITOS E ANIMAÇÕES
+     ============================================= */
+  
+  .glass-effect {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-white/20 dark:border-gray-700/20;
+  }
+  
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  /* === HOVER EFFECTS === */
+  .hover-lift {
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-200 hover:shadow-lg hover:shadow-primary/25;
+  }
+
+  /* =============================================
+     SCROLLBARS PERSONALIZADAS
+     ============================================= */
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+
+  /* =============================================
+     RESPONSIVIDADE ESPECÍFICA
+     ============================================= */
+  
+  @media (max-width: 768px) {
+    .mobile-spacing {
+      @apply px-4 py-2;
+    }
+    
+    .mobile-text {
+      @apply text-sm;
+    }
+  }
+  
+  /* =============================================
+     ESTADOS DE LOADING E SKELETON
+     ============================================= */
+  
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-muted border-t-primary;
+  }
+
+  /* =============================================
+     UTILIDADES PERSONALIZADAS
+     ============================================= */
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+  
+  .border-gradient {
+    border-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))) 1;
   }
 }
 
@@ -57,3 +303,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Animações customizadas para transições de Hub */
+@layer components {
+  .hub-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .loading-pulse {
+    @apply animate-pulse bg-muted rounded;
+  }
+
+  /* Classes utilitárias para status financeiro */
+  .status-pendente {
+    @apply text-warning bg-warning/10 border-warning/20;
+  }
+
+  .status-pago {
+    @apply text-success bg-success/10 border-success/20;
+  }
+
+  .status-vencido {
+    @apply text-error bg-error/10 border-error/20;
+  }
+
+  .status-devedor {
+    @apply text-destructive bg-destructive/10 border-destructive/20;
+  }
+
+  .status-credor {
+    @apply text-success bg-success/10 border-success/20;
+  }
+
+  .status-quitado {
+    @apply text-muted-foreground bg-muted border-border;
+  }
+} 
