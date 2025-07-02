@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { useToast, ToastContainer } from "@/lib/hooks/useToast";
 
 // =============================================
 // 📋 SCHEMA DE VALIDAÇÃO
@@ -34,6 +34,8 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
+  const [countdown, setCountdown] = useState(0);
+  const toast = useToast();
 
   // =============================================
   // 📝 FORM CONFIGURATION
@@ -58,20 +60,16 @@ export default function ForgotPasswordPage() {
     try {
       setIsLoading(true);
       
-      // Simular chamada da API de recuperação de senha
-      // TODO: Implementar integração com o backend
+      // Simular API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Por enquanto, apenas simulamos sucesso
-      setSentEmail(data.email);
       setEmailSent(true);
-      
-      toast.success("Email de recuperação enviado!", {
-        description: "Verifique sua caixa de entrada e spam."
-      });
+      setCountdown(60);
+      setSentEmail(data.email);
+      toast.success("Email de recuperação enviado!", "Verifique sua caixa de entrada e spam.");
       
     } catch (error: any) {
-      console.error("Erro ao enviar email de recuperação:", error);
+      console.error("Erro ao enviar email:", error);
       toast.error(error?.message || "Erro inesperado ao enviar email");
     } finally {
       setIsLoading(false);
@@ -86,12 +84,11 @@ export default function ForgotPasswordPage() {
     try {
       setIsLoading(true);
       
-      // Simular reenvio de email
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Simular API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast.success("Email reenviado!", {
-        description: "Verifique novamente sua caixa de entrada."
-      });
+      setCountdown(60);
+      toast.success("Email reenviado!", "Verifique sua caixa de entrada novamente.");
       
     } catch (error: any) {
       console.error("Erro ao reenviar email:", error);
@@ -107,7 +104,8 @@ export default function ForgotPasswordPage() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
         {/* Back Button */}
         <div className="absolute top-4 left-4 z-10">
           <Button
@@ -216,6 +214,8 @@ export default function ForgotPasswordPage() {
           </p>
         </footer>
       </div>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+    </>
     );
   }
 
@@ -224,7 +224,8 @@ export default function ForgotPasswordPage() {
   // =============================================
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <>
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* =============================================
           🔙 BACK TO LOGIN BUTTON
           ============================================= */}
@@ -371,5 +372,7 @@ export default function ForgotPasswordPage() {
         </p>
       </footer>
     </div>
+    <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+  </>
   );
 } 

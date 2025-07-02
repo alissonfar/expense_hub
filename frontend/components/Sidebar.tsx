@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth, useHubContext } from "@/lib/stores/auth-store";
 import { useTheme } from "next-themes";
-import { toast } from "sonner";
+import { useToast } from "@/lib/hooks/useToast";
 
 // =============================================
 // 📋 TYPES
@@ -64,6 +64,7 @@ export function Sidebar() {
   
   const { role } = useHubContext();
   const hubId = params.hubId as string;
+  const toast = useToast();
 
   // =============================================
   // 📋 NAVIGATION ITEMS
@@ -143,6 +144,7 @@ export function Sidebar() {
   const handleLogout = () => {
     logout();
     toast.success("Logout realizado com sucesso");
+    window.location.href = "/auth/login";
   };
 
   const handleHubChange = async (newHubId: number) => {

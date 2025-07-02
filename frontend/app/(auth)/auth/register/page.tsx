@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/stores/auth-store";
-import { toast } from "sonner";
+import { useToast, ToastContainer } from "@/lib/hooks/useToast";
 import { usePasswordStrength } from "@/lib/hooks/usePasswordStrength";
 
 // =============================================
@@ -75,6 +75,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register: registerUser, isLoading: authLoading } = useAuth();
+  const toast = useToast();
 
   // =============================================
   // 📝 FORM CONFIGURATION
@@ -125,9 +126,7 @@ export default function RegisterPage() {
       const result = await registerUser(registrationData);
       
       if (result.success) {
-        toast.success("Conta criada com sucesso!", {
-          description: "Você será redirecionado para fazer login."
-        });
+        toast.success("Conta criada com sucesso!", "Você será redirecionado para fazer login.");
         
         // Redirecionar para login
         setTimeout(() => {
@@ -149,8 +148,9 @@ export default function RegisterPage() {
   // =============================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
             <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -393,5 +393,7 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
+    <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+  </>
   );
 } 

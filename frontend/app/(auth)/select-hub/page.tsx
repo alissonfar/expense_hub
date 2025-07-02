@@ -7,7 +7,7 @@ import { Building2, Plus, Users, ArrowRight, Settings, LogOut, Crown, Shield, Us
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { toast } from "sonner";
+import { useToast, ToastContainer } from "@/lib/hooks/useToast";
 import type { HubInfo } from "@/types/auth";
 
 // =============================================
@@ -19,6 +19,7 @@ export default function SelectHubPage() {
   const { user, availableHubs, logout, selectHub } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHubId, setLoadingHubId] = useState<string | null>(null);
+  const toast = useToast();
 
   // =============================================
   // 🔄 HUB SELECTION HANDLER
@@ -117,7 +118,8 @@ export default function SelectHubPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <>
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* =============================================
           📱 HEADER
           ============================================= */}
@@ -327,5 +329,7 @@ export default function SelectHubPage() {
         </div>
       </footer>
     </div>
+    <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+  </>
   );
 } 

@@ -16,6 +16,10 @@ interface AuthActions {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>
   selectHub: (hubId: number) => Promise<{ success: boolean; error?: string }>
   
+  // Recovery actions
+  initializeAuth: () => Promise<void>
+  checkAuthStatus: () => Promise<boolean>
+  
   // Loading states
   setLoading: (loading: boolean) => void
   
@@ -42,7 +46,10 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       ...initialState,
       
-      // Actions
+      // =============================================
+      // 📝 BASIC SETTERS
+      // =============================================
+      
       setUser: (user) => set({ user }),
       
       setHubs: (hubs) => set({ availableHubs: hubs }),
@@ -63,10 +70,131 @@ export const useAuthStore = create<AuthStore>()(
           updates.refreshToken = refreshToken
         }
         set(updates)
-        // Sincronizar accessToken no cookie para SSR/middleware
+        
+        // Sincronizar com localStorage e cookies
         if (typeof window !== 'undefined') {
+          localStorage.setItem('accessToken', accessToken)
+          if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken)
+          }
+          
+          // Cookie para SSR/middleware
           const maxAge = 60 * 60 * 24 * 7; // 7 dias
           document.cookie = `accessToken=${accessToken}; path=/; Max-Age=${maxAge}; SameSite=Lax`;
+        }
+      },
+      
+      // =============================================
+      // 🔄 RECOVERY & INITIALIZATION
+      // =============================================
+      
+      initializeAuth: async () => {
+        try {
+          console.log('[AuthStore] Inicializando autenticação...')
+          const state = get()
+          
+          console.log('[AuthStore] Estado atual:', {
+            isAuthenticated: state.isAuthenticated,
+            hasHub: !!state.currentHub,
+            hasAccessToken: !!state.accessToken,
+            hasRefreshToken: !!state.refreshToken
+          })
+          
+          // Se já está completamente autenticado, não precisa inicializar
+          if (state.isAuthenticated && state.currentHub && state.accessToken && state.authContext) {
+            console.log('[AuthStore] Já completamente autenticado:', state.currentHub.nome)
+            return
+          }
+          
+          // Recuperar tokens do localStorage
+          const storedAccessToken = localStorage.getItem('accessToken')
+          const storedRefreshToken = localStorage.getItem('refreshToken')
+          
+          console.log('[AuthStore] Tokens no localStorage:', {
+            hasAccessToken: !!storedAccessToken,
+            hasRefreshToken: !!storedRefreshToken
+          })
+          
+          if (!storedRefreshToken) {
+            console.log('[AuthStore] Refresh token não encontrado - limpando estado')
+            get().clearAuth()
+            return
+          }
+          
+          // Se tem refresh token mas falta dados críticos
+          if (!storedAccessToken || !state.currentHub || !state.authContext) {
+            console.log('[AuthStore] Dados incompletos - tentando recuperar sessão...')
+            const recovered = await get().checkAuthStatus()
+            if (!recovered) {
+              console.log('[AuthStore] Falha na recuperação - limpando estado')
+              get().clearAuth()
+            }
+          } else {
+            // Sincronizar access token do localStorage com store
+            set({ accessToken: storedAccessToken, isAuthenticated: true })
+            console.log('[AuthStore] Access token sincronizado do localStorage')
+          }
+        } catch (error) {
+          console.error('[AuthStore] Erro na inicialização:', error)
+          get().clearAuth()
+        }
+      },
+      
+      checkAuthStatus: async () => {
+        try {
+          const state = get()
+          const refreshToken = state.refreshToken || localStorage.getItem('refreshToken')
+          
+          if (!refreshToken) {
+            console.log('[AuthStore] Nenhum refresh token encontrado')
+            return false
+          }
+          
+          // Se não tem hub atual, não pode fazer check
+          if (!state.currentHub?.id) {
+            console.log('[AuthStore] Nenhum hub atual para validar')
+            return false
+          }
+          
+          // Tentar renovar access token
+          const response = await api.post('/auth/select-hub', 
+            { hubId: state.currentHub.id },
+            {
+              headers: {
+                'Authorization': `Bearer ${refreshToken}`
+              }
+            }
+          )
+          
+          if (response.success) {
+            const { accessToken, hubContext } = response.data
+            
+            // Atualizar store
+            set({
+              accessToken,
+              authContext: {
+                pessoaId: hubContext.pessoaId || state.user?.id || 0,
+                hubId: hubContext.id,
+                role: hubContext.role,
+                dataAccessPolicy: hubContext.dataAccessPolicy,
+                ehAdministrador: hubContext.ehAdministrador
+              },
+              isAuthenticated: true
+            })
+            
+            // Sincronizar com localStorage
+            localStorage.setItem('accessToken', accessToken)
+            const maxAge = 60 * 60 * 24 * 7
+            document.cookie = `accessToken=${accessToken}; path=/; Max-Age=${maxAge}; SameSite=Lax`
+            
+            console.log('[AuthStore] Sessão recuperada com sucesso')
+            return true
+          }
+          
+          return false
+        } catch (error) {
+          console.error('[AuthStore] Erro ao verificar status de auth:', error)
+          return false
         }
       },
       
@@ -91,11 +219,12 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false
             })
             
-            // Salvar refresh token no localStorage para persistência
+            // Salvar refresh token no localStorage
             if (typeof window !== 'undefined') {
               localStorage.setItem('refreshToken', refreshToken)
             }
             
+            console.log('[AuthStore] Login bem-sucedido')
             return { success: true }
           } else {
             set({ isLoading: false })
@@ -103,7 +232,7 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch (error: any) {
           set({ isLoading: false })
-          console.error('Erro no login:', error)
+          console.error('[AuthStore] Erro no login:', error)
           
           // Tratar erros específicos do backend
           if (error.error === 'CredenciaisInvalidas') {
@@ -124,6 +253,7 @@ export const useAuthStore = create<AuthStore>()(
           
           if (response.success) {
             set({ isLoading: false })
+            console.log('[AuthStore] Registro bem-sucedido')
             return { success: true }
           } else {
             set({ isLoading: false })
@@ -131,7 +261,7 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch (error: any) {
           set({ isLoading: false })
-          console.error('Erro no registro:', error)
+          console.error('[AuthStore] Erro no registro:', error)
           
           // Tratar erros específicos do backend
           if (error.error === 'EmailEmUso') {
@@ -148,10 +278,21 @@ export const useAuthStore = create<AuthStore>()(
       
       selectHub: async (hubId: number) => {
         try {
+          console.log('[AuthStore] Iniciando selectHub para hubId:', hubId)
           set({ isLoading: true })
           
           const state = get()
-          if (!state.refreshToken) {
+          const refreshToken = state.refreshToken || localStorage.getItem('refreshToken')
+          
+          console.log('[AuthStore] Estado atual:', {
+            storeRefreshToken: !!state.refreshToken,
+            localStorageRefreshToken: !!localStorage.getItem('refreshToken'),
+            finalRefreshToken: !!refreshToken,
+            refreshTokenPreview: refreshToken ? refreshToken.substring(0, 50) + '...' : 'nenhum'
+          })
+          
+          if (!refreshToken) {
+            console.error('[AuthStore] Refresh token não encontrado!')
             set({ isLoading: false })
             return { success: false, error: 'Refresh token não encontrado' }
           }
@@ -159,11 +300,23 @@ export const useAuthStore = create<AuthStore>()(
           // Configurar header com refresh token
           const config = {
             headers: {
-              'Authorization': `Bearer ${state.refreshToken}`
+              'Authorization': `Bearer ${refreshToken}`
             }
           }
           
+          console.log('[AuthStore] Enviando requisição select-hub com config:', {
+            hubId,
+            hasAuthHeader: !!config.headers.Authorization,
+            authHeaderPreview: config.headers.Authorization.substring(0, 50) + '...'
+          })
+          
           const response = await api.post('/auth/select-hub', { hubId }, config)
+          
+          console.log('[AuthStore] Resposta do select-hub:', {
+            success: response.success,
+            hasAccessToken: !!response.data?.accessToken,
+            hasHubContext: !!response.data?.hubContext
+          })
           
           if (response.success) {
             const { accessToken, hubContext } = response.data
@@ -195,14 +348,21 @@ export const useAuthStore = create<AuthStore>()(
               document.cookie = `accessToken=${accessToken}; path=/; Max-Age=${maxAge}; SameSite=Lax`;
             }
             
+            console.log('[AuthStore] Hub selecionado com sucesso:', hubContext.nome)
             return { success: true }
           } else {
             set({ isLoading: false })
+            console.error('[AuthStore] Falha na resposta do select-hub:', response)
             return { success: false, error: response.message || 'Erro ao selecionar hub' }
           }
         } catch (error: any) {
           set({ isLoading: false })
-          console.error('Erro ao selecionar hub:', error)
+          console.error('[AuthStore] Erro ao selecionar hub:', {
+            error: error,
+            message: error.message,
+            errorType: error.error,
+            stack: error.stack
+          })
           
           // Tratar erros específicos
           if (error.error === 'TokenInvalido') {
@@ -217,9 +377,7 @@ export const useAuthStore = create<AuthStore>()(
       
       setLoading: (loading) => set({ isLoading: loading }),
       
-      clearAuth: () => set(initialState),
-      
-      logout: () => {
+      clearAuth: () => {
         // Clear localStorage
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken')
@@ -230,6 +388,11 @@ export const useAuthStore = create<AuthStore>()(
         
         // Reset store
         set(initialState)
+        console.log('[AuthStore] Auth limpo')
+      },
+      
+      logout: () => {
+        get().clearAuth()
         
         // Redirect to login
         if (typeof window !== 'undefined') {
@@ -241,14 +404,30 @@ export const useAuthStore = create<AuthStore>()(
       name: 'auth-storage',
       partialize: (state) => ({
         refreshToken: state.refreshToken,
+        accessToken: state.accessToken, // INCLUÍDO na persistência
         user: state.user,
         availableHubs: state.availableHubs,
         currentHub: state.currentHub,
         authContext: state.authContext,
+        isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrate: (state) => {
+        console.log('[AuthStore] Estado recarregado do localStorage')
+        if (state) {
+          // Inicializar autenticação quando store for recarregado
+          setTimeout(() => {
+            console.log('[AuthStore] Executando initializeAuth após hidratação')
+            state.initializeAuth()
+          }, 50) // Delay reduzido para sincronizar com useHubGuard
+        }
+      },
     }
   )
 )
+
+// =============================================
+// 🎯 SELETORES E HOOKS UTILITÁRIOS
+// =============================================
 
 // Seletores úteis
 export const useAuth = () => {
@@ -274,6 +453,10 @@ export const useAuth = () => {
     login: store.login,
     register: store.register,
     selectHub: store.selectHub,
+    
+    // Recovery Actions
+    initializeAuth: store.initializeAuth,
+    checkAuthStatus: store.checkAuthStatus,
   }
 }
 

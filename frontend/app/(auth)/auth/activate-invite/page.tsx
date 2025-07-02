@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { useAuth } from "@/lib/stores/auth-store";
+import { useToast, ToastContainer } from "@/lib/hooks/useToast";
 import { usePasswordStrength } from "@/lib/hooks/usePasswordStrength";
 
 // =============================================
@@ -50,6 +51,8 @@ export default function ActivateInvitePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { updateStrength, strength: passwordStrength } = usePasswordStrength();
+  const { register: registerUser, isLoading: authLoading } = useAuth();
+  const toast = useToast();
   
   const [loadingInvite, setLoadingInvite] = useState(true);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -132,22 +135,19 @@ export default function ActivateInvitePage() {
     try {
       setIsLoading(true);
       
-      // Simular ativação do convite
-      // TODO: Implementar integração com o backend
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Tentar ativar convite
+      const result = await registerUser(_data);
       
-      // Simular sucesso
-      setActivated(true);
-      
-      toast.success("Convite ativado com sucesso!", {
-        description: "Você agora faz parte do hub."
-      });
-      
-      // Redirecionar após alguns segundos
-      setTimeout(() => {
-        router.push("/auth/login");
-      }, 3000);
-      
+      if (result.success) {
+        toast.success("Convite ativado com sucesso!", "Você será redirecionado para fazer login.");
+        
+        // Redirecionar para login
+        setTimeout(() => {
+          router.push("/auth/login");
+        }, 1500);
+      } else {
+        throw new Error(result.error || "Erro ao ativar convite");
+      }
     } catch (error: any) {
       console.error("Erro ao ativar convite:", error);
       toast.error(error?.message || "Erro inesperado ao ativar convite");
@@ -171,7 +171,8 @@ export default function ActivateInvitePage() {
 
   if (loadingInvite) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="flex-1 flex items-center justify-center p-4">
           <Card className="glass-effect w-full max-w-md">
             <CardContent className="p-8">
@@ -183,6 +184,8 @@ export default function ActivateInvitePage() {
           </Card>
         </div>
       </div>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+    </>
     );
   }
 
@@ -192,7 +195,8 @@ export default function ActivateInvitePage() {
 
   if (inviteError || !inviteData?.valid) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="absolute top-4 left-4 z-10">
           <Button variant="ghost" size="sm" className="gap-2 hover-lift" asChild>
             <Link href="/auth/login">
@@ -248,6 +252,8 @@ export default function ActivateInvitePage() {
           </p>
         </footer>
       </div>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+    </>
     );
   }
 
@@ -257,7 +263,8 @@ export default function ActivateInvitePage() {
 
   if (activated) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <>
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="w-full max-w-md space-y-8">
             <div className="text-center space-y-4">
@@ -299,6 +306,8 @@ export default function ActivateInvitePage() {
           </p>
         </footer>
       </div>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+    </>
     );
   }
 
@@ -307,7 +316,8 @@ export default function ActivateInvitePage() {
   // =============================================
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <>
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* =============================================
           🔙 BACK BUTTON
           ============================================= */}
@@ -528,5 +538,7 @@ export default function ActivateInvitePage() {
         </p>
       </footer>
     </div>
+    <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+  </>
   );
 } 

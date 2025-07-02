@@ -4,7 +4,6 @@ import React from "react";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { Toaster } from "sonner";
 
 // =============================================
 // 🔧 CONFIGURAÇÃO DO REACT QUERY
@@ -64,37 +63,6 @@ function AppThemeProvider({ children }: ThemeProviderProps) {
 }
 
 // =============================================
-// 🔔 TOASTER CONFIGURATION
-// =============================================
-
-function ToasterProvider() {
-  return (
-    <Toaster
-      position="top-right"
-      expand={true}
-      richColors
-      closeButton
-      duration={4000}
-      className="toaster group"
-      toastOptions={{
-        className: "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-        style: {
-          fontFamily: "var(--font-sans)",
-        },
-      }}
-      theme="system"
-      icons={{
-        success: "✅",
-        info: "ℹ️", 
-        warning: "⚠️",
-        error: "❌",
-        loading: "⏳",
-      }}
-    />
-  );
-}
-
-// =============================================
 // 🌐 MAIN PROVIDERS COMPONENT
 // =============================================
 
@@ -107,11 +75,6 @@ export function Providers({ children }: ProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <AppThemeProvider>
         {children}
-        
-        {/* =============================================
-            🔔 TOASTER (NOTIFICATIONS)
-            ============================================= */}
-        <ToasterProvider />
         
         {/* =============================================
             🛠️ REACT QUERY DEVTOOLS (DEV ONLY)

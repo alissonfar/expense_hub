@@ -167,18 +167,30 @@ export const login = async (req: Request, res: Response): Promise<void> => {
  */
 export const selectHub = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('\n🔍 [SelectHub] INÍCIO - Processando seleção de hub');
+    console.log('   Body:', req.body);
+    console.log('   Authorization header:', req.headers.authorization ? 'Presente' : 'Ausente');
+    console.log('   Authorization preview:', req.headers.authorization ? req.headers.authorization.substring(0, 50) + '...' : 'N/A');
+    
     const { hubId }: SelectHubInput = req.body;
     const { authorization } = req.headers;
     const refreshToken = extractTokenFromHeader(authorization);
 
+    console.log('   Hub ID solicitado:', hubId);
+    console.log('   Refresh token extraído:', refreshToken ? 'Presente (' + refreshToken.substring(0, 50) + '...)' : 'Ausente');
+
     if (!refreshToken) {
+        console.log('   ❌ [SelectHub] FALHA - Refresh token não fornecido');
         res.status(401).json({ error: 'TokenInvalido', message: 'Refresh token é obrigatório.' });
         return;
     }
 
+    console.log('   🔑 [SelectHub] Verificando refresh token...');
     const userIdentifier = verifyRefreshToken(refreshToken);
+    console.log('   ✅ [SelectHub] Refresh token válido para usuário:', userIdentifier.pessoaId);
 
     // Verificar se o usuário realmente pertence ao Hub solicitado
+    console.log('   🔍 [SelectHub] Verificando membership...');
     const membership = await prisma.membros_hub.findUnique({
       where: {
         hubId_pessoaId: {
@@ -189,7 +201,11 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    console.log('   Membership encontrado:', !!membership);
+    console.log('   Role do usuário:', membership?.role || 'N/A');
+
     if (!membership) {
+      console.log('   ❌ [SelectHub] FALHA - Usuário não é membro do hub ou inativo');
       res.status(403).json({ error: 'AcessoNegado', message: 'Você não é membro deste Hub ou sua participação está inativa.' });
       return;
     }
@@ -209,8 +225,12 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
       dataAccessPolicy: membership.dataAccessPolicy,
       ehAdministrador: userIdentifier.ehAdministrador,
     };
+    
+    console.log('   🎯 [SelectHub] Gerando access token...');
     const accessToken = generateAccessToken(authContext);
+    console.log('   ✅ [SelectHub] Access token gerado:', accessToken.substring(0, 50) + '...');
 
+    console.log('   🎉 [SelectHub] SUCESSO - Hub selecionado:', hubContext.nome);
     res.json({
       success: true,
       message: `Acesso ao Hub concedido.`,
@@ -222,6 +242,7 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
+    console.log('   ❌ [SelectHub] ERRO - Falha na verificação:', error);
     console.error('Erro ao selecionar Hub:', error);
     res.status(401).json({ error: 'TokenInvalido', message: 'Refresh token inválido ou expirado.' });
   }
