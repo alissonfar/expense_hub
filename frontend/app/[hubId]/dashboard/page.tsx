@@ -3,338 +3,247 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  CreditCard, 
-  Users, 
-  Receipt,
-  Calendar,
   ArrowUpRight,
   ArrowDownRight,
-  MoreHorizontal,
+  DollarSign,
+  Users,
+  Receipt,
+  MoreVertical,
   Plus,
   BarChart,
-  Building2
+  ShieldCheck,
+  Building2,
+  FileBarChart2,
+  UserPlus,
+  Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuthStore } from "@/lib/stores/auth-store";
-import { ProtectedLayout } from '@/components/ProtectedLayout'
-import { Badge } from '@/components/ui/badge'
+import { useHubContext } from "@/lib/stores/auth-store";
+import { ProtectedLayout } from '@/components/ProtectedLayout';
+import { Badge } from '@/components/ui/badge';
+import { StatCard } from '@/components/ui/stat-card';
+import { ChartWidget, ChartData } from '@/components/ui/chart-widget';
+import { DataTable, Column } from '@/components/ui/data-table';
 
 // =============================================
-// 💰 DASHBOARD PAGE COMPONENT
+// 💰 DASHBOARD REVAMPED
 // =============================================
+
+// Mock Data Types
+type Transaction = {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'Receita' | 'Despesa';
+  date: string;
+  status: 'Confirmado' | 'Pendente';
+};
+
+// =============================================
+// 🎨 MOCK DATA (API REPLACEMENT)
+// =============================================
+const kpiData = [
+  {
+    title: "Saldo Atual",
+    value: "R$ 7.180,00",
+    change: 22,
+    icon: <DollarSign className="w-5 h-5" />,
+    trend: 'up' as const,
+  },
+  {
+    title: "Receitas do Mês",
+    value: "R$ 15.420,00",
+    change: 12.5,
+    icon: <ArrowUpRight className="w-5 h-5" />,
+    trend: 'up' as const,
+  },
+  {
+    title: "Despesas do Mês",
+    value: "R$ 8.240,00",
+    change: -5.8,
+    icon: <ArrowDownRight className="w-5 h-5" />,
+    trend: 'down' as const,
+  },
+  {
+    title: "Membros Ativos",
+    value: "3",
+    change: 1,
+    icon: <Users className="w-5 h-5" />,
+    trend: 'up' as const,
+  }
+];
+
+const recentTransactions: Transaction[] = [
+    { id: 'txn_1', description: 'Salário de Janeiro', amount: 5000.00, type: 'Receita', date: '2025-01-05', status: 'Confirmado' },
+    { id: 'txn_2', description: 'Compra Supermercado', amount: -234.50, type: 'Despesa', date: '2025-01-05', status: 'Confirmado' },
+    { id: 'txn_3', description: 'Projeto Freelance', amount: 800.00, type: 'Receita', date: '2025-01-04', status: 'Confirmado' },
+    { id: 'txn_4', description: 'Pagamento Aluguel', amount: -1800.00, type: 'Despesa', date: '2025-01-03', status: 'Pendente' },
+    { id: 'txn_5', description: 'Venda de Item Usado', amount: 150.00, type: 'Receita', date: '2025-01-02', status: 'Confirmado' },
+];
+
+const revenueChartData: ChartData[] = [
+  { label: 'Set', value: 6500 },
+  { label: 'Out', value: 5900 },
+  { label: 'Nov', value: 8000 },
+  { label: 'Dez', value: 8100 },
+  { label: 'Jan', value: 15420 },
+  { label: 'Fev', value: 14000 },
+];
+
+const expenseByCategoryChartData: ChartData[] = [
+    { label: 'Moradia', value: 1800 },
+    { label: 'Transporte', value: 550 },
+    { label: 'Alimentação', value: 1230 },
+    { label: 'Lazer', value: 800 },
+    { label: 'Outros', value: 400 },
+];
+
+const transactionColumns: Column<Transaction>[] = [
+  {
+    key: 'description',
+    header: 'Descrição',
+    accessor: (item) => <div className="font-medium">{item.description}</div>,
+  },
+  {
+    key: 'amount',
+    header: 'Valor',
+    accessor: (item) => (
+      <div className={`font-semibold ${item.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
+      </div>
+    ),
+  },
+  {
+    key: 'type',
+    header: 'Tipo',
+    accessor: (item) => (
+       <Badge variant={item.type === 'Receita' ? 'default' : 'destructive'}>
+        {item.type}
+       </Badge>
+    )
+  },
+  {
+    key: 'date',
+    header: 'Data',
+    accessor: (item) => new Date(item.date).toLocaleDateString('pt-BR'),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    accessor: (item) => (
+      <Badge variant={item.status === 'Confirmado' ? 'secondary' : 'outline'}>
+        {item.status}
+      </Badge>
+    )
+  }
+];
 
 function DashboardContent() {
-  const params = useParams();
-  const { currentHub, hubId, hubNome, role, isOwner, isAdmin } = useAuthStore();
-  // Logar contexto ao montar o dashboard
-  const storeState = useAuthStore.getState();
-  console.log('[Dashboard] Componente montado. hubId:', hubId, {
-    currentHub: storeState.currentHub,
-    accessToken: storeState.accessToken,
-    isAuthenticated: storeState.isAuthenticated
-  });
-
-  // =============================================
-  // 📊 MOCK DATA (SERÁ SUBSTITUÍDO PELA API)
-  // =============================================
-
-  const financialSummary = {
-    saldoAtual: 15420.75,
-    receitasMes: 8500.00,
-    despesasMes: 3420.25,
-    economiasMes: 5079.75,
-    variacao: {
-      receitas: 12.5,
-      despesas: -8.3,
-      economia: 24.1
-    }
-  };
-
-  const recentTransactions = [
-    {
-      id: "1",
-      descricao: "Salário Janeiro",
-      valor: 8500.00,
-      tipo: "RECEITA",
-      data: "2025-01-01",
-      categoria: "Salário"
-    },
-    {
-      id: "2", 
-      descricao: "Supermercado",
-      valor: -420.50,
-      tipo: "DESPESA",
-      data: "2024-12-30",
-      categoria: "Alimentação"
-    },
-    {
-      id: "3",
-      descricao: "Freelance Design",
-      valor: 1200.00,
-      tipo: "RECEITA", 
-      data: "2024-12-28",
-      categoria: "Trabalho Extra"
-    },
-    {
-      id: "4",
-      descricao: "Internet + TV",
-      valor: -199.90,
-      tipo: "DESPESA",
-      data: "2024-12-25",
-      categoria: "Contas"
-    }
-  ];
-
-  const quickStats = [
-    {
-      title: "Transações",
-      value: "847",
-      change: "+12%",
-      icon: Receipt,
-      trend: "up"
-    },
-    {
-      title: "Categorias Ativas",
-      value: "23",
-      change: "+3",
-      icon: Calendar,
-      trend: "up"
-    },
-    {
-      title: "Média Mensal",
-      value: "R$ 4.280",
-      change: "-5%",
-      icon: TrendingUp,
-      trend: "down"
-    },
-    {
-      title: "Membros",
-      value: "3",
-      change: "0",
-      icon: Users,
-      trend: "neutral"
-    }
-  ];
-
-  // =============================================
-  // 🎨 HELPERS
-  // =============================================
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit'
-    });
-  };
-
-  // =============================================
-  // 🎨 RENDER
-  // =============================================
-
+  const { hubId, hubNome, role, isOwner, isAdmin } = useHubContext();
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          
-          {/* =============================================
-              🎨 HEADER SECTION
-              ============================================= */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary text-white">
-                  <Building2 className="h-6 w-6" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">
-                    Dashboard
-                  </h1>
-                  <p className="text-muted-foreground">
-                    {hubNome} • Hub ID: {hubId}
-                  </p>
-                </div>
-              </div>
+    <main className="flex-1 bg-slate-50/50 dark:bg-slate-900/50 p-4 sm:p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* ======================= HEADER ======================= */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Building2 className="h-6 w-6" />
             </div>
-            
-            <div className="flex items-center gap-3">
-              <Badge variant={isOwner ? "default" : isAdmin ? "secondary" : "outline"}>
-                {role}
-              </Badge>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Bem-vindo ao hub <span className="font-semibold text-primary">{hubNome}</span>
+              </p>
             </div>
           </div>
-
-          {/* =============================================
-              📈 STATS CARDS
-              ============================================= */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="glass-effect">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Receitas
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">R$ 15.420,00</div>
-                <p className="text-xs text-muted-foreground">
-                  +12% em relação ao mês anterior
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-effect">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Despesas
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-red-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">R$ 8.240,00</div>
-                <p className="text-xs text-muted-foreground">
-                  -5% em relação ao mês anterior
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-effect">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Saldo
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">R$ 7.180,00</div>
-                <p className="text-xs text-muted-foreground">
-                  +22% em relação ao mês anterior
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-effect">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Membros
-                </CardTitle>
-                <Users className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-600">3</div>
-                <p className="text-xs text-muted-foreground">
-                  Ativos no hub
-                </p>
-              </CardContent>
-            </Card>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Transação
+            </Button>
+            <Button variant="outline" size="icon" className="hidden sm:inline-flex">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
           </div>
-
-          {/* =============================================
-              📊 MAIN CONTENT
-              ============================================= */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            
-            {/* Recent Activity */}
-            <Card className="lg:col-span-2 glass-effect">
-              <CardHeader>
-                <CardTitle>Atividades Recentes</CardTitle>
-                <CardDescription>
-                  Últimas transações do hub
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { type: 'receita', desc: 'Salário', valor: 'R$ 5.000,00', data: '2 horas atrás' },
-                    { type: 'despesa', desc: 'Supermercado', valor: 'R$ 234,50', data: '5 horas atrás' },
-                    { type: 'receita', desc: 'Freelance', valor: 'R$ 800,00', data: '1 dia atrás' },
-                    { type: 'despesa', desc: 'Combustível', valor: 'R$ 120,00', data: '2 dias atrás' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          item.type === 'receita' ? 'bg-green-500' : 'bg-red-500'
-                        }`} />
-                        <div>
-                          <p className="font-medium">{item.desc}</p>
-                          <p className="text-sm text-muted-foreground">{item.data}</p>
-                        </div>
-                      </div>
-                      <div className={`font-semibold ${
-                        item.type === 'receita' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {item.type === 'receita' ? '+' : '-'}{item.valor}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="glass-effect">
-              <CardHeader>
-                <CardTitle>Ações Rápidas</CardTitle>
-                <CardDescription>
-                  Atalhos para operações comuns
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { label: 'Nova Receita', color: 'bg-green-600 hover:bg-green-700' },
-                  { label: 'Nova Despesa', color: 'bg-red-600 hover:bg-red-700' },
-                  { label: 'Ver Relatórios', color: 'bg-blue-600 hover:bg-blue-700' },
-                  { label: 'Gerenciar Membros', color: 'bg-purple-600 hover:bg-purple-700', admin: true },
-                ].map((action, i) => (
-                  (!action.admin || isAdmin) && (
-                    <button
-                      key={i}
-                      className={`w-full p-3 text-white rounded-lg transition-colors ${action.color}`}
-                    >
-                      {action.label}
-                    </button>
-                  )
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* =============================================
-              🔧 DEBUG INFO (DEV ONLY)
-              ============================================= */}
-          {process.env.NODE_ENV === 'development' && (
-            <Card className="glass-effect border-dashed border-2 border-orange-200">
-              <CardHeader>
-                <CardTitle className="text-orange-600">🔧 Debug Info</CardTitle>
-                <CardDescription>
-                  Informações de desenvolvimento - será removido em produção
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2 text-sm font-mono">
-                  <div><strong>Hub ID:</strong> {hubId}</div>
-                  <div><strong>Hub Nome:</strong> {hubNome}</div>
-                  <div><strong>Role:</strong> {role}</div>
-                  <div><strong>Is Owner:</strong> {isOwner ? 'Sim' : 'Não'}</div>
-                  <div><strong>Is Admin:</strong> {isAdmin ? 'Sim' : 'Não'}</div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
         </div>
+
+        {/* ======================= KPI CARDS ======================= */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kpiData.map((kpi) => (
+            <StatCard key={kpi.title} {...kpi} />
+          ))}
+        </div>
+
+        {/* ======================= CHARTS ======================= */}
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+             <ChartWidget
+                type="line"
+                title="Evolução de Receitas (Últimos 6 meses)"
+                data={revenueChartData}
+             />
+          </div>
+          <div className="lg:col-span-2">
+            <ChartWidget
+                type="bar"
+                title="Despesas por Categoria"
+                data={expenseByCategoryChartData}
+             />
+          </div>
+        </div>
+        
+        {/* ======================= DATA TABLE & QUICK ACTIONS ======================= */}
+        <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Últimas Transações</CardTitle>
+                        <CardDescription>As 5 transações mais recentes no hub.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <DataTable columns={transactionColumns} data={recentTransactions} />
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Ações Rápidas</CardTitle>
+                        <CardDescription>Atalhos para operações comuns.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                       <Button variant="outline"><FileBarChart2 className="mr-2 h-4 w-4" /> Ver Relatórios</Button>
+                       <Button variant="outline"><UserPlus className="mr-2 h-4 w-4" /> Convidar Membro</Button>
+                       <Button variant="outline"><Send className="mr-2 h-4 w-4" /> Realizar Pagamento</Button>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+
+        {/* ======================= DEBUG INFO ======================= */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="border-dashed border-orange-400 bg-orange-50/50 dark:bg-orange-900/10">
+            <CardHeader>
+              <CardTitle className="text-orange-600 dark:text-orange-400">🔧 Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm font-mono grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
+              <div><strong>Hub ID:</strong> {hubId}</div>
+              <div><strong>Hub Nome:</strong> {hubNome}</div>
+              <div><strong>Role:</strong> <Badge variant="secondary">{role}</Badge></div>
+              <div><strong>Is Owner:</strong> {isOwner ? 'Sim' : 'Não'}</div>
+              <div><strong>Is Admin:</strong> {isAdmin ? 'Sim' : 'Não'}</div>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
-    </div>
+    </main>
   );
 }
 
