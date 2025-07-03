@@ -175,14 +175,4 @@ router.get('/relatorios',
 // MIDDLEWARES DE DOCUMENTAÇÃO E DEBUG
 // =============================================
 
-/**
- * Middleware para log de acessos às configurações (desenvolvimento)
- */
-router.use((req, res, next) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[CONFIG] ${req.method} ${req.path} - User: ${(req as any).user?.user_id || 'Anonymous'}`);
-  }
-  next();
-});
-
 export default router; 

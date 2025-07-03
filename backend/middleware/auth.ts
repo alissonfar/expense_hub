@@ -13,16 +13,11 @@ import { Role } from '../types';
  * Essencial para todas as rotas protegidas.
  */
 export const requireAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  console.log(`\n🔍 [requireAuth] INÍCIO - Verificação de autenticação`);
-  console.log(`   Rota: ${req.method} ${req.path}`);
-  console.log(`   Authorization header: ${req.headers.authorization ? 'Presente' : 'Ausente'}`);
-  
   try {
     const authHeader = req.headers.authorization;
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
-      console.log(`   ❌ [requireAuth] FALHA - Token não fornecido`);
       res.status(401).json({
         error: 'TokenNãoFornecido',
         message: 'Acesso negado. Token de autenticação é obrigatório.',
@@ -31,24 +26,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    console.log(`   🔑 [requireAuth] Token extraído: ${token.substring(0, 50)}...`);
-
     // `verifyAccessToken` agora retorna o AuthContext completo
     const decoded = verifyAccessToken(token);
-    console.log(`   ✅ [requireAuth] Token decodificado com sucesso:`);
-    console.log(`      - Papel: ${decoded.role}`);
-    console.log(`      - Hub ID: ${decoded.hubId}`);
-    console.log(`      - Pessoa ID: ${decoded.pessoaId}`);
-    console.log(`      - Eh Administrador: ${decoded.ehAdministrador}`);
-    console.log(`      - Política de Acesso: ${decoded.dataAccessPolicy || 'N/A'}`);
     
     // Injeta o contexto de autorização no request para uso posterior
     req.auth = decoded;
-    console.log(`   💉 [requireAuth] AuthContext injetado em req.auth`);
     
     next();
   } catch (error) {
-    console.log(`   ❌ [requireAuth] FALHA - Erro ao verificar token:`, error);
+    console.error('[requireAuth] Erro ao verificar token:', error);
     const errorMessage = error instanceof Error ? error.message : 'Token inválido';
     res.status(401).json({
       error: 'TokenInvalido',
@@ -69,13 +55,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
  */
 export const requireHubRole = (allowedRoles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    console.log(`\n🔍 [requireHubRole] INÍCIO - Verificação de papel`);
-    console.log(`   Rota: ${req.method} ${req.path}`);
-    console.log(`   Papéis permitidos: [${allowedRoles.join(', ')}]`);
-    
     // req.auth é injetado pelo middleware 'requireAuth'
     if (!req.auth) {
-      console.log(`   ❌ [requireHubRole] FALHA - req.auth não encontrado`);
       res.status(401).json({
         error: 'NaoAutenticado',
         message: 'Este recurso requer autenticação prévia.',
@@ -85,19 +66,8 @@ export const requireHubRole = (allowedRoles: Role[]) => {
     }
     
     const { role: userRole } = req.auth;
-    console.log(`   👤 [requireHubRole] Usuário autenticado:`);
-    console.log(`      - Papel: ${userRole}`);
-    console.log(`      - Hub ID: ${req.auth.hubId}`);
-    console.log(`      - Pessoa ID: ${req.auth.pessoaId}`);
-    console.log(`      - Eh Administrador: ${req.auth.ehAdministrador}`);
-    console.log(`      - Política de Acesso: ${req.auth.dataAccessPolicy || 'N/A'}`);
     
     if (!allowedRoles.includes(userRole)) {
-      console.log(`   ❌ [requireHubRole] ACESSO NEGADO`);
-      console.log(`      - Papel do usuário: ${userRole}`);
-      console.log(`      - Papéis permitidos: [${allowedRoles.join(', ')}]`);
-      console.log(`      - Usuário NÃO tem permissão`);
-      
       res.status(403).json({
         error: 'AcessoNegado',
         message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
@@ -106,11 +76,6 @@ export const requireHubRole = (allowedRoles: Role[]) => {
       });
       return;
     }
-    
-    console.log(`   ✅ [requireHubRole] ACESSO PERMITIDO`);
-    console.log(`      - Papel do usuário: ${userRole}`);
-    console.log(`      - Papéis permitidos: [${allowedRoles.join(', ')}]`);
-    console.log(`      - Usuário TEM permissão - prosseguindo...`);
     
     next();
   };

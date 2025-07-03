@@ -87,13 +87,8 @@ export const listTags = async (req: Request, res: Response): Promise<void> => {
  * POST /api/tags
  */
 export const createTag = async (req: Request, res: Response): Promise<void> => {
-  console.log(`\n🔍 [createTag] INÍCIO - Criação de tag`);
-  console.log(`   Rota: ${req.method} ${req.path}`);
-  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
-  
   try {
     if (!req.auth) {
-      console.log(`   ❌ [createTag] FALHA - req.auth não encontrado`);
       res.status(401).json({
         error: 'Usuário não autenticado',
         message: 'Token de autenticação é obrigatório',
@@ -102,22 +97,10 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log(`   👤 [createTag] Usuário autenticado:`);
-    console.log(`      - Papel: ${req.auth.role}`);
-    console.log(`      - Hub ID: ${req.auth.hubId}`);
-    console.log(`      - Pessoa ID: ${req.auth.pessoaId}`);
-    console.log(`      - Eh Administrador: ${req.auth.ehAdministrador}`);
-    console.log(`      - Política de Acesso: ${req.auth.dataAccessPolicy || 'N/A'}`);
-
     // Verificação de papel - Camada 2 de segurança
     const allowedRoles = ['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR'];
-    console.log(`   🔒 [createTag] Verificação de papel:`);
-    console.log(`      - Papéis permitidos: [${allowedRoles.join(', ')}]`);
-    console.log(`      - Papel do usuário: ${req.auth.role}`);
-    console.log(`      - Usuário tem permissão? ${allowedRoles.includes(req.auth.role)}`);
     
     if (!allowedRoles.includes(req.auth.role)) {
-      console.log(`   ❌ [createTag] ACESSO NEGADO - Papel não permitido`);
       res.status(403).json({
         error: 'AcessoNegado',
         message: `Acesso negado. Requer um dos seguintes papéis: ${allowedRoles.join(', ')}.`,
@@ -127,10 +110,7 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log(`   ✅ [createTag] ACESSO PERMITIDO - Prosseguindo com criação`);
-
     const { nome, cor, icone }: CreateTagInput = req.body;
-    console.log(`   📝 [createTag] Dados recebidos:`, { nome, cor, icone });
 
     // Verificar se nome já existe (deve usar busca por hubId e nome)
     const existingTag = await req.prisma.tags.findFirst({

@@ -60,12 +60,6 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware de log de requisições
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
-
 // Middleware para injetar o PrismaClient global em rotas públicas
 const injectGlobalPrisma = (req: Request, res: Response, next: NextFunction) => {
   req.prisma = prismaGlobal;

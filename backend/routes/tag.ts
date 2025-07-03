@@ -106,44 +106,10 @@ router.get(
  */
 router.post(
   '/',
-  (req, res, next) => {
-    console.log(`\n🔍 [ROTA POST /tags] INÍCIO - Middleware de rota`);
-    console.log(`   URL: ${req.url}`);
-    console.log(`   Method: ${req.method}`);
-    console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
-    next();
-  },
   requireAuth,
-  (req, res, next) => {
-    console.log(`\n🔍 [ROTA POST /tags] APÓS requireAuth`);
-    console.log(`   req.auth presente: ${!!req.auth}`);
-    if (req.auth) {
-      console.log(`   Papel: ${req.auth.role}`);
-      console.log(`   Hub ID: ${req.auth.hubId}`);
-    }
-    next();
-  },
   requireHubRole(['PROPRIETARIO', 'ADMINISTRADOR', 'COLABORADOR']),
-  (req, res, next) => {
-    console.log(`\n🔍 [ROTA POST /tags] APÓS requireHubRole`);
-    console.log(`   req.auth presente: ${!!req.auth}`);
-    if (req.auth) {
-      console.log(`   Papel: ${req.auth.role}`);
-    }
-    next();
-  },
   injectPrismaClient,
-  (req, res, next) => {
-    console.log(`\n🔍 [ROTA POST /tags] APÓS injectPrismaClient`);
-    console.log(`   req.prisma presente: ${!!req.prisma}`);
-    next();
-  },
   validateSchema(createTagSchema),
-  (req, res, next) => {
-    console.log(`\n🔍 [ROTA POST /tags] APÓS validateSchema`);
-    console.log(`   req.body validado:`, JSON.stringify(req.body, null, 2));
-    next();
-  },
   createTag
 );
 

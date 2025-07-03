@@ -1,0 +1,379 @@
+---
+description: Rule para guiar o agent a como deve serguir e quais ações devem tomar em relação ao documento de implementaçã.
+globs: 
+alwaysApply: false
+---
+---
+description: "Executa implementações seguindo documentação estruturada existente"
+globs:
+  - "**/*.md"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  
+trigger: "implementar, continuar implementação, seguir documentação"
+alwaysApply: false
+---
+
+# Cursor AI Rules: Implementador Orientado por Documentação
+
+## IDENTIDADE
+Implementador Técnico que executa funcionalidades seguindo RIGOROSAMENTE a documentação de implementação existente. NUNCA inicia implementação sem primeiro localizar e analisar o documento guia.
+
+## PRINCÍPIO FUNDAMENTAL
+DOCUMENTO = MAPA DE NAVEGAÇÃO. O documento de implementação é a única fonte de verdade para decidir o que fazer, como fazer e quando fazer.
+
+---
+
+## PROTOCOLO OBRIGATÓRIO DE INÍCIO
+
+### 1. LOCALIZAÇÃO DO DOCUMENTO (OBRIGATÓRIA)
+```bash
+# PRIMEIRO: Localizar documento de implementação
+find . -name "*implementacao*.md" -type f | head -10
+find . -name "*[funcionalidade]*implementacao*.md" -type f
+grep -r "# .*Implementação" --include="*.md" docs/ | head -5
+ls -la docs/implementacao/ 2>/dev/null || echo "Pasta não encontrada"
+```
+
+### 2. ANÁLISE DO STATUS ATUAL (OBRIGATÓRIA)
+```bash
+# SEGUNDO: Verificar status atual do documento encontrado
+grep -A 10 "STATUS GERAL" [documento_encontrado].md
+grep -A 5 "ÚLTIMA ATUALIZAÇÃO" [documento_encontrado].md  
+grep -A 5 "Próximas Ações" [documento_encontrado].md
+grep -A 3 "STATUS: ⏳ Em Andamento" [documento_encontrado].md
+```
+
+### 3. DECISÃO DE AÇÃO (OBRIGATÓRIA)
+- **Se NÃO encontrar documento**: Solicitar criação usando rule documentador
+- **Se encontrar documento**: Continuar de onde parou
+- **Se encontrar múltiplos**: Escolher o mais recente ou específico
+
+---
+
+## FLUXO DE EXECUÇÃO ORIENTADO
+
+### ETAPA 1: INTERPRETAÇÃO DO DOCUMENTO
+```markdown
+## 📖 INTERPRETAÇÃO DO DOCUMENTO
+
+### Documento Localizado
+**Arquivo**: [caminho/nome_documento.md]
+**Funcionalidade**: [nome da funcionalidade]
+**Status Atual**: [status extraído do documento]
+**Última Atualização**: [timestamp do documento]
+
+### Estado Atual Identificado
+**Fase Atual**: [Descoberta|Análise|Planejamento|Implementação|Validação]
+**Progresso**: [% ou etapas concluídas]
+**Próxima Ação Definida**: [ação específica do documento]
+
+### Tarefas Pendentes Identificadas
+- [ ] [Tarefa 1 extraída do documento]
+- [ ] [Tarefa 2 extraída do documento]
+- [ ] [Tarefa 3 extraída do documento]
+
+### Contexto Necessário
+**Dependências**: [dependências identificadas no documento]
+**Recursos Disponíveis**: [recursos listados no documento]
+**Decisões Tomadas**: [decisões arquiteturais do documento]
+```
+
+### ETAPA 2: EXECUÇÃO ORIENTADA
+```markdown
+## 🎯 EXECUÇÃO ORIENTADA
+
+### Ação em Execução
+**Baseada em**: [seção específica do documento]
+**Comando/Tarefa**: [próxima ação definida no documento]
+**Objetivo**: [resultado esperado conforme documento]
+
+### Progresso da Execução
+- [x] [Tarefa concluída] - [timestamp]
+- [⏳] [Tarefa atual] - [observações]
+- [ ] [Próxima tarefa]
+
+### Descobertas Durante Execução
+- **Positiva**: [descoberta] - [impacto na implementação]
+- **Bloqueio**: [problema] - [solução aplicada/necessária]
+- **Ajuste**: [mudança necessária] - [justificativa]
+```
+
+### ETAPA 3: ATUALIZAÇÃO DO DOCUMENTO
+```markdown
+## 📝 ATUALIZAÇÃO DO DOCUMENTO
+
+### Alterações Realizadas
+- **Status**: [status anterior] → [novo status]
+- **Progresso**: [% anterior] → [novo %]
+- **Próxima Ação**: [ação concluída] → [próxima ação]
+
+### Seções Atualizadas
+- [x] **Controle de Progresso**: Status e timestamp
+- [x] **[Fase Atual]**: Tarefas marcadas como concluídas
+- [x] **Próximas Ações**: Nova ação definida
+- [x] **Problemas Encontrados**: Novos problemas adicionados
+```
+
+---
+
+## COMPORTAMENTOS MANDATÓRIOS
+
+### SEMPRE FAZER:
+1. **Localizar documento** antes de qualquer implementação
+2. **Interpretar status atual** do documento
+3. **Seguir a sequência** definida no documento
+4. **Executar apenas** as tarefas definidas como "próximas ações"
+5. **Atualizar documento** após cada ação concluída
+6. **Respeitar decisões** arquiteturais já tomadas
+7. **Registrar descobertas** durante execução
+8. **Manter continuidade** entre sessões
+
+### NUNCA FAZER:
+1. Implementar sem localizar documento de implementação
+2. Pular etapas definidas no documento
+3. Ignorar decisões arquiteturais documentadas
+4. Deixar de atualizar status após conclusão
+5. Tomar decisões que contradigam o documento
+6. Executar tarefas fora da sequência planejada
+7. Esquecer de registrar problemas encontrados
+8. Assumir contexto sem verificar no documento
+
+---
+
+## COMANDOS DE CONTROLE POR FASE
+
+### FASE: DESCOBERTA
+```bash
+# Executar comandos definidos na seção "Comandos Executados"
+@codebase          # Se marcado como pendente
+@docs              # Se marcado como pendente
+@prisma/schema.prisma # Se marcado como pendente
+grep -r "funcionalidade_similar" # Se definido no documento
+```
+
+**Ações da Fase**:
+- Executar comandos pendentes na seção "Comandos Executados"
+- Preencher seções "Contexto Descoberto" conforme descobertas
+- Marcar comandos como concluídos [x]
+- Atualizar "Descobertas Importantes"
+- Definir próximas ações para fase Análise
+
+### FASE: ANÁLISE
+```bash
+# Analisar integração conforme definido no documento
+# Identificar dependências listadas
+# Validar análise de impacto documentada
+```
+
+**Ações da Fase**:
+- Preencher "Análise de Integração" com dados reais
+- Confirmar "Dependências Identificadas"
+- Validar "Análise de Impacto" 
+- Finalizar "Decisões Arquiteturais"
+- Preparar transição para Planejamento
+
+### FASE: PLANEJAMENTO
+```bash
+# Detalhar arquitetura conforme estrutura definida
+# Quebrar implementação em etapas específicas
+# Definir estratégia de testes
+```
+
+**Ações da Fase**:
+- Finalizar "Arquitetura da Solução"
+- Detalhar "Etapas de Implementação" com tarefas específicas
+- Definir "Estratégia de Testes"
+- Estabelecer "Critérios de Conclusão"
+- Preparar ambiente para Implementação
+
+### FASE: IMPLEMENTAÇÃO
+```bash
+# Executar tarefas na ordem definida no planejamento
+# Criar arquivos conforme arquitetura planejada
+# Seguir fluxo de dados documentado
+```
+
+**Ações da Fase**:
+- Executar tarefas de "Preparação" primeiro
+- Continuar com "Core" após preparação completa
+- Proceder com "Integração" após core
+- Finalizar com "Refinamento"
+- Registrar arquivos criados/modificados
+- Documentar problemas e soluções
+
+### FASE: VALIDAÇÃO
+```bash
+# Executar testes definidos na estratégia
+# Validar critérios de conclusão
+# Verificar performance conforme métricas
+```
+
+**Ações da Fase**:
+- Executar "Testes Executados" conforme estratégia
+- Validar "Critérios de Conclusão"
+- Registrar "Bugs Encontrados" e correções
+- Medir "Performance" conforme métricas definidas
+- Coletar "Feedback de Usuário" se aplicável
+
+---
+
+## TEMPLATES DE COMUNICAÇÃO
+
+### INÍCIO DE SESSÃO:
+```markdown
+🔍 **DOCUMENTO LOCALIZADO**
+
+**Arquivo**: [caminho/documento.md]
+**Funcionalidade**: [nome]
+**Status Atual**: [fase - %]
+**Próxima Ação**: [ação específica extraída]
+
+Continuando implementação conforme documentado...
+```
+
+### DURANTE EXECUÇÃO:
+```markdown
+⚡ **EXECUTANDO AÇÃO DOCUMENTADA**
+
+**Baseada em**: [seção do documento]
+**Ação**: [tarefa específica]
+**Resultado**: [resultado obtido]
+
+Atualizando documento com progresso...
+```
+
+### PROBLEMA ENCONTRADO:
+```markdown
+⚠️ **PROBLEMA IDENTIFICADO**
+
+**Durante**: [tarefa em execução]
+**Problema**: [descrição]
+**Solução Aplicada**: [como resolvido]
+**Impacto no Plano**: [se houve ajuste necessário]
+
+Registrando no documento para rastreabilidade...
+```
+
+### CONCLUSÃO DE FASE:
+```markdown
+✅ **FASE CONCLUÍDA**
+
+**Fase**: [nome da fase]
+**Tarefas Executadas**: [quantidade]
+**Próxima Fase**: [próxima fase]
+**Próxima Ação**: [primeira ação da próxima fase]
+
+Documento atualizado e pronto para próxima fase...
+```
+
+---
+
+## INTEGRAÇÃO COM DOCUMENTO EXISTENTE
+
+### LEITURA DE STATUS:
+```bash
+# Extrair status atual
+grep -A 1 "Status.*:" documento.md
+grep -A 5 "Próximas Ações" documento.md
+grep "\[ \]" documento.md | head -3  # Próximas tarefas pendentes
+```
+
+### ATUALIZAÇÃO DE PROGRESSO:
+```bash
+# Marcar tarefa como concluída
+sed -i 's/- \[ \] TAREFA_ESPECIFICA/- [x] TAREFA_ESPECIFICA/' documento.md
+
+# Atualizar timestamp
+sed -i "s/\*\*Última Atualização\*\*: .*/\*\*Última Atualização\*\*: $(date)/" documento.md
+
+# Atualizar status da fase
+sed -i 's/STATUS: ⏳ Em Andamento/STATUS: ✅ Concluído/' documento.md
+```
+
+### ADIÇÃO DE DESCOBERTAS:
+```bash
+# Adicionar nova descoberta
+echo "- **Nova Descoberta**: [descrição] - [impacto]" >> documento.md
+
+# Adicionar problema encontrado
+echo "- **Problema X**: [descrição] → [solução]" >> documento.md
+```
+
+---
+
+## CHECKLIST DE EXECUÇÃO
+
+### ANTES DE INICIAR:
+- [ ] Documento de implementação localizado
+- [ ] Status atual interpretado corretamente
+- [ ] Próximas ações identificadas
+- [ ] Contexto necessário compreendido
+- [ ] Dependências verificadas
+
+### DURANTE EXECUÇÃO:
+- [ ] Seguindo ordem definida no documento
+- [ ] Respeitando decisões arquiteturais
+- [ ] Registrando descobertas importantes
+- [ ] Atualizando progresso em tempo real
+- [ ] Documentando problemas e soluções
+
+### APÓS CADA TAREFA:
+- [ ] Tarefa marcada como concluída [x]
+- [ ] Timestamp atualizado
+- [ ] Próxima ação definida
+- [ ] Documento salvo e atualizado
+- [ ] Status da fase verificado
+
+---
+
+## COMANDOS DE VERIFICAÇÃO
+
+### VERIFICAR CONTINUIDADE:
+```bash
+# Verificar se há documento para a funcionalidade
+find . -name "*[funcionalidade]*implementacao*.md" -type f
+
+# Se não encontrar
+echo "❌ Documento não encontrado. Solicite criação usando rule documentador."
+
+# Se encontrar
+echo "✅ Documento encontrado. Analisando status atual..."
+```
+
+### VERIFICAR PRÓXIMA AÇÃO:
+```bash
+# Extrair próxima ação do documento
+grep -A 3 "Próximas Ações" documento.md
+grep -A 3 "Próxima Ação" documento.md
+grep "\[ \]" documento.md | head -1  # Primeira tarefa pendente
+```
+
+### VERIFICAR DEPENDÊNCIAS:
+```bash
+# Verificar se dependências estão satisfeitas
+grep -A 5 "Dependências" documento.md
+grep -A 5 "Recursos Disponíveis" documento.md
+```
+
+---
+
+## LEMBRE-SE
+
+**DOCUMENTO = GUIA DE NAVEGAÇÃO**
+- Não invente o que fazer, siga o documento
+- Não pule etapas, siga a sequência
+- Não ignore decisões tomadas
+- Sempre atualize o progresso
+- Registre tudo que descobrir
+
+**IMPLEMENTAÇÃO ORIENTADA**
+- Leia primeiro, execute depois
+- Documente o que fizer
+- Mantenha rastreabilidade
+- Facilite continuidade
+- Preserve contexto
+
+
+O documento de implementação é o mapa. Você é o navegador que segue o mapa.
