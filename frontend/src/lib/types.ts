@@ -234,18 +234,48 @@ export interface InviteMemberFormData {
 
 // Tipos para relatórios
 export interface DashboardData {
-  totalGastos: number;
-  totalReceitas: number;
-  saldoTotal: number;
-  transacoesPendentes: number;
-  gastosDoMes: number;
-  receitasDoMes: number;
-  categorias: {
-    nome: string;
-    valor: number;
-    cor: string;
-  }[];
-  ultimasTransacoes: Transacao[];
+  resumo: {
+    total_gastos: number;
+    total_receitas: number;
+    saldo_periodo: number;
+    transacoes_pendentes: number;
+    pessoas_devedoras: number;
+  };
+  comparativo?: {
+    gastos_variacao: number;
+    receitas_variacao: number;
+    transacoes_variacao: number;
+  };
+  graficos?: {
+    gastos_por_dia: Array<{
+      data: string;
+      valor: number;
+    }>;
+    gastos_por_categoria: Array<{
+      categoria: string;
+      valor: number;
+      cor: string;
+    }>;
+    status_pagamentos: {
+      pendente: number;
+      pago_parcial: number;
+      pago_total: number;
+    };
+  };
+  periodo: {
+    tipo: string;
+    data_inicio: string;
+    data_fim: string;
+  };
+}
+
+export interface DashboardQueryParams {
+  periodo?: '7_dias' | '30_dias' | '90_dias' | '1_ano' | 'personalizado';
+  data_inicio?: string;
+  data_fim?: string;
+  incluir_graficos?: boolean;
+  incluir_comparativo?: boolean;
+  apenas_confirmadas?: boolean;
 }
 
 export interface SaldoReport {

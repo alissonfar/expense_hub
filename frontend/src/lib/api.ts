@@ -180,7 +180,7 @@ export const pagamentosApi = {
 
 // Funções específicas da API - Relatórios
 export const relatoriosApi = {
-  dashboard: () => apiRequest.get('/relatorios/dashboard'),
+  dashboard: (params?: Record<string, unknown>) => apiRequest.get('/relatorios/dashboard', { params }),
   saldos: (params?: Record<string, unknown>) => apiRequest.get('/relatorios/saldos', { params }),
   pendencias: (params?: Record<string, unknown>) => apiRequest.get('/relatorios/pendencias', { params }),
   transacoes: (params?: Record<string, unknown>) => apiRequest.get('/relatorios/transacoes', { params }),

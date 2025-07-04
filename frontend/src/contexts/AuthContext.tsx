@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { UserIdentifier, Hub, HubInfo, LoginResponse, SelectHubResponse } from '@/lib/types';
 
@@ -59,22 +59,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
   // Chaves para localStorage
-  const STORAGE_KEYS = {
+  const STORAGE_KEYS = useMemo(() => ({
     ACCESS_TOKEN: '@PersonalExpenseHub:accessToken',
     REFRESH_TOKEN: '@PersonalExpenseHub:refreshToken',
     USUARIO: '@PersonalExpenseHub:usuario',
     HUB_ATUAL: '@PersonalExpenseHub:hubAtual',
     HUBS_DISPONIVEIS: '@PersonalExpenseHub:hubsDisponiveis'
-  };
+  }), []);
 
   // Salvar dados no localStorage
-  const saveToStorage = (key: string, data: unknown) => {
+  const saveToStorage = useCallback((key: string, data: unknown) => {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
       console.error('Erro ao salvar no localStorage:', error);
     }
-  };
+  }, []);
 
   // Ler dados do localStorage
   const loadFromStorage = (key: string) => {
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
-  }, []);
+  }, [STORAGE_KEYS]);
 
   // Atualizar tokens
   const updateTokens = useCallback((newAccessToken: string, newRefreshToken?: string) => {
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     // Configurar header Authorization
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
+  }, [saveToStorage, STORAGE_KEYS]);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
@@ -310,7 +310,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (hubAtual) {
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubAtual)}; path=/; max-age=2592000; SameSite=Strict`;
     }
-  }, [refreshToken, accessToken, usuario, hubAtual, STORAGE_KEYS]);
+  }, [refreshToken, accessToken, usuario, hubAtual]);
 
   // Configurar interceptor para refresh automático
   useEffect(() => {
