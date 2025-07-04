@@ -47,12 +47,13 @@ export function middleware(request: NextRequest) {
   }
 
   // Obter tokens dos cookies
-  const accessToken = request.cookies.get('@PersonalExpenseHub:accessToken')?.value;
   const refreshToken = request.cookies.get('@PersonalExpenseHub:refreshToken')?.value;
   const hubAtual = request.cookies.get('@PersonalExpenseHub:hubAtual')?.value;
+  const usuario = request.cookies.get('@PersonalExpenseHub:usuario')?.value;
   
   // Verificar se usuário está autenticado
-  const isAuthenticated = Boolean(accessToken && refreshToken);
+  // Usuário está autenticado se tem refreshToken E usuario (mesmo sem accessToken)
+  const isAuthenticated = Boolean(refreshToken && usuario);
   const hasSelectedHub = Boolean(hubAtual);
   
   // Verificar se a rota atual é protegida

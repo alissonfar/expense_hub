@@ -113,4 +113,19 @@ export function useCurrentUser() {
     isLoggedIn: Boolean(usuario),
     hasSelectedHub: Boolean(hubAtual)
   };
+}
+
+// Hook para páginas que requerem autenticação parcial (login feito, mas hub não selecionado)
+export function useRequirePartialAuth() {
+  const auth = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (auth.isLoading) return;
+    if (!auth.refreshToken || !auth.usuario) {
+      router.push('/login');
+    }
+  }, [auth.isLoading, auth.refreshToken, auth.usuario, router]);
+
+  return auth;
 } 

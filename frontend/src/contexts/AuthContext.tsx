@@ -88,14 +88,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // Limpar dados do localStorage
-  const clearStorage = () => {
+  const clearStorage = useCallback(() => {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
-  };
+  }, []);
 
   // Atualizar tokens
-  const updateTokens = (newAccessToken: string, newRefreshToken?: string) => {
+  const updateTokens = useCallback((newAccessToken: string, newRefreshToken?: string) => {
     setAccessToken(newAccessToken);
     saveToStorage(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
     
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     // Atualizar header Authorization do axios
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  };
+  }, []);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
@@ -118,13 +118,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setHubsDisponiveis(data.hubs);
       setRefreshToken(data.refreshToken);
       
-      // Salvar no localStorage
       saveToStorage(STORAGE_KEYS.USUARIO, data.user);
       saveToStorage(STORAGE_KEYS.HUBS_DISPONIVEIS, data.hubs);
       saveToStorage(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       
+      // Sincronizar com cookies imediatamente
+      document.cookie = `@PersonalExpenseHub:refreshToken=${data.refreshToken}; path=/; max-age=2592000; SameSite=Strict`;
+      document.cookie = `@PersonalExpenseHub:usuario=${JSON.stringify(data.user)}; path=/; max-age=2592000; SameSite=Strict`;
+      
       return data;
     } catch (error) {
+      console.error('[AuthContext] login: erro', error);
       throw error;
     }
   };
@@ -133,6 +137,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
       if (!refreshToken) {
+        console.warn('[AuthContext] selectHub: refreshToken ausente');
         throw new Error('Token de refresh não encontrado');
       }
 
@@ -167,10 +172,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       saveToStorage(STORAGE_KEYS.HUB_ATUAL, hubCompleto);
       saveToStorage('@PersonalExpenseHub:roleAtual', data.hubContext.role);
       
+      // Sincronizar com cookies imediatamente
+      document.cookie = `@PersonalExpenseHub:accessToken=${data.accessToken}; path=/; max-age=3600; SameSite=Strict`;
+      document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubCompleto)}; path=/; max-age=2592000; SameSite=Strict`;
+      
       setIsAuthenticated(true);
       
       return data;
     } catch (error) {
+      console.error('[AuthContext] selectHub: erro', error);
       throw error;
     }
   };
@@ -200,6 +210,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Limpar localStorage
       clearStorage();
       
+      // Limpar cookies
+      document.cookie = '@PersonalExpenseHub:accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = '@PersonalExpenseHub:refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = '@PersonalExpenseHub:usuario=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = '@PersonalExpenseHub:hubAtual=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      
       // Remover header Authorization
       delete api.defaults.headers.Authorization;
     }
@@ -228,7 +244,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await logout();
       throw error;
     }
-  }, [refreshToken, logout]);
+  }, [refreshToken, logout, updateTokens]);
 
   // Função de registro
   const register = async (data: {
@@ -277,6 +293,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Sincronizar dados com cookies
+  const syncWithCookies = useCallback(() => {
+    // Definir cookies baseado no localStorage
+    if (refreshToken) {
+      document.cookie = `@PersonalExpenseHub:refreshToken=${refreshToken}; path=/; max-age=2592000; SameSite=Strict`;
+    }
+    
+    if (accessToken) {
+      document.cookie = `@PersonalExpenseHub:accessToken=${accessToken}; path=/; max-age=3600; SameSite=Strict`;
+    }
+    
+    if (usuario) {
+      document.cookie = `@PersonalExpenseHub:usuario=${JSON.stringify(usuario)}; path=/; max-age=2592000; SameSite=Strict`;
+    }
+    
+    if (hubAtual) {
+      document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubAtual)}; path=/; max-age=2592000; SameSite=Strict`;
+    }
+  }, [refreshToken, accessToken, usuario, hubAtual]);
+
   // Configurar interceptor para refresh automático
   useEffect(() => {
     const responseInterceptor = api.interceptors.response.use(
@@ -314,7 +350,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const storedUsuario = loadFromStorage(STORAGE_KEYS.USUARIO);
         const storedHubAtual = loadFromStorage(STORAGE_KEYS.HUB_ATUAL);
         const storedHubsDisponiveis = loadFromStorage(STORAGE_KEYS.HUBS_DISPONIVEIS);
-
+        
         if (storedAccessToken && storedRefreshToken && storedUsuario && storedHubAtual) {
           setAccessToken(storedAccessToken);
           setRefreshToken(storedRefreshToken);
@@ -341,7 +377,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('Erro ao carregar dados do localStorage:', error);
+        console.error('[AuthContext] Erro ao carregar dados do localStorage:', error);
         clearStorage();
       } finally {
         setIsLoading(false);
@@ -349,7 +385,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     loadStoredData();
-  }, []);
+  }, [clearStorage]);
+
+  // Sincronizar com cookies após carregar dados
+  useEffect(() => {
+    if (!isLoading) {
+      syncWithCookies();
+    }
+  }, [isLoading, syncWithCookies]);
 
   const value: AuthContextData = {
     isAuthenticated,
