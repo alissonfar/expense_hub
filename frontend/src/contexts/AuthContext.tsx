@@ -97,16 +97,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Atualizar tokens
   const updateTokens = useCallback((newAccessToken: string, newRefreshToken?: string) => {
     setAccessToken(newAccessToken);
-    saveToStorage(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
-    
     if (newRefreshToken) {
       setRefreshToken(newRefreshToken);
+    }
+    
+    // Salvar no localStorage
+    saveToStorage(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
+    if (newRefreshToken) {
       saveToStorage(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
     }
     
-    // Atualizar header Authorization do axios
+    // Configurar header Authorization
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  }, []);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
@@ -186,7 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // Função de logout
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     try {
       if (accessToken) {
         await api.post('/auth/logout', {}, {
@@ -219,7 +222,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Remover header Authorization
       delete api.defaults.headers.Authorization;
     }
-  };
+  }, [accessToken, clearStorage]);
 
   // Função de refresh token
   const refreshAccessToken = useCallback(async (): Promise<string> => {
@@ -295,23 +298,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Sincronizar dados com cookies
   const syncWithCookies = useCallback(() => {
-    // Definir cookies baseado no localStorage
     if (refreshToken) {
       document.cookie = `@PersonalExpenseHub:refreshToken=${refreshToken}; path=/; max-age=2592000; SameSite=Strict`;
     }
-    
-    if (accessToken) {
-      document.cookie = `@PersonalExpenseHub:accessToken=${accessToken}; path=/; max-age=3600; SameSite=Strict`;
-    }
-    
     if (usuario) {
       document.cookie = `@PersonalExpenseHub:usuario=${JSON.stringify(usuario)}; path=/; max-age=2592000; SameSite=Strict`;
     }
-    
+    if (accessToken) {
+      document.cookie = `@PersonalExpenseHub:accessToken=${accessToken}; path=/; max-age=3600; SameSite=Strict`;
+    }
     if (hubAtual) {
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubAtual)}; path=/; max-age=2592000; SameSite=Strict`;
     }
-  }, [refreshToken, accessToken, usuario, hubAtual]);
+  }, [refreshToken, accessToken, usuario, hubAtual, STORAGE_KEYS]);
 
   // Configurar interceptor para refresh automático
   useEffect(() => {
@@ -344,48 +343,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
     const loadStoredData = () => {
-      try {
-        const storedAccessToken = loadFromStorage(STORAGE_KEYS.ACCESS_TOKEN);
-        const storedRefreshToken = loadFromStorage(STORAGE_KEYS.REFRESH_TOKEN);
-        const storedUsuario = loadFromStorage(STORAGE_KEYS.USUARIO);
-        const storedHubAtual = loadFromStorage(STORAGE_KEYS.HUB_ATUAL);
-        const storedHubsDisponiveis = loadFromStorage(STORAGE_KEYS.HUBS_DISPONIVEIS);
-        
-        if (storedAccessToken && storedRefreshToken && storedUsuario && storedHubAtual) {
-          setAccessToken(storedAccessToken);
-          setRefreshToken(storedRefreshToken);
-          setUsuario(storedUsuario);
-          setHubAtual(storedHubAtual);
-          setHubsDisponiveis(storedHubsDisponiveis || []);
-          
-          // Carregar role atual
-          const storedRoleAtual = loadFromStorage('@PersonalExpenseHub:roleAtual');
-          if (storedRoleAtual) {
-            setRoleAtual(storedRoleAtual);
-          }
-          
-          // Configurar header Authorization
-          api.defaults.headers.Authorization = `Bearer ${storedAccessToken}`;
-          
-          setIsAuthenticated(true);
-        } else if (storedRefreshToken && storedUsuario && storedHubsDisponiveis) {
-          // Usuário logado mas não selecionou hub ainda
-          setRefreshToken(storedRefreshToken);
-          setUsuario(storedUsuario);
-          setHubsDisponiveis(storedHubsDisponiveis);
-          
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('[AuthContext] Erro ao carregar dados do localStorage:', error);
-        clearStorage();
-      } finally {
-        setIsLoading(false);
+      const storedAccessToken = loadFromStorage(STORAGE_KEYS.ACCESS_TOKEN);
+      const storedRefreshToken = loadFromStorage(STORAGE_KEYS.REFRESH_TOKEN);
+      const storedUsuario = loadFromStorage(STORAGE_KEYS.USUARIO);
+      const storedHubAtual = loadFromStorage(STORAGE_KEYS.HUB_ATUAL);
+      const storedHubsDisponiveis = loadFromStorage(STORAGE_KEYS.HUBS_DISPONIVEIS);
+      
+      // Determinar estado inicial
+      if (storedAccessToken && storedRefreshToken && storedUsuario && storedHubAtual) {
+        // Estado 3: Completamente autenticado
+        setAccessToken(storedAccessToken);
+        setRefreshToken(storedRefreshToken);
+        setUsuario(storedUsuario);
+        setHubAtual(storedHubAtual);
+        setIsAuthenticated(true);
+        api.defaults.headers.Authorization = `Bearer ${storedAccessToken}`;
+      } else if (storedRefreshToken && storedUsuario && storedHubsDisponiveis) {
+        // Estado 2: Login feito, hub não selecionado
+        setRefreshToken(storedRefreshToken);
+        setUsuario(storedUsuario);
+        setHubsDisponiveis(storedHubsDisponiveis);
+        setIsAuthenticated(false);
+      } else {
+        // Estado 1: Não autenticado
+        setIsAuthenticated(false);
       }
+      
+      setIsLoading(false);
     };
 
     loadStoredData();
-  }, [clearStorage]);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USUARIO, STORAGE_KEYS.HUB_ATUAL, STORAGE_KEYS.HUBS_DISPONIVEIS]);
 
   // Sincronizar com cookies após carregar dados
   useEffect(() => {
