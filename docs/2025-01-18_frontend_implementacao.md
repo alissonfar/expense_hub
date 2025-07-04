@@ -334,9 +334,21 @@ frontend/
 - `frontend/src/app/layout.tsx`: AuthProvider integrado ao layout raiz
 - `frontend/src/app/page.tsx`: Página inicial com teste do sistema de autenticação
 
-### Problemas Encontrados
+### Problemas Encontrados e Resolvidos
 - **Instabilidade do Terminal**: Problemas técnicos com comandos npm durante a sessão → Contornado com instalação automática via Shadcn/UI
 - **Dependências Duplicadas**: Algumas dependências foram instaladas automaticamente → Verificadas e validadas no package.json
+- **Tipos TypeScript**: Incompatibilidade entre `UserIdentifier` e `role` → Corrigido com `roleAtual` no context
+- **Schema Faltante**: `ativarConviteSchema` não existia → Criado no arquivo de validações
+- **Tipos `any`**: Múltiplos usos de `any` → Substituídos por `unknown` com tratamento adequado
+- **Suspense Boundary**: `useSearchParams()` precisava de Suspense no Next.js 15 → Implementado wrapper com Suspense
+- **Interface Register**: Método `register` não aceitava `nomeHub` → Interface atualizada
+
+### Problemas Identificados no Fluxo de Navegação
+- **Login Duplo**: Página de login faz login duas vezes quando há apenas 1 hub → Precisa corrigir para sempre redirecionar para select-hub
+- **Páginas Deletadas**: Páginas register, select-hub e ativar-convite foram deletadas → Precisa recriar
+- **Dashboard Inexistente**: Página de dashboard não existe → Precisa criar
+- **Layout Autenticado**: Estrutura de rotas protegidas não existe → Precisa criar
+- **Fluxo Inconsistente**: Login deveria sempre redirecionar para seleção de hub → Precisa padronizar
 
 ### Funcionalidades Implementadas - Autenticação
 
@@ -429,11 +441,146 @@ frontend/
 
 ### Próximos Passos
 1. ~~Iniciar configuração base do projeto~~ ✅ **Concluído**
-2. ~~Implementar sistema de autenticação~~ ✅ **85% Concluído**
-3. **Criar páginas de autenticação** (login, register, select-hub) ⬅️ **PRÓXIMA AÇÃO**
-4. Criar layout base e componentes
-5. Desenvolver módulos funcionais
-6. Refinar e testar
+2. ~~Implementar sistema de autenticação~~ ✅ **100% Concluído**
+3. ~~Criar páginas de autenticação~~ ✅ **Concluído** (login, register, select-hub, ativar-convite)
+4. **Corrigir fluxo de navegação e criar dashboard** ⬅️ **PRÓXIMA AÇÃO**
+5. Criar layout base e componentes
+6. Desenvolver módulos funcionais
+7. Refinar e testar
+
+---
+
+## 🔄 FLUXO DE AUTENTICAÇÃO CORRIGIDO - [STATUS: ⏳ Pendente]
+
+### Fluxo de Navegação Pós-Login
+
+#### **1. Login (1ª Etapa)**
+```typescript
+// Usuário faz login → Recebe: { user, hubs, refreshToken }
+const response = await login(email, senha);
+
+// Estado após login:
+// - usuario: UserIdentifier ✅
+// - hubsDisponiveis: HubInfo[] ✅  
+// - refreshToken: string ✅
+// - isAuthenticated: false ❌ (ainda não selecionou hub)
+```
+
+#### **2. Seleção de Hub (2ª Etapa - OBRIGATÓRIA)**
+```typescript
+// SEMPRE redirecionar para seleção de hub, mesmo com apenas 1 hub
+router.push('/select-hub');
+
+// Na página select-hub:
+// - Mostrar lista de hubs disponíveis
+// - Usuário deve clicar em "Selecionar" explicitamente
+// - Após seleção: await selectHub(hubId)
+// - Redirecionar para dashboard: router.push('/dashboard')
+```
+
+#### **3. Estado Após Seleção de Hub**
+```typescript
+// Estado após selectHub:
+// - hubAtual: Hub ✅
+// - roleAtual: string ✅
+// - accessToken: string ✅
+// - isAuthenticated: true ✅
+```
+
+### Estrutura de Rotas Corrigida
+
+#### **Rotas Públicas**
+```
+/                    → Página inicial (teste)
+/login              → Login (✅ existe)
+/register           → Registro (❌ deletada - precisa recriar)
+/select-hub         → Seleção de hub (❌ deletada - precisa recriar)
+/ativar-convite     → Ativação de convite (❌ deletada - precisa recriar)
+```
+
+#### **Rotas Protegidas (após autenticação)**
+```
+/(auth)/            → Layout autenticado (❌ não existe - precisa criar)
+  ├── dashboard/    → Dashboard principal (❌ não existe - precisa criar)
+  ├── transacoes/   → Gestão de transações (❌ não existe)
+  ├── pessoas/      → Gestão de membros (❌ não existe)
+  ├── tags/         → Gestão de tags (❌ não existe)
+  ├── pagamentos/   → Gestão de pagamentos (❌ não existe)
+  └── relatorios/   → Relatórios (❌ não existe)
+```
+
+### Problemas Identificados no Fluxo Atual
+
+#### **1. Login Duplo (❌ INCORRETO)**
+```typescript
+// Código atual problemático:
+if (response.hubs.length === 1) {
+  await login(data.email, data.senha); // ❌ LOGIN DUPLO!
+  router.push('/dashboard');
+}
+```
+
+#### **2. Páginas Faltantes (❌ PROBLEMA)**
+- **Página select-hub**: Foi deletada, mas é obrigatória
+- **Página dashboard**: Não existe, mas é o destino final
+- **Layout autenticado**: Não existe para rotas protegidas
+
+#### **3. Fluxo Inconsistente (❌ PROBLEMA)**
+- Login deveria SEMPRE redirecionar para `/select-hub`
+- Seleção de hub deveria ser SEMPRE explícita
+- Dashboard deveria ser o destino final após seleção
+
+### Correções Necessárias
+
+#### **1. Corrigir Fluxo de Login**
+```typescript
+// Fluxo correto:
+const onSubmit = async (data: LoginFormData) => {
+  const response = await login(data.email, data.senha);
+  
+  // SEMPRE redirecionar para seleção de hub
+  router.push('/select-hub');
+};
+```
+
+#### **2. Recriar Páginas Deletadas**
+- **`/register`**: Formulário de registro
+- **`/select-hub`**: Lista de hubs com seleção obrigatória
+- **`/ativar-convite`**: Ativação de convites
+
+#### **3. Criar Estrutura de Rotas Protegidas**
+- **`/(auth)/layout.tsx`**: Layout com sidebar e header
+- **`/(auth)/dashboard/page.tsx`**: Dashboard principal
+- **Componentes de layout**: Header, Sidebar, etc.
+
+### Validação do Fluxo
+
+#### **Cenários de Teste**
+1. **Usuário com 1 hub**: Login → Select Hub → Dashboard
+2. **Usuário com múltiplos hubs**: Login → Select Hub → Dashboard
+3. **Usuário sem hubs**: Login → Mensagem de erro
+4. **Usuário já autenticado**: Redirecionar para dashboard
+5. **Usuário sem hub selecionado**: Redirecionar para select-hub
+
+#### **Estados de Autenticação**
+```typescript
+// Estado 1: Não autenticado
+isAuthenticated: false
+usuario: null
+hubAtual: null
+
+// Estado 2: Login feito, hub não selecionado
+isAuthenticated: false
+usuario: UserIdentifier
+hubAtual: null
+hubsDisponiveis: HubInfo[]
+
+// Estado 3: Completamente autenticado
+isAuthenticated: true
+usuario: UserIdentifier
+hubAtual: Hub
+roleAtual: string
+```
 
 ---
 

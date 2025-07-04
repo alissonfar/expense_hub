@@ -38,18 +38,13 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await login(data.email, data.senha);
+      await login(data.email, data.senha);
       
-      // Se tem apenas um hub, selecionar automaticamente
-      if (response.hubs.length === 1) {
-        await login(data.email, data.senha);
-        router.push('/dashboard');
-      } else {
-        // Redirecionar para seleção de hub
-        router.push('/select-hub');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erro ao fazer login. Tente novamente.');
+      // SEMPRE redirecionar para seleção de hub
+      router.push('/select-hub');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login. Tente novamente.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
