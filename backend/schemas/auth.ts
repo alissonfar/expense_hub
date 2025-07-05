@@ -12,7 +12,7 @@ const senhaSchema = z
   .regex(/[a-z]/, 'Senha deve conter pelo menos uma letra minúscula')
   .regex(/[A-Z]/, 'Senha deve conter pelo menos uma letra maiúscula')
   .regex(/\d/, 'Senha deve conter pelo menos um número')
-  .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Senha deve conter pelo menos um caractere especial')
+  .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/, 'Senha deve conter pelo menos um caractere especial')
   .refine(password => !/\s/.test(password), 'Senha não pode conter espaços');
 
 /**
