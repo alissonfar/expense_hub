@@ -46,6 +46,8 @@ const state = {
     membroVisualizador: { refreshToken: null, accessToken: null, id: null, pessoaId: null },
     transacaoParceladaId: null // primeira parcela criada no Hub A
 };
+let transacaoFuturaId = null; // Declarada em escopo superior
+let grupoParcelaParaLimpeza = null; // Variável para o grupo de parcelas
 
 // --- HELPERS DE LOG COLORIDO ---
 const colors = {
@@ -150,7 +152,7 @@ async function runCompleteTestFlow() {
 
         log.step(4, 'POST /auth/login - Login Hub A');
         const loginA = await api.post('/auth/login', { email: credentials.hubA.email, senha: credentials.hubA.senha });
-        state.hubA.refreshToken = loginA.body.refreshToken;
+        state.hubA.refreshToken = loginA.body.data.refreshToken;
         state.hubA.pessoaId = loginA.body.data.user.pessoaId;
         state.hubA.id = loginA.body.data.hubs[0].id;
         log.success('Login Hub A realizado.');
@@ -158,7 +160,7 @@ async function runCompleteTestFlow() {
 
         log.step(5, 'POST /auth/login - Login Hub B');
         const loginB = await api.post('/auth/login', { email: credentials.hubB.email, senha: credentials.hubB.senha });
-        state.hubB.refreshToken = loginB.body.refreshToken;
+        state.hubB.refreshToken = loginB.body.data.refreshToken;
         state.hubB.pessoaId = loginB.body.data.user.pessoaId;
         state.hubB.id = loginB.body.data.hubs[0].id;
         log.success('Login Hub B realizado.');
@@ -611,7 +613,7 @@ async function runCompleteTestFlow() {
             email: credentials.membroVisualizador.email, 
             senha: credentials.membroVisualizador.senha 
         });
-        state.membroVisualizador.refreshToken = loginVisualizador.body.refreshToken;
+        state.membroVisualizador.refreshToken = loginVisualizador.body.data.refreshToken;
         state.membroVisualizador.pessoaId = loginVisualizador.body.data.user.pessoaId;
         state.membroVisualizador.id = loginVisualizador.body.data.hubs[0].id;
         log.success('Login do membro VISUALIZADOR realizado.');
@@ -774,9 +776,10 @@ async function runCompleteTestFlow() {
                 { pessoa_id: state.hubA.pessoaId, valor_devido: 200.00 },
                 { pessoa_id: membroIntegridadeId, valor_devido: 100.00 }
             ],
-            tags: [tagId]
+            tags: [] // Removido tagId que já foi deletado
         }, state.hubA.accessToken);
         const transacaoParceladaId = transacaoParcelada.body.data.transacoes[0].id;
+        grupoParcelaParaLimpeza = transacaoParcelada.body.data.transacoes[0].grupo_parcela; // Salva o grupo
         log.success(`Transação parcelada criada com ${transacaoParcelada.body.data.transacoes.length} parcelas.`);
 
         log.step(66, 'TESTE: Pagamento parcial em transação parcelada');
@@ -804,9 +807,18 @@ async function runCompleteTestFlow() {
         await api.delete(`/pagamentos/${pagamentoParcial.body.data.id}`, state.hubA.accessToken);
         log.success('Pagamento removido, transação liberada.');
 
-        log.step(69, 'TESTE: Agora remover transação parcelada (deve funcionar)');
-        await api.delete(`/transacoes/${transacaoParceladaId}`, state.hubA.accessToken);
-        log.success('Transação parcelada removida com sucesso.');
+        log.step(69, 'TESTE: Agora remover todas as parcelas da transação (deve funcionar)');
+        if (grupoParcelaParaLimpeza) {
+            const parcelasParaRemover = await api.get(`/transacoes?grupo_parcela=${grupoParcelaParaLimpeza}`, state.hubA.accessToken);
+            let removidas = 0;
+            for (const parcela of parcelasParaRemover.body.data.transacoes) {
+                await api.delete(`/transacoes/${parcela.id}`, state.hubA.accessToken);
+                removidas++;
+            }
+            log.success(`${removidas} parcelas da transação removidas com sucesso.`);
+        } else {
+            log.failure('Não foi possível encontrar o grupo de parcelas para limpeza.');
+        }
 
         log.step(70, 'LIMPEZA: Removendo membro de integridade');
         await api.delete(`/pessoas/${membroIntegridadeId}`, state.hubA.accessToken);
@@ -851,13 +863,13 @@ async function runCompleteTestFlow() {
             }
         }
 
-        log.step(73, 'TESTE: Criação de transação com data futura muito distante');
+        log.step(73, 'TESTE: Criação de transação com data futura');
         const dataFutura = new Date();
         dataFutura.setFullYear(dataFutura.getFullYear() + 10);
         const dataFuturaStr = dataFutura.toISOString().substring(0, 10);
         
         try {
-            await api.post('/transacoes', {
+            const resFutura = await api.post('/transacoes', {
                 descricao: 'Transação com data futura',
                 valor_total: 100.00,
                 data_transacao: dataFuturaStr,
@@ -865,6 +877,7 @@ async function runCompleteTestFlow() {
                     { pessoa_id: state.hubA.pessoaId, valor_devido: 100.00 }
                 ]
             }, state.hubA.accessToken);
+            transacaoFuturaId = resFutura.body.data.transacoes[0].id; // Armazena o ID
             log.success('Transação com data futura criada (comportamento aceito).');
         } catch (error) {
             if (error.statusCode === 400 || error.statusCode === 422) {
@@ -882,9 +895,10 @@ async function runCompleteTestFlow() {
         log.step(74, 'TESTE: Criação de múltiplas tags em lote');
         const tagsCriadas = [];
         for (let i = 1; i <= 5; i++) {
+            const randomColor = Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
             const tag = await api.post('/tags', {
                 nome: `Tag Massa ${i}`,
-                cor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+                cor: `#${randomColor}`,
                 icone: '📊'
             }, state.hubA.accessToken);
             tagsCriadas.push(tag.body.data.id);
@@ -1050,6 +1064,14 @@ async function runCompleteTestFlow() {
         }
         log.success(`${tagsParaRemover.length} tags concorrentes removidas.`);
 
+        log.step('87.1', 'LIMPEZA: Removendo transação com data futura');
+        if (transacaoFuturaId) {
+            await api.delete(`/transacoes/${transacaoFuturaId}`, state.hubA.accessToken);
+            log.success('Transação com data futura removida.');
+        } else {
+            log.success('Nenhuma transação com data futura para remover.');
+        }
+
         // ============================================
         // FASE 17: VALIDAÇÃO FINAL DE INTEGRIDADE
         // ============================================
@@ -1059,20 +1081,46 @@ async function runCompleteTestFlow() {
         const transacoesFinalA = await api.get('/transacoes', state.hubA.accessToken);
         const transacoesFinalB = await api.get('/transacoes', state.hubB.accessToken);
         
-        if (transacoesFinalA.body.data.transacoes.length === 0 && transacoesFinalB.body.data.transacoes.length === 0) {
+        const residuaisA = transacoesFinalA.body.data.transacoes;
+        const residuaisB = transacoesFinalB.body.data.transacoes;
+
+        if (residuaisA.length === 0 && residuaisB.length === 0) {
             log.success('Isolamento final confirmado - ambos Hubs limpos.');
         } else {
-            log.failure('Isolamento final falhou - dados residuais encontrados.');
+            const erroDetalhado = {
+                hubA: {
+                    count: residuaisA.length,
+                    transacoes: residuaisA.map((t) => ({ id: t.id, descricao: t.descricao, tipo: t.tipo }))
+                },
+                hubB: {
+                    count: residuaisB.length,
+                    transacoes: residuaisB.map((t) => ({ id: t.id, descricao: t.descricao, tipo: t.tipo }))
+                }
+            };
+            log.failure('Isolamento final falhou - dados residuais encontrados.', erroDetalhado);
         }
 
         log.step(89, 'VALIDAÇÃO: Verificação de integridade referencial final');
         const tagsFinalA = await api.get('/tags', state.hubA.accessToken);
         const tagsFinalB = await api.get('/tags', state.hubB.accessToken);
         
-        if (tagsFinalA.body.data.length === 0 && tagsFinalB.body.data.length === 0) {
+        const tagsResiduaisA = tagsFinalA.body.data;
+        const tagsResiduaisB = tagsFinalB.body.data;
+
+        if (tagsResiduaisA.length === 0 && tagsResiduaisB.length === 0) {
             log.success('Integridade referencial final confirmada.');
         } else {
-            log.failure('Integridade referencial final falhou - tags residuais encontradas.');
+            const erroDetalhado = {
+                hubA: {
+                    count: tagsResiduaisA.length,
+                    tags: tagsResiduaisA.map((t) => ({ id: t.id, nome: t.nome, ativo: t.ativo }))
+                },
+                hubB: {
+                    count: tagsResiduaisB.length,
+                    tags: tagsResiduaisB.map((t) => ({ id: t.id, nome: t.nome, ativo: t.ativo }))
+                }
+            };
+            log.failure('Integridade referencial final falhou - tags residuais encontradas.', erroDetalhado);
         }
 
         log.step(90, 'VALIDAÇÃO: Verificação de performance final');

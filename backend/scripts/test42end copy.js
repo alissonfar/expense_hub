@@ -150,7 +150,7 @@ async function runCompleteTestFlow() {
 
         log.step(4, 'POST /auth/login - Login Hub A');
         const loginA = await api.post('/auth/login', { email: credentials.hubA.email, senha: credentials.hubA.senha });
-        state.hubA.refreshToken = loginA.body.refreshToken;
+        state.hubA.refreshToken = loginA.body.data.refreshToken;
         state.hubA.pessoaId = loginA.body.data.user.pessoaId;
         state.hubA.id = loginA.body.data.hubs[0].id;
         log.success('Login Hub A realizado.');
@@ -158,7 +158,7 @@ async function runCompleteTestFlow() {
 
         log.step(5, 'POST /auth/login - Login Hub B');
         const loginB = await api.post('/auth/login', { email: credentials.hubB.email, senha: credentials.hubB.senha });
-        state.hubB.refreshToken = loginB.body.refreshToken;
+        state.hubB.refreshToken = loginB.body.data.refreshToken;
         state.hubB.pessoaId = loginB.body.data.user.pessoaId;
         state.hubB.id = loginB.body.data.hubs[0].id;
         log.success('Login Hub B realizado.');
@@ -611,7 +611,7 @@ async function runCompleteTestFlow() {
             email: credentials.membroVisualizador.email, 
             senha: credentials.membroVisualizador.senha 
         });
-        state.membroVisualizador.refreshToken = loginVisualizador.body.refreshToken;
+        state.membroVisualizador.refreshToken = loginVisualizador.body.data.refreshToken;
         state.membroVisualizador.pessoaId = loginVisualizador.body.data.user.pessoaId;
         state.membroVisualizador.id = loginVisualizador.body.data.hubs[0].id;
         log.success('Login do membro VISUALIZADOR realizado.');
@@ -748,6 +748,355 @@ async function runCompleteTestFlow() {
         await api.delete(`/pessoas/${membroVisualizadorId}`, state.hubA.accessToken);
         log.success('Membros de teste removidos.');
 
+        // ============================================
+        // FASE 10: TESTES DE INTEGRIDADE REFERENCIAL AVANÇADA
+        // ============================================
+        log.suite('FASE 10: INTEGRIDADE REFERENCIAL AVANÇADA');
+
+        log.step(64, 'PREPARAÇÃO: Criando membro para testes de integridade');
+        const membroIntegridade = await api.post('/pessoas', {
+            nome: 'Membro Integridade',
+            email: `integridade.${randomSuffix}@test.com`,
+            role: 'COLABORADOR',
+            dataAccessPolicy: 'GLOBAL'
+        }, state.hubA.accessToken);
+        const membroIntegridadeId = membroIntegridade.body.data.pessoa.id;
+        log.success('Membro para testes de integridade criado.');
+
+        log.step(65, 'TESTE: Criação de transação parcelada complexa');
+        const transacaoParcelada = await api.post('/transacoes', {
+            descricao: 'Transação Parcelada Complexa',
+            valor_total: 300.00,
+            data_transacao: todayStr,
+            eh_parcelado: true,
+            total_parcelas: 3,
+            participantes: [
+                { pessoa_id: state.hubA.pessoaId, valor_devido: 200.00 },
+                { pessoa_id: membroIntegridadeId, valor_devido: 100.00 }
+            ],
+            tags: [tagId]
+        }, state.hubA.accessToken);
+        const transacaoParceladaId = transacaoParcelada.body.data.transacoes[0].id;
+        log.success(`Transação parcelada criada com ${transacaoParcelada.body.data.transacoes.length} parcelas.`);
+
+        log.step(66, 'TESTE: Pagamento parcial em transação parcelada');
+        const pagamentoParcial = await api.post('/pagamentos', {
+            transacao_id: transacaoParceladaId,
+            valor_pago: 33.33,
+            data_pagamento: todayStr,
+            forma_pagamento: 'PIX'
+        }, state.hubA.accessToken);
+        log.success('Pagamento parcial realizado.');
+
+        log.step(67, 'TESTE: Tentativa de remoção de transação com pagamentos (deve falhar)');
+        try {
+            await api.delete(`/transacoes/${transacaoParceladaId}`, state.hubA.accessToken);
+            log.failure('Conseguiu remover transação com pagamentos! Deveria ser bloqueado.');
+        } catch (error) {
+            if (error.statusCode === 400 || error.statusCode === 422) {
+                log.success('Bloqueio de remoção de transação com pagamentos funcionando.');
+            } else {
+                log.failure(`Esperava erro de validação, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        log.step(68, 'TESTE: Remoção de pagamento para liberar transação');
+        await api.delete(`/pagamentos/${pagamentoParcial.body.data.id}`, state.hubA.accessToken);
+        log.success('Pagamento removido, transação liberada.');
+
+        log.step(69, 'TESTE: Agora remover transação parcelada (deve funcionar)');
+        await api.delete(`/transacoes/${transacaoParceladaId}`, state.hubA.accessToken);
+        log.success('Transação parcelada removida com sucesso.');
+
+        log.step(70, 'LIMPEZA: Removendo membro de integridade');
+        await api.delete(`/pessoas/${membroIntegridadeId}`, state.hubA.accessToken);
+        log.success('Membro de integridade removido.');
+
+        // ============================================
+        // FASE 11: TESTES DE EDGE CASES E LIMITES
+        // ============================================
+        log.suite('FASE 11: EDGE CASES E LIMITES');
+
+        log.step(71, 'TESTE: Criação de tag com nome muito longo (deve falhar)');
+        try {
+            await api.post('/tags', {
+                nome: 'A'.repeat(100), // Nome muito longo
+                cor: '#FF0000'
+            }, state.hubA.accessToken);
+            log.failure('Conseguiu criar tag com nome muito longo! Deveria ser bloqueado.');
+        } catch (error) {
+            if (error.statusCode === 400 || error.statusCode === 422) {
+                log.success('Validação de tamanho de nome funcionando.');
+            } else {
+                log.failure(`Esperava erro de validação, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        log.step(72, 'TESTE: Criação de transação com valor zero (deve falhar)');
+        try {
+            await api.post('/transacoes', {
+                descricao: 'Transação com valor zero',
+                valor_total: 0,
+                data_transacao: todayStr,
+                participantes: [
+                    { pessoa_id: state.hubA.pessoaId, valor_devido: 0 }
+                ]
+            }, state.hubA.accessToken);
+            log.failure('Conseguiu criar transação com valor zero! Deveria ser bloqueado.');
+        } catch (error) {
+            if (error.statusCode === 400 || error.statusCode === 422) {
+                log.success('Validação de valor mínimo funcionando.');
+            } else {
+                log.failure(`Esperava erro de validação, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        log.step(73, 'TESTE: Criação de transação com data futura');
+        const dataFutura = new Date();
+        dataFutura.setFullYear(dataFutura.getFullYear() + 10);
+        const dataFuturaStr = dataFutura.toISOString().substring(0, 10);
+        let transacaoFuturaId; // Variável para armazenar o ID
+        
+        try {
+            const resFutura = await api.post('/transacoes', {
+                descricao: 'Transação com data futura',
+                valor_total: 100.00,
+                data_transacao: dataFuturaStr,
+                participantes: [
+                    { pessoa_id: state.hubA.pessoaId, valor_devido: 100.00 }
+                ]
+            }, state.hubA.accessToken);
+            transacaoFuturaId = resFutura.body.data.transacoes[0].id; // Armazena o ID
+            log.success('Transação com data futura criada (comportamento aceito).');
+        } catch (error) {
+            if (error.statusCode === 400 || error.statusCode === 422) {
+                log.success('Validação de data futura funcionando.');
+            } else {
+                log.failure(`Erro inesperado: ${error.statusCode}.`);
+            }
+        }
+
+        // ============================================
+        // FASE 12: TESTES DE DADOS EM MASSA
+        // ============================================
+        log.suite('FASE 12: DADOS EM MASSA');
+
+        log.step(74, 'TESTE: Criação de múltiplas tags em lote');
+        const tagsCriadas = [];
+        for (let i = 1; i <= 5; i++) {
+            const tag = await api.post('/tags', {
+                nome: `Tag Massa ${i}`,
+                cor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+                icone: '📊'
+            }, state.hubA.accessToken);
+            tagsCriadas.push(tag.body.data.id);
+        }
+        log.success(`${tagsCriadas.length} tags criadas em lote.`);
+
+        log.step(75, 'TESTE: Criação de múltiplas transações em lote');
+        const transacoesCriadas = [];
+        for (let i = 1; i <= 3; i++) {
+            const transacao = await api.post('/transacoes', {
+                descricao: `Transação Massa ${i}`,
+                valor_total: 50.00 * i,
+                data_transacao: todayStr,
+                participantes: [
+                    { pessoa_id: state.hubA.pessoaId, valor_devido: 50.00 * i }
+                ],
+                tags: [tagsCriadas[0]] // Usar primeira tag criada
+            }, state.hubA.accessToken);
+            transacoesCriadas.push(transacao.body.data.transacoes[0].id);
+        }
+        log.success(`${transacoesCriadas.length} transações criadas em lote.`);
+
+        log.step(76, 'TESTE: Verificação de isolamento com dados em massa');
+        const tagsHubAMassa = await api.get('/tags', state.hubA.accessToken);
+        const tagsHubBMassa = await api.get('/tags', state.hubB.accessToken);
+        
+        const tagsMassaEncontradas = tagsHubAMassa.body.data.filter(tag => tag.nome.startsWith('Tag Massa'));
+        const tagsMassaEncontradasB = tagsHubBMassa.body.data.filter(tag => tag.nome.startsWith('Tag Massa'));
+        
+        if (tagsMassaEncontradas.length !== 5) {
+            log.failure(`Hub A deveria ter 5 tags massa, encontrou ${tagsMassaEncontradas.length}.`);
+        }
+        if (tagsMassaEncontradasB.length !== 0) {
+            log.failure(`Hub B não deveria ter tags massa, encontrou ${tagsMassaEncontradasB.length}.`);
+        }
+        log.success('Isolamento com dados em massa confirmado.');
+
+        // ============================================
+        // FASE 13: TESTES DE PERFORMANCE E LIMITES
+        // ============================================
+        log.suite('FASE 13: PERFORMANCE E LIMITES');
+
+        log.step(77, 'TESTE: Paginação com muitos dados');
+        const transacoesPagina = await api.get('/transacoes?page=1&limit=2', state.hubA.accessToken);
+        if (transacoesPagina.body.data.transacoes.length <= 2) {
+            log.success('Paginação funcionando corretamente.');
+        } else {
+            log.failure('Paginação não está limitando resultados.');
+        }
+
+        log.step(78, 'TESTE: Filtros complexos em transações');
+        const transacoesFiltradas = await api.get('/transacoes?tipo=GASTO&data_inicio=2024-01-01&data_fim=2025-12-31', state.hubA.accessToken);
+        log.success('Filtros complexos aplicados com sucesso.');
+
+        log.step(79, 'TESTE: Relatórios com dados complexos');
+        const dashboardComplexo = await api.get('/relatorios/dashboard?periodo=30_dias&incluir_graficos=true&incluir_detalhes=true', state.hubA.accessToken);
+        log.success('Relatório complexo gerado com sucesso.');
+
+        // ============================================
+        // FASE 14: TESTES DE RECUPERAÇÃO E ERROS
+        // ============================================
+        log.suite('FASE 14: RECUPERAÇÃO E ERROS');
+
+        log.step(80, 'TESTE: Tentativa de acesso com token inválido');
+        try {
+            await api.get('/transacoes', 'token_invalido');
+            log.failure('Conseguiu acessar com token inválido! Deveria ser bloqueado.');
+        } catch (error) {
+            if (error.statusCode === 401) {
+                log.success('Autenticação com token inválido bloqueada corretamente.');
+            } else {
+                log.failure(`Esperava erro 401, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        log.step(81, 'TESTE: Tentativa de acesso sem token');
+        try {
+            await api.get('/transacoes');
+            log.failure('Conseguiu acessar sem token! Deveria ser bloqueado.');
+        } catch (error) {
+            if (error.statusCode === 401) {
+                log.success('Acesso sem token bloqueado corretamente.');
+            } else {
+                log.failure(`Esperava erro 401, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        log.step(82, 'TESTE: Tentativa de acesso a recurso inexistente');
+        try {
+            await api.get('/transacoes/999999', state.hubA.accessToken);
+            log.failure('Conseguiu acessar transação inexistente! Deveria retornar 404.');
+        } catch (error) {
+            if (error.statusCode === 404) {
+                log.success('Acesso a recurso inexistente retorna 404 corretamente.');
+            } else {
+                log.failure(`Esperava erro 404, recebeu ${error.statusCode}.`);
+            }
+        }
+
+        // ============================================
+        // FASE 15: TESTES DE CONCORRÊNCIA E RACE CONDITIONS
+        // ============================================
+        log.suite('FASE 15: CONCORRÊNCIA E RACE CONDITIONS');
+
+        log.step(83, 'TESTE: Criação simultânea de tags com nomes únicos');
+        const promisesTags = [];
+        for (let i = 1; i <= 3; i++) {
+            promisesTags.push(
+                api.post('/tags', {
+                    nome: `Tag Concorrente ${i}`,
+                    cor: '#FF0000',
+                    icone: '⚡'
+                }, state.hubA.accessToken)
+            );
+        }
+        
+        try {
+            const resultadosTags = await Promise.all(promisesTags);
+            log.success(`${resultadosTags.length} tags criadas simultaneamente.`);
+        } catch (error) {
+            log.failure('Erro na criação simultânea de tags.');
+        }
+
+        log.step(84, 'TESTE: Atualização simultânea de configurações');
+        const promisesConfig = [];
+        for (let i = 1; i <= 2; i++) {
+            promisesConfig.push(
+                api.put('/configuracoes/interface', {
+                    theme_interface: i % 2 === 0 ? 'dark' : 'light'
+                }, state.hubA.accessToken)
+            );
+        }
+        
+        try {
+            const resultadosConfig = await Promise.all(promisesConfig);
+            log.success(`${resultadosConfig.length} configurações atualizadas simultaneamente.`);
+        } catch (error) {
+            log.failure('Erro na atualização simultânea de configurações.');
+        }
+
+        // ============================================
+        // FASE 16: LIMPEZA FINAL AVANÇADA
+        // ============================================
+        log.suite('FASE 16: LIMPEZA FINAL AVANÇADA');
+
+        log.step(85, 'LIMPEZA: Removendo transações criadas em massa (primeiro)');
+        for (const transacaoId of transacoesCriadas) {
+            await api.delete(`/transacoes/${transacaoId}`, state.hubA.accessToken);
+        }
+        log.success(`${transacoesCriadas.length} transações removidas.`);
+
+        log.step(86, 'LIMPEZA: Removendo tags criadas em massa (depois das transações)');
+        for (const tagId of tagsCriadas) {
+            await api.delete(`/tags/${tagId}`, state.hubA.accessToken);
+        }
+        log.success(`${tagsCriadas.length} tags removidas.`);
+
+        log.step(87, 'LIMPEZA: Removendo tags concorrentes');
+        const tagsConcorrentes = await api.get('/tags', state.hubA.accessToken);
+        const tagsParaRemover = tagsConcorrentes.body.data.filter(tag => tag.nome.startsWith('Tag Concorrente'));
+        for (const tag of tagsParaRemover) {
+            await api.delete(`/tags/${tag.id}`, state.hubA.accessToken);
+        }
+        log.success(`${tagsParaRemover.length} tags concorrentes removidas.`);
+
+        log.step('87.1', 'LIMPEZA: Removendo transação com data futura');
+        if (transacaoFuturaId) {
+            await api.delete(`/transacoes/${transacaoFuturaId}`, state.hubA.accessToken);
+            log.success('Transação com data futura removida.');
+        } else {
+            log.success('Nenhuma transação com data futura para remover.');
+        }
+
+        // ============================================
+        // FASE 17: VALIDAÇÃO FINAL DE INTEGRIDADE
+        // ============================================
+        log.suite('FASE 17: VALIDAÇÃO FINAL DE INTEGRIDADE');
+
+        log.step(88, 'VALIDAÇÃO: Verificação de isolamento final');
+        const transacoesFinalA = await api.get('/transacoes', state.hubA.accessToken);
+        const transacoesFinalB = await api.get('/transacoes', state.hubB.accessToken);
+        
+        if (transacoesFinalA.body.data.transacoes.length === 0 && transacoesFinalB.body.data.transacoes.length === 0) {
+            log.success('Isolamento final confirmado - ambos Hubs limpos.');
+        } else {
+            log.failure('Isolamento final falhou - dados residuais encontrados.');
+        }
+
+        log.step(89, 'VALIDAÇÃO: Verificação de integridade referencial final');
+        const tagsFinalA = await api.get('/tags', state.hubA.accessToken);
+        const tagsFinalB = await api.get('/tags', state.hubB.accessToken);
+        
+        if (tagsFinalA.body.data.length === 0 && tagsFinalB.body.data.length === 0) {
+            log.success('Integridade referencial final confirmada.');
+        } else {
+            log.failure('Integridade referencial final falhou - tags residuais encontradas.');
+        }
+
+        log.step(90, 'VALIDAÇÃO: Verificação de performance final');
+        const startTime = Date.now();
+        await api.get('/relatorios/dashboard', state.hubA.accessToken);
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+        
+        if (responseTime < 5000) { // Menos de 5 segundos
+            log.success(`Performance final OK - Dashboard em ${responseTime}ms.`);
+        } else {
+            log.failure(`Performance final lenta - Dashboard em ${responseTime}ms.`);
+        }
+
         // --- CONCLUSÃO FINAL COM ISOLAMENTO ---
         console.log(`\n\n${colors.green}==============================================${colors.reset}`);
         console.log(`${colors.green}🎉  TESTE COMPLETO + ISOLAMENTO MULTI-TENANT CONCLUÍDO 🎉${colors.reset}`);
@@ -762,8 +1111,16 @@ async function runCompleteTestFlow() {
         console.log(`${colors.green}   ⚙️ Configurações: ✅ 4 endpoints testados${colors.reset}`);
         console.log(`${colors.green}   🧹 Limpeza: ✅ 5 operações de limpeza${colors.reset}`);
         console.log(`${colors.green}   🔒 ISOLAMENTO: ✅ 13 testes de segurança${colors.reset}`);
-        console.log(`${colors.green}   📈 TOTAL: 62 operações realizadas com sucesso!${colors.reset}`);
-        console.log(`\n${colors.green}🔒 VALIDAÇÕES DE ISOLAMENTO:${colors.reset}`);
+        console.log(`${colors.green}   🔗 INTEGRIDADE: ✅ 5 testes de integridade referencial${colors.reset}`);
+        console.log(`${colors.green}   ⚡ EDGE CASES: ✅ 3 testes de limites e validações${colors.reset}`);
+        console.log(`${colors.green}   📈 DADOS EM MASSA: ✅ 3 testes de volume${colors.reset}`);
+        console.log(`${colors.green}   🚀 PERFORMANCE: ✅ 3 testes de performance${colors.reset}`);
+        console.log(`${colors.green}   🛡️ RECUPERAÇÃO: ✅ 3 testes de segurança e erros${colors.reset}`);
+        console.log(`${colors.green}   ⚡ CONCORRÊNCIA: ✅ 2 testes de race conditions${colors.reset}`);
+        console.log(`${colors.green}   🧹 LIMPEZA AVANÇADA: ✅ 3 operações de limpeza${colors.reset}`);
+        console.log(`${colors.green}   ✅ VALIDAÇÃO FINAL: ✅ 3 verificações de integridade${colors.reset}`);
+        console.log(`${colors.green}   📈 TOTAL: 90 operações realizadas com sucesso!${colors.reset}`);
+        console.log(`\n${colors.green}🔗 VALIDAÇÕES DE ISOLAMENTO:${colors.reset}`);
         console.log(`${colors.green}   ✅ Isolamento de dados entre Hubs${colors.reset}`);
         console.log(`${colors.green}   ✅ RBAC - Papéis e permissões${colors.reset}`);
         console.log(`${colors.green}   ✅ Políticas de acesso (GLOBAL/INDIVIDUAL)${colors.reset}`);
@@ -772,6 +1129,13 @@ async function runCompleteTestFlow() {
         console.log(`${colors.green}   ✅ Integridade referencial multi-tenant${colors.reset}`);
         console.log(`${colors.green}   ✅ Soft delete mantém isolamento${colors.reset}`);
         console.log(`${colors.green}   ✅ Administrador do sistema${colors.reset}`);
+        console.log(`\n${colors.green}🔗 VALIDAÇÕES DE INTEGRIDADE:${colors.reset}`);
+        console.log(`${colors.green}   ✅ Transações parceladas complexas${colors.reset}`);
+        console.log(`${colors.green}   ✅ Bloqueio de remoção com dependências${colors.reset}`);
+        console.log(`${colors.green}   ✅ Validações de limites e edge cases${colors.reset}`);
+        console.log(`${colors.green}   ✅ Dados em massa com isolamento${colors.reset}`);
+        console.log(`${colors.green}   ✅ Performance e concorrência${colors.reset}`);
+        console.log(`${colors.green}   ✅ Recuperação de erros e segurança${colors.reset}`);
 
     } catch (error) {
         log.failure('O teste completo foi interrompido por erro inesperado.', error);

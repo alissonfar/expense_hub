@@ -1,93 +1,351 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Bell,
+  ChevronDown,
+  LogOut,
+  User,
+  Settings,
+  Building2,
+  Check,
+  Search,
+  Sun,
+  Moon,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle
+} from 'lucide-react';
 
-export default function Header() {
-  const { usuario, hubAtual, logout } = useAuth();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+// Mock de notificações - em produção viriam da API
+const mockNotifications = [
+  {
+    id: 1,
+    title: 'Nova transação',
+    description: 'João adicionou uma despesa de R$ 150,00',
+    time: '5 min atrás',
+    type: 'transaction',
+    read: false,
+    icon: TrendingDown,
+    iconColor: 'text-red-600'
+  },
+  {
+    id: 2,
+    title: 'Convite aceito',
+    description: 'Maria aceitou seu convite para o Hub',
+    time: '1 hora atrás',
+    type: 'invite',
+    read: false,
+    icon: Check,
+    iconColor: 'text-green-600'
+  },
+  {
+    id: 3,
+    title: 'Meta atingida!',
+    description: 'Você economizou R$ 500 este mês',
+    time: '2 horas atrás',
+    type: 'achievement',
+    read: true,
+    icon: TrendingUp,
+    iconColor: 'text-blue-600'
+  }
+];
+
+export function Header() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { usuario, hubAtual, hubsDisponiveis, selectHub, logout } = useAuth();
+  const [notifications, setNotifications] = useState(mockNotifications);
+  const [isDark, setIsDark] = useState(false);
+  const [isLoadingHub, setIsLoadingHub] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleSelectHub = async (hubId: number) => {
+    if (hubId === hubAtual?.id) return;
+    
+    try {
+      setIsLoadingHub(true);
+      await selectHub(hubId);
+      toast({
+        title: 'Hub alterado com sucesso!',
+        description: 'A página será recarregada...',
+      });
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: 'Erro ao alterar Hub',
+        description: 'Não foi possível alterar o Hub.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingHub(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
       await logout();
+      router.push('/login');
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      toast({
+        title: 'Erro ao sair',
+        description: 'Não foi possível fazer logout.',
+        variant: 'destructive',
+      });
     }
   };
 
-  return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo e Nome do Hub */}
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold text-gray-900">
-                Personal Expense Hub
-              </h1>
-            </div>
-            {hubAtual && (
-              <div className="ml-4 flex items-center">
-                <span className="text-gray-500">•</span>
-                <span className="ml-2 text-sm font-medium text-gray-700">
-                  {hubAtual.nome}
-                </span>
-              </div>
-            )}
-          </div>
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    toast({
+      title: 'Notificações marcadas como lidas',
+    });
+  };
 
-          {/* Menu do Usuário */}
-          <div className="flex items-center">
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+  const toggleTheme = () => {
+    setIsDark(!isDark);
+    // Implementar toggle de tema aqui
+    toast({
+      title: `Tema ${!isDark ? 'escuro' : 'claro'} ativado`,
+      description: 'Funcionalidade em desenvolvimento',
+    });
+  };
+
+  const userInitials = usuario?.nome
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
+
+  return (
+    <header className="bg-white border-b border-blue-100 shadow-sm">
+      <div className="px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Left side - Hub selector */}
+          <div className="flex items-center space-x-4">
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  className="flex items-center space-x-2 hover:bg-gray-100"
+                <Button
+                  variant="outline"
+                  className="flex items-center space-x-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50"
+                  disabled={isLoadingHub}
                 >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">
-                    {usuario?.nome || 'Usuário'}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <span className="font-medium">{hubAtual?.nome || 'Selecionar Hub'}</span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuLabel>Seus Hubs</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {hubsDisponiveis.map((hub) => (
+                  <DropdownMenuItem
+                    key={hub.id}
+                    onClick={() => handleSelectHub(hub.id)}
+                    className={cn(
+                      "cursor-pointer",
+                      hub.id === hubAtual?.id && "bg-blue-50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-3">
+                        <Building2 className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium">{hub.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hub.membros} {hub.membros === 1 ? 'membro' : 'membros'}
+                          </p>
+                        </div>
+                      </div>
+                      {hub.id === hubAtual?.id && (
+                        <Check className="h-4 w-4 text-blue-600" />
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Search (desktop only) */}
+            <div className="hidden lg:flex items-center relative">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar transações..."
+                className="pl-10 pr-4 py-2 w-64 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Right side - Actions */}
+          <div className="flex items-center space-x-3">
+            {/* Theme toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="hover:bg-blue-50"
+            >
+              {isDark ? (
+                <Sun className="h-5 w-5 text-blue-600" />
+              ) : (
+                <Moon className="h-5 w-5 text-blue-600" />
+              )}
+            </Button>
+
+            {/* Notifications */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative hover:bg-blue-50"
+                >
+                  <Bell className="h-5 w-5 text-blue-600" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-96 p-0">
+                <div className="border-b border-gray-200 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Notificações</h3>
+                    {unreadCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={markAllAsRead}
+                        className="text-xs hover:bg-blue-50"
+                      >
+                        Marcar todas como lidas
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p>Nenhuma notificação</p>
+                    </div>
+                  ) : (
+                    <AnimatePresence>
+                      {notifications.map((notification) => (
+                        <motion.div
+                          key={notification.id}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className={cn(
+                            "px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-100",
+                            !notification.read && "bg-blue-50/30"
+                          )}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className={cn(
+                              "p-2 rounded-lg bg-gray-100",
+                              !notification.read && "bg-blue-100"
+                            )}>
+                              <notification.icon className={cn(
+                                "h-4 w-4",
+                                notification.iconColor
+                              )} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{notification.title}</p>
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                {notification.description}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {notification.time}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-600 rounded-full mt-2" />
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* User menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2 hover:bg-blue-50 px-2"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-gradient-primary text-white text-sm">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:inline text-sm font-medium">
+                    {usuario?.nome}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {usuario?.nome}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {usuario?.email}
-                    </p>
+                    <p className="text-sm font-medium">{usuario?.nome}</p>
+                    <p className="text-xs text-muted-foreground">{usuario?.email}</p>
                   </div>
                 </DropdownMenuLabel>
-                
                 <DropdownMenuSeparator />
-                
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Configurações</span>
+                <DropdownMenuItem
+                  onClick={() => router.push('/perfil')}
+                  className="cursor-pointer"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  Meu Perfil
                 </DropdownMenuItem>
-                
+                <DropdownMenuItem
+                  onClick={() => router.push('/configuracoes')}
+                  className="cursor-pointer"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                
-                <DropdownMenuItem onClick={handleLogout}>
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
+                  Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -1,37 +1,58 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { useRequireHub } from '@/hooks/useAuth';
-import Header from '@/components/layout/Header';
-import Sidebar from '@/components/layout/Sidebar';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { Header } from '@/components/layout/Header';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Loader2 } from 'lucide-react';
 
-interface AuthLayoutProps {
-  children: ReactNode;
-}
+export default function AuthenticatedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const { isAuthenticated, isLoading, hubAtual } = useAuth();
 
-export default function AuthLayout({ children }: AuthLayoutProps) {
-  // Garante que o usuário está autenticado e tem hub selecionado
-  const auth = useRequireHub();
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated || !hubAtual) {
+        router.push('/login');
+      }
+    }
+  }, [isAuthenticated, isLoading, hubAtual, router]);
 
-  // Mostrar loading enquanto verifica autenticação
-  if (auth.isLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );
   }
 
+  if (!isAuthenticated || !hubAtual) {
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-6">
-          {children}
+    <div className="flex h-screen bg-gradient-subtle">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <Header />
+        
+        {/* Page content */}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-subtle">
+          <div className="container mx-auto px-6 py-8 animate-in">
+            {children}
+          </div>
         </main>
       </div>
     </div>

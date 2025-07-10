@@ -18,6 +18,9 @@ export const listTags = async (req: Request, res: Response): Promise<void> => {
     
     if (ativo !== undefined) {
       where.ativo = ativo;
+    } else {
+      // Por padrão, retorna apenas tags ativas se o filtro não for especificado
+      where.ativo = true;
     }
     
     if (criado_por !== undefined) {

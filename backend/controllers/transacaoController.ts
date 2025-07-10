@@ -35,7 +35,9 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       limit = 20
     }: TransacaoQueryInput = req.query;
 
-    const where: Prisma.transacoesWhereInput = {};
+    const where: Prisma.transacoesWhereInput = {
+      ativo: true // Retorna apenas registros ativos por padrão
+    };
 
     if (tipo) where.tipo = tipo;
     if (status_pagamento) where.status_pagamento = status_pagamento;

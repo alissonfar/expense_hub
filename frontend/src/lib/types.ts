@@ -1,6 +1,10 @@
 // Tipos base definidos localmente para evitar importação circular
 export type Role = 'PROPRIETARIO' | 'ADMINISTRADOR' | 'COLABORADOR' | 'VISUALIZADOR';
 export type TransactionType = 'GASTO' | 'RECEITA';
+export const TipoTransacao = {
+  GASTO: 'GASTO',
+  RECEITA: 'RECEITA',
+} as const;
 export type PaymentStatus = 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL';
 export type PaymentMethod = 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS';
 export type InviteState = 'ConviteInvalido' | 'ConviteInativo' | 'ConviteExpirado' | 'MembroJaAtivado' | 'ConviteAtivo';

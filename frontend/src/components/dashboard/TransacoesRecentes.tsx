@@ -1,75 +1,49 @@
+'use client';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { TransacaoRecente } from '@/hooks/useDashboard';
+import { motion } from 'framer-motion';
+import { 
+  Receipt, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  Calendar,
+  ArrowRight,
+  Clock
+} from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
-import type { Transacao } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface TransacoesRecentesProps {
-  transacoes: Transacao[];
-  isLoading?: boolean;
+  transacoes: TransacaoRecente[];
+  loading?: boolean;
 }
 
-export function TransacoesRecentes({ transacoes, isLoading }: TransacoesRecentesProps) {
-  const formatarValor = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(valor);
-  };
+export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRecentesProps) {
+  const router = useRouter();
 
-  const formatarData = (dataStr: string) => {
-    try {
-      const data = new Date(dataStr);
-      const agora = new Date();
-      const diffEmDias = Math.floor((agora.getTime() - data.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (diffEmDias === 0) {
-        return 'Hoje';
-      } else if (diffEmDias === 1) {
-        return 'Ontem';
-      } else if (diffEmDias < 7) {
-        return `${diffEmDias} dias atrás`;
-      } else {
-        return format(data, 'dd/MM/yyyy', { locale: ptBR });
-      }
-    } catch {
-      return dataStr;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PAGO_TOTAL':
-        return 'bg-green-100 text-green-800';
-      case 'PAGO_PARCIAL':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'PENDENTE':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
-          <CardTitle>Transações Recentes</CardTitle>
-          <CardDescription>
-            Últimas transações registradas no hub
-          </CardDescription>
+          <div className="h-5 w-40 bg-gray-200 rounded animate-pulse mb-2" />
+          <div className="h-4 w-60 bg-gray-200 rounded animate-pulse" />
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center space-x-3 animate-pulse">
-                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                <div className="flex-1 space-y-1">
-                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div key={i} className="p-4 bg-gray-100 rounded-lg animate-pulse">
+                <div className="flex justify-between items-center">
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-gray-200 rounded" />
+                    <div className="h-3 w-24 bg-gray-200 rounded" />
+                  </div>
+                  <div className="h-6 w-20 bg-gray-200 rounded" />
                 </div>
-                <div className="h-3 bg-gray-200 rounded w-16"></div>
               </div>
             ))}
           </div>
@@ -80,17 +54,21 @@ export function TransacoesRecentes({ transacoes, isLoading }: TransacoesRecentes
 
   if (!transacoes || transacoes.length === 0) {
     return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
-          <CardTitle>Transações Recentes</CardTitle>
-          <CardDescription>
-            Últimas transações registradas no hub
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-blue-600" />
+            Transações Recentes
+          </CardTitle>
+          <CardDescription>Últimas movimentações do Hub</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Nenhuma transação encontrada</p>
+          <div className="py-12 text-center">
+            <Receipt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">Nenhuma transação encontrada</p>
+            <p className="text-sm text-gray-400 mt-1">
+              As transações aparecerão aqui assim que forem adicionadas
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -98,60 +76,162 @@ export function TransacoesRecentes({ transacoes, isLoading }: TransacoesRecentes
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Transações Recentes</CardTitle>
-        <CardDescription>
-          Últimas transações registradas no hub
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {transacoes.map((transacao) => (
-            <div key={transacao.id} className="flex items-center space-x-3">
-              <div className={`w-2 h-2 rounded-full ${
-                transacao.tipo === 'RECEITA' ? 'bg-green-500' : 'bg-red-500'
-              }`}></div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium truncate">
-                    {transacao.descricao}
-                  </p>
-                  {transacao.tipo === 'RECEITA' ? (
-                    <ArrowUpRight className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <ArrowDownRight className="h-3 w-3 text-red-500" />
-                  )}
-                </div>
-                <div className="flex items-center space-x-2 mt-1">
-                  <p className="text-xs text-muted-foreground">
-                    {formatarValor(transacao.valor_total)}
-                  </p>
-                  {transacao.local && (
-                    <>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {transacao.local}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col items-end space-y-1">
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ${getStatusColor(transacao.status_pagamento)}`}
-                >
-                  {transacao.status_pagamento.replace('_', ' ')}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {formatarData(transacao.data_transacao)}
-                </span>
-              </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.3 }}
+    >
+      <Card className="w-full border-blue-100 hover:shadow-lg transition-shadow duration-300">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-blue-600" />
+                Transações Recentes
+              </CardTitle>
+              <CardDescription>Últimas movimentações do Hub</CardDescription>
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/transacoes')}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            >
+              Ver todas
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Vista Desktop - Tabela */}
+          <div className="hidden md:block">
+            <div className="space-y-1">
+              {transacoes.map((transacao, index) => (
+                <motion.div
+                  key={transacao.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="p-4 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group"
+                  onClick={() => router.push(`/transacoes/${transacao.id}`)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        transacao.tipo === 'RECEITA' 
+                          ? "bg-green-100 text-green-600" 
+                          : "bg-red-100 text-red-600"
+                      )}>
+                        {transacao.tipo === 'RECEITA' 
+                          ? <ArrowUpRight className="h-5 w-5" />
+                          : <ArrowDownRight className="h-5 w-5" />
+                        }
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {transacao.descricao}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })}
+                          </span>
+                          {transacao.tag && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-xs"
+                              style={{ 
+                                backgroundColor: `${transacao.tag.cor}20`,
+                                color: transacao.tag.cor,
+                                borderColor: transacao.tag.cor
+                              }}
+                            >
+                              {transacao.tag.nome}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn(
+                        "font-semibold",
+                        transacao.tipo === 'RECEITA' ? "text-green-600" : "text-red-600"
+                      )}>
+                        {transacao.tipo === 'RECEITA' ? '+' : '-'}
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(transacao.valor)}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Vista Mobile - Cards */}
+          <div className="md:hidden space-y-3">
+            {transacoes.map((transacao, index) => (
+              <motion.div
+                key={transacao.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="p-4 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors cursor-pointer"
+                onClick={() => router.push(`/transacoes/${transacao.id}`)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className={cn(
+                    "p-1.5 rounded-lg",
+                    transacao.tipo === 'RECEITA' 
+                      ? "bg-green-100 text-green-600" 
+                      : "bg-red-100 text-red-600"
+                  )}>
+                    {transacao.tipo === 'RECEITA' 
+                      ? <ArrowUpRight className="h-4 w-4" />
+                      : <ArrowDownRight className="h-4 w-4" />
+                    }
+                  </div>
+                  <p className={cn(
+                    "font-semibold",
+                    transacao.tipo === 'RECEITA' ? "text-green-600" : "text-red-600"
+                  )}>
+                    {transacao.tipo === 'RECEITA' ? '+' : '-'}
+                    {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL'
+                    }).format(transacao.valor)}
+                  </p>
+                </div>
+                <p className="font-medium text-gray-900 mb-2">
+                  {transacao.descricao}
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })}
+                  </span>
+                  {transacao.tag && (
+                    <Badge 
+                      variant="secondary" 
+                      className="text-xs"
+                      style={{ 
+                        backgroundColor: `${transacao.tag.cor}20`,
+                        color: transacao.tag.cor,
+                        borderColor: transacao.tag.cor
+                      }}
+                    >
+                      {transacao.tag.nome}
+                    </Badge>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 } 

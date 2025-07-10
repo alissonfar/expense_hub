@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, LogIn, Mail, Lock, Sparkles } from 'lucide-react';
+import { Loader2, UserPlus, Mail, Lock, User, Phone, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { Button } from '@/components/ui/button';
@@ -16,43 +16,63 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-// Schema de validação
-const loginSchema = z.object({
+// Schema de validação seguindo as regras do backend
+const registerSchema = z.object({
+  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  telefone: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^\(?[1-9]{2}\)?\s?9?[0-9]{4}-?[0-9]{4}$/.test(val),
+      'Telefone inválido. Use o formato: (11) 91234-5678'
+    ),
+  senha: z.string()
+    .min(8, 'A senha deve ter no mínimo 8 caracteres')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      'A senha deve conter maiúscula, minúscula, número e caractere especial'
+    ),
+  confirmarSenha: z.string(),
+}).refine((data) => data.senha === data.confirmarSenha, {
+  message: "As senhas não coincidem",
+  path: ["confirmarSenha"],
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { register: registerUser } = useAuth();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     try {
       setIsLoading(true);
-      await login(data.email, data.senha);
+      
+      // Remove confirmarSenha antes de enviar
+      const { confirmarSenha, ...registerData } = data;
+      
+      await registerUser(registerData);
       
       toast({
-        title: 'Login realizado com sucesso!',
-        description: 'Redirecionando para seleção de Hub...',
+        title: 'Conta criada com sucesso!',
+        description: 'Faça login para continuar.',
       });
       
-      router.push('/select-hub');
+      router.push('/login');
     } catch (error: any) {
       toast({
-        title: 'Erro ao fazer login',
-        description: error.response?.data?.message || 'Credenciais inválidas. Tente novamente.',
+        title: 'Erro ao criar conta',
+        description: error.response?.data?.message || 'Ocorreu um erro ao criar sua conta.',
         variant: 'destructive',
       });
     } finally {
@@ -61,13 +81,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle relative overflow-hidden py-12">
       {/* Background animado com gradientes */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -inset-[10px] opacity-50">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+          <div className="absolute top-1/2 -left-10 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-blob"></div>
+          <div className="absolute top-1/3 -right-10 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-60 animate-blob animation-delay-4000"></div>
         </div>
       </div>
 
@@ -92,20 +112,40 @@ export default function LoginPage() {
               Personal Expense Hub
             </h1>
             <p className="text-muted-foreground mt-2">
-              Gerencie suas finanças com inteligência
+              Crie sua conta e comece a organizar suas finanças
             </p>
           </div>
 
-          {/* Card de login com glassmorphism */}
+          {/* Card de registro com glassmorphism */}
           <Card className="glass-card border-0 shadow-xl">
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center">Bem-vindo de volta</CardTitle>
+              <CardTitle className="text-2xl text-center">Criar conta</CardTitle>
               <CardDescription className="text-center">
-                Entre com suas credenciais para acessar sua conta
+                Preencha os dados abaixo para criar sua conta
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome" className="text-sm font-medium">
+                    Nome completo
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="nome"
+                      type="text"
+                      placeholder="João Silva"
+                      className="pl-10 h-11 bg-white/50 border-blue-200 focus:border-blue-400 transition-colors"
+                      {...register('nome')}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  {errors.nome && (
+                    <p className="text-sm text-destructive mt-1">{errors.nome.message}</p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">
                     Email
@@ -127,6 +167,26 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="telefone" className="text-sm font-medium">
+                    Telefone (opcional)
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="telefone"
+                      type="tel"
+                      placeholder="(11) 91234-5678"
+                      className="pl-10 h-11 bg-white/50 border-blue-200 focus:border-blue-400 transition-colors"
+                      {...register('telefone')}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  {errors.telefone && (
+                    <p className="text-sm text-destructive mt-1">{errors.telefone.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="senha" className="text-sm font-medium">
                     Senha
                   </Label>
@@ -144,6 +204,29 @@ export default function LoginPage() {
                   {errors.senha && (
                     <p className="text-sm text-destructive mt-1">{errors.senha.message}</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Mínimo 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmarSenha" className="text-sm font-medium">
+                    Confirmar senha
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="confirmarSenha"
+                      type="password"
+                      placeholder="••••••••"
+                      className="pl-10 h-11 bg-white/50 border-blue-200 focus:border-blue-400 transition-colors"
+                      {...register('confirmarSenha')}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  {errors.confirmarSenha && (
+                    <p className="text-sm text-destructive mt-1">{errors.confirmarSenha.message}</p>
+                  )}
                 </div>
 
                 <Button
@@ -154,12 +237,12 @@ export default function LoginPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Entrando...
+                      Criando conta...
                     </>
                   ) : (
                     <>
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Entrar
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Criar conta
                     </>
                   )}
                 </Button>
@@ -167,12 +250,12 @@ export default function LoginPage() {
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <div className="text-sm text-center text-muted-foreground">
-                Ainda não tem uma conta?{' '}
+                Já tem uma conta?{' '}
                 <Link 
-                  href="/register" 
+                  href="/login" 
                   className="font-medium text-primary hover:text-primary/80 transition-colors"
                 >
-                  Criar conta
+                  Fazer login
                 </Link>
               </div>
             </CardFooter>
@@ -180,7 +263,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>© 2025 Personal Expense Hub. Todos os direitos reservados.</p>
+            <p>Ao criar uma conta, você concorda com nossos termos de uso.</p>
           </div>
         </motion.div>
       </div>
