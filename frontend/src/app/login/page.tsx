@@ -1,41 +1,39 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Loader2, LogIn, Mail, Lock, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
-
+import { z } from 'zod';
+import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useGuestOnly } from '@/hooks/useAuth';
 
-// Schema de validação
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  email: z.string()
+    .min(1, 'Email é obrigatório')
+    .email('Email inválido'),
+  senha: z.string()
+    .min(1, 'Senha é obrigatória')
+    .min(6, 'Senha deve ter pelo menos 6 caracteres')
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const { login } = useGuestOnly();
   const { toast } = useToast();
-  const { login } = useAuth();
-
+  
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors }
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(loginSchema)
   });
 
   const onSubmit = async (data: LoginFormData) => {
@@ -44,16 +42,16 @@ export default function LoginPage() {
       await login(data.email, data.senha);
       
       toast({
-        title: 'Login realizado com sucesso!',
-        description: 'Redirecionando para seleção de Hub...',
+        title: "Login realizado com sucesso!",
+        description: "Redirecionando...",
       });
       
-      router.push('/select-hub');
-    } catch (error: any) {
+      // O redirecionamento será feito pelo AuthContext + middleware
+    } catch (error) {
       toast({
-        title: 'Erro ao fazer login',
-        description: error.response?.data?.message || 'Credenciais inválidas. Tente novamente.',
-        variant: 'destructive',
+        title: "Erro no login",
+                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Credenciais inválidas",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -61,156 +59,81 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle relative overflow-hidden">
-      {/* Background animado com gradientes */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -inset-[10px] opacity-50">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-        </div>
-      </div>
-
-      {/* Container principal */}
-      <div className="relative z-10 w-full max-w-md px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Logo e título */}
-          <div className="text-center mb-8">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-primary rounded-2xl mb-4 shadow-lg"
-            >
-              <Sparkles className="w-8 h-8 text-white" />
-            </motion.div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+      <div className="w-full max-w-md">
+        <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
+          <CardHeader className="space-y-1 text-center">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl font-bold text-white">💰</span>
+            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
               Personal Expense Hub
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Gerencie suas finanças com inteligência
-            </p>
-          </div>
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Entre na sua conta para gerenciar suas despesas
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  {...register('email')}
+                  className={errors.email ? 'border-red-500' : ''}
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="senha">Senha</Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  placeholder="Sua senha"
+                  {...register('senha')}
+                  className={errors.senha ? 'border-red-500' : ''}
+                />
+                {errors.senha && (
+                  <p className="text-sm text-red-500">{errors.senha.message}</p>
+                )}
+              </div>
 
-          {/* Card de login com glassmorphism */}
-          <Card className="glass-card border-0 shadow-xl">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center">Bem-vindo de volta</CardTitle>
-              <CardDescription className="text-center">
-                Entre com suas credenciais para acessar sua conta
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium">
-                    Email
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      className="pl-10 h-11 bg-white/50 border-blue-200 focus:border-blue-400 transition-colors"
-                      {...register('email')}
-                      disabled={isLoading}
-                    />
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-2"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Entrando...
                   </div>
-                  {errors.email && (
-                    <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                  )}
-                </div>
+                ) : (
+                  'Entrar'
+                )}
+              </Button>
+            </form>
 
-                <div className="space-y-2">
-                  <Label htmlFor="senha" className="text-sm font-medium">
-                    Senha
-                  </Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="senha"
-                      type="password"
-                      placeholder="••••••••"
-                      className="pl-10 h-11 bg-white/50 border-blue-200 focus:border-blue-400 transition-colors"
-                      {...register('senha')}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  {errors.senha && (
-                    <p className="text-sm text-destructive mt-1">{errors.senha.message}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 btn-gradient hover-lift"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Entrando...
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Entrar
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <div className="text-sm text-center text-muted-foreground">
-                Ainda não tem uma conta?{' '}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Não tem uma conta?{' '}
                 <Link 
                   href="/register" 
-                  className="font-medium text-primary hover:text-primary/80 transition-colors"
+                  className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
                 >
-                  Criar conta
+                  Registre-se aqui
                 </Link>
-              </div>
-            </CardFooter>
-          </Card>
-
-          {/* Footer */}
-          <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>© 2025 Personal Expense Hub. Todos os direitos reservados.</p>
-          </div>
-        </motion.div>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Estilos para animações */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 } 

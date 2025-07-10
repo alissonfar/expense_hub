@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,7 +16,7 @@ import {
   Moon,
   TrendingUp,
   TrendingDown,
-  AlertCircle
+
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
+
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -94,7 +94,7 @@ export function Header() {
         description: 'A página será recarregada...',
       });
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erro ao alterar Hub',
         description: 'Não foi possível alterar o Hub.',
@@ -109,7 +109,7 @@ export function Header() {
     try {
       await logout();
       router.push('/login');
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erro ao sair',
         description: 'Não foi possível fazer logout.',
@@ -177,7 +177,7 @@ export function Header() {
                         <div>
                           <p className="text-sm font-medium">{hub.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            {hub.membros} {hub.membros === 1 ? 'membro' : 'membros'}
+                            Papel: {hub.role}
                           </p>
                         </div>
                       </div>

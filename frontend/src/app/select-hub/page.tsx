@@ -1,81 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { 
-  Building2, 
-  Users, 
-  Sparkles, 
-  ArrowRight, 
-  Loader2,
-  Home,
-  Briefcase,
-  UserPlus
-} from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-
-// Ícones por tipo de hub
-const hubIcons: Record<string, React.ReactNode> = {
-  pessoal: <Home className="w-6 h-6" />,
-  trabalho: <Briefcase className="w-6 h-6" />,
-  compartilhado: <Users className="w-6 h-6" />,
-  default: <Building2 className="w-6 h-6" />
-};
-
-// Cores por role
-const roleColors: Record<string, string> = {
-  PROPRIETARIO: "bg-gradient-to-r from-blue-600 to-blue-700 text-white",
-  ADMINISTRADOR: "bg-gradient-to-r from-blue-500 to-blue-600 text-white",
-  COLABORADOR: "bg-gradient-to-r from-blue-400 to-blue-500 text-white",
-  VISUALIZADOR: "bg-gradient-to-r from-blue-300 to-blue-400 text-white"
-};
-
-// Traduções de roles
-const roleTranslations: Record<string, string> = {
-  PROPRIETARIO: "Proprietário",
-  ADMINISTRADOR: "Administrador",
-  COLABORADOR: "Colaborador",
-  VISUALIZADOR: "Visualizador"
-};
+import { useRequirePartialAuth } from '@/hooks/useAuth';
+import { Badge } from '@/components/ui/badge';
 
 export default function SelectHubPage() {
   const [selectedHubId, setSelectedHubId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const { hubsDisponiveis, selectHub, usuario } = useRequirePartialAuth();
   const { toast } = useToast();
-  const { hubsDisponiveis, selectHub, isLoading: authLoading } = useAuth();
-
-  // Redireciona se não houver hubs disponíveis
-  useEffect(() => {
-    if (!authLoading && (!hubsDisponiveis || hubsDisponiveis.length === 0)) {
-      router.push('/login');
-    }
-  }, [hubsDisponiveis, authLoading, router]);
 
   const handleSelectHub = async (hubId: number) => {
     try {
-      setSelectedHubId(hubId);
       setIsLoading(true);
+      setSelectedHubId(hubId);
       
       await selectHub(hubId);
       
       toast({
-        title: 'Hub selecionado com sucesso!',
-        description: 'Redirecionando para o dashboard...',
+        title: "Hub selecionado com sucesso!",
+        description: "Redirecionando para o dashboard...",
       });
       
-      router.push('/dashboard');
-    } catch (error: any) {
+      // O redirecionamento será feito pelo AuthContext + middleware
+    } catch (error) {
       toast({
-        title: 'Erro ao selecionar Hub',
-        description: error.response?.data?.message || 'Ocorreu um erro ao selecionar o Hub.',
-        variant: 'destructive',
+        title: "Erro ao selecionar hub",
+                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao acessar o hub. Tente novamente.",
+        variant: "destructive",
       });
       setSelectedHubId(null);
     } finally {
@@ -83,185 +38,122 @@ export default function SelectHubPage() {
     }
   };
 
-  if (authLoading) {
+  if (!hubsDisponiveis || hubsDisponiveis.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+        <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl font-bold text-white">💰</span>
+            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+              Nenhum Hub Disponível
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Você não tem acesso a nenhum hub no momento. Entre em contato com um administrador.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle relative overflow-hidden">
-      {/* Background animado */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -inset-[10px] opacity-30">
-          <div className="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-blue-400 rounded-full mix-blend-multiply filter blur-2xl opacity-50 animate-blob"></div>
-          <div className="absolute top-1/3 -right-20 w-[500px] h-[500px] bg-blue-300 rounded-full mix-blend-multiply filter blur-2xl opacity-50 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-1/4 left-1/2 w-[500px] h-[500px] bg-blue-500 rounded-full mix-blend-multiply filter blur-2xl opacity-50 animate-blob animation-delay-4000"></div>
-        </div>
-      </div>
-
-      {/* Container principal */}
-      <div className="relative z-10 container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-4xl mx-auto"
-        >
-          {/* Header */}
-          <div className="text-center mb-12">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="inline-flex items-center justify-center w-20 h-20 bg-gradient-primary rounded-3xl mb-6 shadow-xl"
-            >
-              <Sparkles className="w-10 h-10 text-white" />
-            </motion.div>
-            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+      <div className="w-full max-w-2xl">
+        <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl font-bold text-white">💰</span>
+            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
               Selecione seu Hub
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Escolha o espaço onde deseja gerenciar suas finanças. Você pode alternar entre hubs a qualquer momento.
-            </p>
-          </div>
-
-          {/* Grid de Hubs */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {hubsDisponiveis.map((hub, index) => {
-              const isSelected = selectedHubId === hub.id;
-              const hubType = hub.nome.toLowerCase().includes('pessoal') 
-                ? 'pessoal' 
-                : hub.nome.toLowerCase().includes('trabalho')
-                ? 'trabalho'
-                : hub.membros > 1
-                ? 'compartilhado'
-                : 'default';
-              
-              return (
-                <motion.div
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Olá, {usuario?.nome}! Escolha o hub que deseja acessar.
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {hubsDisponiveis.map((hub) => (
+                <div
                   key={hub.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className={`group relative overflow-hidden rounded-lg border-2 transition-all duration-200 cursor-pointer
+                    ${selectedHubId === hub.id 
+                      ? 'border-blue-500 bg-blue-50/50' 
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/25'
+                    }`}
+                  onClick={() => !isLoading && handleSelectHub(hub.id)}
                 >
-                  <Card 
-                    className={`
-                      glass-card border-0 shadow-lg hover-lift cursor-pointer transition-all duration-300
-                      ${isSelected ? 'ring-2 ring-primary shadow-xl' : 'hover:shadow-xl'}
-                    `}
-                    onClick={() => handleSelectHub(hub.id)}
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="p-3 rounded-xl bg-gradient-primary/10 text-primary">
-                          {hubIcons[hubType] || hubIcons.default}
-                        </div>
-                        <Badge 
-                          variant="secondary" 
-                          className={roleColors[hub.role]}
-                        >
-                          {roleTranslations[hub.role]}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-xl font-semibold">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
                         {hub.nome}
-                      </CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-2">
-                        <span className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          {hub.membros} {hub.membros === 1 ? 'membro' : 'membros'}
-                        </span>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button
-                        className={`
-                          w-full h-11 transition-all duration-300
-                          ${isSelected 
-                            ? 'btn-gradient' 
-                            : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
-                          }
-                        `}
-                        disabled={isLoading}
+                      </h3>
+                      <Badge 
+                        variant={hub.role === 'PROPRIETARIO' ? 'default' : 'secondary'}
+                        className={`text-xs ${
+                          hub.role === 'PROPRIETARIO' 
+                            ? 'bg-blue-100 text-blue-700 border-blue-200' 
+                            : 'bg-gray-100 text-gray-600 border-gray-200'
+                        }`}
                       >
-                        {isLoading && isSelected ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Acessando...
-                          </>
-                        ) : (
-                          <>
-                            {isSelected ? 'Acessando Hub' : 'Selecionar Hub'}
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+                        {hub.role === 'PROPRIETARIO' && 'Proprietário'}
+                        {hub.role === 'ADMINISTRADOR' && 'Administrador'}
+                        {hub.role === 'COLABORADOR' && 'Colaborador'}
+                        {hub.role === 'VISUALIZADOR' && 'Visualizador'}
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mb-4">
+                      {hub.role === 'PROPRIETARIO' && 'Você é o dono deste hub e tem controle total.'}
+                      {hub.role === 'ADMINISTRADOR' && 'Você pode gerenciar usuários e configurações.'}
+                      {hub.role === 'COLABORADOR' && 'Você pode criar e editar transações.'}
+                      {hub.role === 'VISUALIZADOR' && 'Você pode apenas visualizar dados.'}
+                    </p>
 
-            {/* Card para criar novo hub */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: hubsDisponiveis.length * 0.1 }}
-            >
-              <Card className="glass-card border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors cursor-pointer h-full">
-                <CardHeader className="h-full flex flex-col items-center justify-center text-center py-12">
-                  <div className="p-4 rounded-full bg-blue-50 text-blue-600 mb-4">
-                    <UserPlus className="w-8 h-8" />
+                    <Button
+                      className={`w-full transition-all duration-200 ${
+                        selectedHubId === hub.id && isLoading
+                          ? 'bg-blue-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                      }`}
+                      disabled={isLoading}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectHub(hub.id);
+                      }}
+                    >
+                      {selectedHubId === hub.id && isLoading ? (
+                        <div className="flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Acessando...
+                        </div>
+                      ) : (
+                        'Acessar Hub'
+                      )}
+                    </Button>
                   </div>
-                  <CardTitle className="text-lg text-muted-foreground">
-                    Criar Novo Hub
-                  </CardTitle>
-                  <CardDescription>
-                    Crie um novo espaço para gerenciar suas finanças
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            </motion.div>
-          </div>
 
-          {/* Footer info */}
-          <div className="mt-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              Dica: Você pode alternar entre hubs a qualquer momento usando o seletor no menu principal.
-            </p>
-          </div>
-        </motion.div>
+                  {/* Indicador visual de hover */}
+                  <div className={`absolute inset-0 bg-gradient-to-r from-blue-500/5 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none ${
+                    selectedHubId === hub.id ? 'opacity-100' : ''
+                  }`} />
+                </div>
+              ))}
+            </div>
+
+            {hubsDisponiveis.length === 1 && (
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-500">
+                  💡 Você tem acesso a apenas um hub. Clique acima para continuar.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Estilos para animações */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 } 

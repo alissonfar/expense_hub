@@ -37,7 +37,7 @@ interface OnboardingChecklistProps {
 export function OnboardingChecklist({ isFirstLogin = true, onDismiss }: OnboardingChecklistProps) {
   const router = useRouter();
   const [showModal, setShowModal] = useState(isFirstLogin);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
+  const [checklist] = useState<ChecklistItem[]>([
     {
       id: 'create-category',
       title: 'Cadastre sua primeira categoria',

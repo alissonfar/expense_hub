@@ -20,9 +20,9 @@ import {
 } from "@/components/ui/popover"
 
 interface ComboboxProps {
-  options: { label: string; value: any }[];
-  value?: any;
-  onChange: (value: any) => void;
+  options: { label: string; value: unknown }[];
+  value?: unknown;
+  onChange: (value: unknown) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
@@ -63,7 +63,7 @@ export function Combobox({
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
-                  key={option.value}
+                  key={String(option.value)}
                   value={option.label}
                   onSelect={() => {
                     onChange(option.value === value ? "" : option.value)

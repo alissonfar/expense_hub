@@ -7,8 +7,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
-  TooltipProps,
 } from 'recharts';
 import { GastoPorCategoria } from '@/hooks/useDashboard';
 import { motion } from 'framer-motion';
@@ -21,8 +19,15 @@ interface GraficoGastosPorCategoriaProps {
   periodo?: string;
 }
 
+// Interface para dados do tooltip
+interface TooltipData {
+  name: string;
+  value: number;
+  payload: { cor: string; total: number };
+}
+
 // Componente customizado para tooltip
-const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipData[] }) => {
   if (active && payload && payload.length) {
     const data = payload[0];
     return (
@@ -38,10 +43,10 @@ const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
           {new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
-          }).format(data.value as number)}
+          }).format(data.value)}
         </p>
         <p className="text-xs text-gray-500 mt-1">
-          {((data.value as number / data.payload.total) * 100).toFixed(1)}% do total
+          {((data.value / data.payload.total) * 100).toFixed(1)}% do total
         </p>
       </div>
     );
@@ -49,29 +54,7 @@ const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
   return null;
 };
 
-// Componente customizado para label
-const renderCustomLabel = (props: any) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
-  const RADIAN = Math.PI / 180;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  if (percent < 0.05) return null; // Não mostrar label se for menos de 5%
-
-  return (
-    <text 
-      x={x} 
-      y={y} 
-      fill="white" 
-      textAnchor={x > cx ? 'start' : 'end'} 
-      dominantBaseline="central"
-      className="text-sm font-medium"
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
 
 export function GraficoGastosPorCategoria({
   data,
@@ -168,7 +151,6 @@ export function GraficoGastosPorCategoria({
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={renderCustomLabel}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="valor"

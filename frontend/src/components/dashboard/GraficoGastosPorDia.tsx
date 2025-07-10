@@ -11,7 +11,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  TooltipProps,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,8 +26,12 @@ interface GraficoGastosPorDiaProps {
 }
 
 // Componente customizado para tooltip
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-  if (active && payload && payload.length) {
+interface TooltipPayload {
+  value: number;
+}
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+  if (active && payload && payload.length && label) {
     const date = parseISO(label);
     return (
       <div className="bg-white p-3 rounded-lg shadow-lg border border-blue-100">
