@@ -34,3 +34,33 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Problema Resolvido: TailwindCSS/PostCSS não aplicava estilos
+
+### Contexto
+Após atualização de dependências e mudanças no build (remoção do Turbopack, downgrade do Tailwind, limpeza de cache), o frontend Next.js passou a exibir as páginas sem qualquer estilização do TailwindCSS.
+
+### Diagnóstico Dinâmico (@investigacao.mdc)
+- Confirmado que o arquivo `globals.css` estava corretamente importado no `app/layout.tsx`.
+- O conteúdo de `globals.css` continha as diretivas do Tailwind (`@tailwind base;`, `@tailwind components;`, `@tailwind utilities;`).
+- O arquivo `tailwind.config.ts` estava correto e cobria todos os paths necessários.
+- **Descoberta:** Faltava o arquivo `postcss.config.js` na raiz do frontend. Sem ele, o Next.js não processa as diretivas do Tailwind, resultando em páginas sem estilo.
+
+### Solução
+1. Criado o arquivo `frontend/postcss.config.js` com o conteúdo:
+   ```js
+   module.exports = {
+     plugins: {
+       tailwindcss: {},
+       autoprefixer: {},
+     },
+   };
+   ```
+2. Garantido que as dependências `tailwindcss`, `autoprefixer` e `postcss` estavam instaladas.
+3. Rodado `npm run build` e `npm run start` para validar a aplicação dos estilos.
+
+### Resultado
+- O TailwindCSS voltou a funcionar normalmente em todo o frontend.
+- Documentação e histórico de troubleshooting atualizados para futuras referências.
+
+> **Dica:** Sempre verifique a existência do `postcss.config.js` ao debugar problemas de estilos com Tailwind em projetos Next.js.

@@ -293,37 +293,40 @@ Esta seção detalha a ordem de construção do frontend. Para cada etapa macro,
 
 ---
 
-## 🚀 IMPLEMENTAÇÃO - [STATUS: ⏳ Pendente]
+## 🚀 IMPLEMENTAÇÃO - [STATUS: 🟢 Em andamento]
 
-Esta seção servirá como um log de desenvolvimento. Conforme cada etapa do **PLANEJAMENTO** for concluída, as decisões técnicas, os desafios encontrados e as soluções aplicadas serão documentados aqui.
+### Estado Real do Frontend (Atualização @investigacao.mdc)
 
----
+- **Estrutura Base e Onboarding:** ✅ Concluído
+  - Projeto Next.js, TailwindCSS, Shadcn/UI configurados
+  - Layout global (`layout.tsx`), Header e Sidebar prontos
+  - OnboardingChecklist implementado
+- **Autenticação:** ✅ Concluído
+  - AuthContext, hooks e middleware prontos
+  - Páginas de login, registro e seleção de hub implementadas
+- **Dashboard:** ✅ Concluído
+  - Página do dashboard implementada
+  - Componentes: KPICard, GraficoGastosPorDia, GraficoGastosPorCategoria, TransacoesRecentes
+  - Hook useDashboard implementado
+- **Transações:** ✅ Concluído
+  - Página de transações implementada
+  - Componentes de tabela, formulário e UI prontos
+  - Hook useTransacoes implementado
+- **Pessoas/Membros:** 🟡 Parcial
+  - Hook usePessoas implementado
+  - Não há página/rota para membros
+- **Tags/Categorias:** 🟡 Parcial
+  - Hook useTags implementado
+  - Não há página/rota para tags/categorias
+- **Relatórios, Configurações e Outros Módulos:** ⏳ Pendente
+  - Não há páginas/rotas para relatórios, configurações, etc.
+- **Testes Automatizados:** ⏳ Pendente
+  - Não foram identificados testes unitários/integrados no frontend
 
-## 📊 RESUMO DO STATUS ATUAL
+### Resumo Atualizado
+- **Tudo que envolve autenticação, layout, onboarding, dashboard e transações está implementado.**
+- **Hooks para pessoas e tags existem, mas não há páginas/rotas para esses domínios.**
+- **Não há implementação para relatórios, membros, configurações, tags/categorias como páginas/rotas.**
+- **Testes automatizados não foram identificados.**
 
-### ✅ **PLANEJAMENTO CONCLUÍDO**
-- **Arquitetura Definida**: A estrutura do projeto, tecnologias e fluxo de dados estão estabelecidos.
-- **Guias de Implementação Prontos**: Documentos detalhados para os módulos principais (Onboarding, Dashboard, Transações) foram criados.
-
-### 📋 **PENDENTE**
-- **Implementação Completa**: Todas as etapas de codificação do frontend estão pendentes.
-- **Refinamento**: Responsividade, acessibilidade e testes.
-- **Documentação Final**: README para o desenvolvedor.
-
----
-
-## 🎯 PRÓXIMAS AÇÕES ESPECÍFICAS
-
-A implementação deve seguir a ordem definida na seção **Etapas de Implementação**:
-
-1.  **Estrutura Base e Onboarding**: Seguir `docs/00_visao_geral_e_ux.md`.
-2.  **Dashboard**: Seguir `docs/2025-07-07_dashboard_guide.md`.
-3.  **Módulo de Transações**: Seguir `docs/2025-07-06_crud_transacoes.md`.
-4.  **Outros Módulos Funcionais**: Desenvolver com base na API.
-5.  **Refinamento e Testes**: Aplicar testes e melhorias de qualidade.
-
----
-
-**STATUS**: ✅ **PLANEJAMENTO 100% CONCLUÍDO** - Pronto para iniciar a implementação do frontend.
-
-**PRÓXIMA AÇÃO**: Iniciar a **Etapa 1: Estrutura Base e Onboarding**. 
+> Atualização realizada via análise dinâmica do codebase (@investigacao.mdc, mcp sequential thinking). 
