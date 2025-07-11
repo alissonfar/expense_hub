@@ -6,13 +6,107 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Keyboard, FileText, Users, Tag, Calculator, Check, X } from 'lucide-react';
+import { Keyboard, FileText, Users, Tag, Calculator, Check, X, Calendar, DollarSign, MapPin, CreditCard, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useAuth';
+
+// Atualizar schema Zod para incluir participantes
+const participanteSchema = z.object({
+  nome: z.string().min(1, 'Nome obrigatório'),
+  valor_devido: z.number().min(0, 'Valor deve ser positivo'),
+});
+
+const transactionSchema = z.object({
+  descricao: z.string().min(3, 'Descrição obrigatória (mínimo 3 caracteres).'),
+  local: z.string().optional(),
+  valor_total: z.number().positive('O valor deve ser maior que zero.'),
+  data_transacao: z.string().min(1, 'Data obrigatória.'),
+  eh_parcelado: z.boolean().optional(),
+  total_parcelas: z.number().min(1).max(36).optional(),
+  observacoes: z.string().max(1000, 'Máximo 1000 caracteres.').optional(),
+  participantes: z.array(participanteSchema).min(1, 'Adicione pelo menos um participante'),
+  tags: z.array(z.string()).max(5, 'Máximo de 5 tags por transação').optional(),
+  // tags serão integradas na próxima etapa
+}).refine((data) => {
+  // Soma dos valores dos participantes deve ser igual ao valor total
+  const soma = data.participantes.reduce((acc, p) => acc + p.valor_devido, 0);
+  return Math.abs(soma - data.valor_total) < 0.01;
+}, {
+  message: 'A soma dos valores dos participantes deve ser igual ao valor total',
+  path: ['participantes'],
+});
+
+type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 // Estrutura visual inicial baseada no design do formulário antigo
 export default function TransactionForm() {
+  const { usuario } = useAuth();
   const [activeTab, setActiveTab] = useState('basico');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  const form = useForm<TransactionFormValues>({
+    resolver: zodResolver(transactionSchema),
+    defaultValues: {
+      descricao: '',
+      local: '',
+      valor_total: 0,
+      data_transacao: '',
+      eh_parcelado: false,
+      total_parcelas: 1,
+      observacoes: '',
+      participantes: [],
+      tags: [],
+    },
+    mode: 'onChange',
+  });
+
+  React.useEffect(() => {
+    if (usuario && form.getValues('participantes').length === 0) {
+      form.setValue('participantes', [{ nome: usuario.nome, valor_devido: Number(form.getValues('valor_total')) || 0 }]);
+    }
+    // eslint-disable-next-line
+  }, [usuario]);
+
+  // Mock de tags disponíveis
+  const availableTags = [
+    { id: '1', nome: 'Alimentação', cor: '#3b82f6' },
+    { id: '2', nome: 'Transporte', cor: '#f59e42' },
+    { id: '3', nome: 'Lazer', cor: '#10b981' },
+    { id: '4', nome: 'Saúde', cor: '#ef4444' },
+    { id: '5', nome: 'Educação', cor: '#a855f7' },
+    { id: '6', nome: 'Outros', cor: '#64748b' },
+  ];
+
+  const toggleTag = (tagId: string) => {
+    const tags = form.getValues('tags') || [];
+    if (tags.includes(tagId)) {
+      form.setValue('tags', tags.filter((id: string) => id !== tagId));
+    } else if (tags.length < 5) {
+      form.setValue('tags', [...tags, tagId]);
+    }
+  };
+
+  // Funções para adicionar/remover participantes
+  const addParticipante = () => {
+    form.setValue('participantes', [
+      ...form.getValues('participantes'),
+      { nome: '', valor_devido: 0 },
+    ]);
+  };
+  const removeParticipante = (index: number) => {
+    const participantes = [...form.getValues('participantes')];
+    participantes.splice(index, 1);
+    form.setValue('participantes', participantes);
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
@@ -141,16 +235,358 @@ export default function TransactionForm() {
 
             {/* Conteúdo das abas - placeholders para próxima etapa */}
             <TabsContent value="basico" className="space-y-4 mt-6">
-              <div className="text-muted-foreground">[Campos básicos do formulário aqui]</div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Descrição */}
+                <div className="space-y-2 md:col-span-2">
+                  <label htmlFor="descricao" className="flex items-center gap-2 font-medium">
+                    <FileText className="h-4 w-4" />
+                    Descrição *
+                  </label>
+                  <Input id="descricao" {...form.register('descricao')} />
+                  {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
+                </div>
+                {/* Local/Fonte */}
+                <div className="space-y-2">
+                  <label htmlFor="local" className="flex items-center gap-2 font-medium">
+                    <MapPin className="h-4 w-4" />
+                    Local/Fonte
+                  </label>
+                  <Input id="local" {...form.register('local')} />
+                </div>
+                {/* Valor Total */}
+                <div className="space-y-2">
+                  <label htmlFor="valor" className="flex items-center gap-2 font-medium">
+                    <DollarSign className="h-4 w-4" />
+                    Valor Total *
+                  </label>
+                  <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} />
+                  {form.formState.errors.valor_total && <p className="text-sm text-red-500">{form.formState.errors.valor_total.message}</p>}
+                </div>
+                {/* Data */}
+                <div className="space-y-2">
+                  <label htmlFor="data" className="flex items-center gap-2 font-medium">
+                    <Calendar className="h-4 w-4" />
+                    Data *
+                  </label>
+                  <Input id="data" type="date" {...form.register('data_transacao')} />
+                  {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
+                </div>
+                {/* Parcelamento */}
+                <div className="space-y-4 md:col-span-2">
+                  <Separator />
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="parcelado" {...form.register('eh_parcelado')} />
+                    <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
+                      <CreditCard className="h-4 w-4" />
+                      Parcelar este gasto
+                    </label>
+                  </div>
+                  {/* Total de Parcelas (condicional) */}
+                  <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
+                    <div className="space-y-2">
+                      <label htmlFor="parcelas">Total de Parcelas *</label>
+                      <Select value={String(form.watch('total_parcelas'))} onValueChange={value => form.setValue('total_parcelas', Number(value))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="1" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 36 }, (_, i) => i + 1).map(num => (
+                            <SelectItem key={num} value={num.toString()}>{num}x</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {form.formState.errors.total_parcelas && <p className="text-sm text-red-500">{form.formState.errors.total_parcelas.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label>Valor por Parcela</label>
+                      <div className="p-3 bg-background rounded border text-lg font-semibold">
+                        {form.watch('eh_parcelado') ? `R$ ${(Number(form.watch('valor_total') || 0) / Math.max(Number(form.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(form.watch('valor_total') || 0).toFixed(2)}`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Observações */}
+                <div className="space-y-2 md:col-span-2">
+                  <label htmlFor="observacoes" className="font-medium">Observações</label>
+                  <Textarea id="observacoes" {...form.register('observacoes')} className="min-h-[80px]" />
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="participantes" className="space-y-4 mt-6">
-              <div className="text-muted-foreground">[Gestão de participantes aqui]</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Participantes do Gasto</h3>
+                  <p className="text-sm text-muted-foreground">Defina quem vai participar e quanto cada pessoa deve pagar</p>
+                </div>
+                <Button type="button" variant="outline" onClick={addParticipante}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar
+                </Button>
+              </div>
+              {/* Calculadora rápida */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Calculadora Rápida</h4>
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      const participantes = form.getValues('participantes');
+                      const valorTotal = Number(form.getValues('valor_total'));
+                      if (participantes.length === 1) {
+                        form.setValue('participantes', [{ ...participantes[0], valor_devido: valorTotal }]);
+                      } else if (participantes.length > 1) {
+                        const valorPorPessoa = valorTotal / participantes.length;
+                        form.setValue('participantes', participantes.map((p, i) => ({ ...p, valor_devido: i === participantes.length - 1 ? valorTotal - valorPorPessoa * (participantes.length - 1) : valorPorPessoa })));
+                      }
+                    }}>
+                      <Calculator className="h-4 w-4 mr-2" />
+                      Dividir Igualmente
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Valor Total:</span>
+                      <div className="font-semibold">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Participantes:</span>
+                      <div className="font-semibold">{form.watch('participantes').length}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Soma Atual:</span>
+                      <div className={`font-semibold ${Math.abs((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0) - form.watch('valor_total')) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0)).toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Diferença:</span>
+                      <div className={`font-semibold ${Math.abs((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0) - form.watch('valor_total')) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(form.watch('valor_total') - (form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0)).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  {/* Feedback de balanceamento */}
+                  {form.formState.errors.participantes && (
+                    <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
+                      <AlertCircle className="h-4 w-4 inline mr-1" />
+                      {form.formState.errors.participantes.message as string}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              {/* Lista de participantes */}
+              <div className="space-y-3">
+                {form.watch('participantes').length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum participante adicionado</p>
+                    <p className="text-sm">Clique em "Adicionar" para incluir participantes</p>
+                  </div>
+                )}
+                {form.watch('participantes').map((participante, index) => (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Input
+                          className="w-40"
+                          placeholder="Nome"
+                          value={participante.nome}
+                          onChange={e => {
+                            const participantes = [...form.getValues('participantes')];
+                            participantes[index].nome = e.target.value;
+                            form.setValue('participantes', participantes);
+                          }}
+                        />
+                        <Input
+                          className="w-32"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Valor devido"
+                          value={participante.valor_devido}
+                          onChange={e => {
+                            const participantes = [...form.getValues('participantes')];
+                            participantes[index].valor_devido = parseFloat(e.target.value) || 0;
+                            form.setValue('participantes', participantes);
+                          }}
+                          {...form.register('participantes', { valueAsNumber: true })}
+                        />
+                        <div className="p-3 bg-muted rounded text-sm w-24 text-center">
+                          {form.watch('valor_total') > 0 ? `${((participante.valor_devido / form.watch('valor_total')) * 100).toFixed(1)}%` : '0%'}
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {/* Feedback de erro (placeholder) */}
+              {form.formState.errors.participantes && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 mt-2">
+                  <AlertCircle className="h-4 w-4 inline mr-1" />
+                  {form.formState.errors.participantes.message as string}
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="tags" className="space-y-4 mt-6">
-              <div className="text-muted-foreground">[Seleção de tags aqui]</div>
+              <div>
+                <h3 className="text-lg font-semibold">Tags e Categorias</h3>
+                <p className="text-sm text-muted-foreground">Selecione até 5 tags para categorizar esta transação</p>
+              </div>
+              {/* Grid de tags */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {availableTags.map(tag => (
+                  <Card
+                    key={tag.id}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      (form.watch('tags') || []).includes(tag.id)
+                        ? 'ring-2 ring-primary bg-primary/5'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    onClick={() => toggleTag(tag.id)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
+                        <span className="text-sm font-medium">{tag.nome}</span>
+                        {(form.watch('tags') || []).includes(tag.id) && (
+                          <Check className="h-4 w-4 text-primary ml-auto" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {/* Badges de tags selecionadas */}
+              {(form.watch('tags') || []).length > 0 && (
+                <div className="space-y-2">
+                  <label className="font-medium">Tags Selecionadas:</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(form.watch('tags') || []).map(tagId => {
+                      const tag = availableTags.find(t => t.id === tagId);
+                      return tag ? (
+                        <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
+                          {tag.nome}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-transparent"
+                            onClick={() => toggleTag(tagId)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Feedback de erro */}
+              {form.formState.errors.tags && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4 inline mr-1" />
+                  {form.formState.errors.tags.message as string}
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="resumo" className="space-y-4 mt-6">
-              <div className="text-muted-foreground">[Resumo da transação aqui]</div>
+              <div>
+                <h3 className="text-lg font-semibold">Resumo da Transação</h3>
+                <p className="text-sm text-muted-foreground">Revise todos os dados antes de salvar</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Informações Básicas */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Informações Básicas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <span className="text-sm text-muted-foreground">Tipo:</span>
+                      <div className="font-medium">Gasto</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Descrição:</span>
+                      <div className="font-medium">{form.watch('descricao')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Local/Fonte:</span>
+                      <div className="font-medium">{form.watch('local')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Valor:</span>
+                      <div className="font-medium text-lg">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Data:</span>
+                      <div className="font-medium">{form.watch('data_transacao')}</div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Parcelamento:</span>
+                      <div className="font-medium">{form.watch('eh_parcelado') ? `${form.watch('total_parcelas')}x` : 'À vista'}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Participantes e Tags */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Participantes e Tags
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <span className="text-sm text-muted-foreground">Participantes:</span>
+                      <div className="space-y-1 mt-1">
+                        {(form.watch('participantes') || []).map((participante, index) => (
+                          <div key={index} className="flex justify-between text-sm">
+                            <span>{participante.nome}</span>
+                            <span className="font-medium">R$ {Number(participante.valor_devido).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Tags:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(form.watch('tags') || []).map(tagId => {
+                          const tag = availableTags.find(t => t.id === tagId);
+                          return tag ? (
+                            <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
+                              {tag.nome}
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Observações:</span>
+                      <div className="text-sm bg-muted p-2 rounded mt-1">{form.watch('observacoes')}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              {/* Status de validação (placeholder) */}
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-5 w-5 text-green-600" />
+                    <span className="text-green-700 font-medium">Pronto para salvar</span>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* <Card className="border-red-200 bg-red-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                    <span className="text-red-700 font-medium">Verificar participantes</span>
+                  </div>
+                </CardContent>
+              </Card> */}
             </TabsContent>
           </Tabs>
           {/* Botões de ação */}
