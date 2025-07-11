@@ -71,7 +71,7 @@ export default function TransacoesPage() {
   const deleteTransacao = useDeleteTransacao();
   const duplicateTransacao = useDuplicateTransacao();
 
-  const transacoes = transacoesData?.data || [];
+  const transacoes = transacoesData?.data?.transacoes || [];
 
   // Handlers
   const handleSearch = (value: string) => {
@@ -80,10 +80,11 @@ export default function TransacoesPage() {
   };
 
   const handleFilterChange = (key: keyof TransacaoFilters, value: string | undefined) => {
+    const normalized = value === 'todos' ? undefined : value;
     setFilters(prev => ({
       ...prev,
-      [key]: value,
-      page: 1 // Reset to first page when filtering
+      [key]: normalized,
+      page: 1,
     }));
   };
 
@@ -291,7 +292,7 @@ export default function TransacoesPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Ações</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/transacoes/${transacao.id}`)}>
                 <Eye className="mr-2 h-4 w-4" />
                 Ver detalhes
               </DropdownMenuItem>
@@ -371,7 +372,7 @@ export default function TransacoesPage() {
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os tipos</SelectItem>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
                   <SelectItem value="GASTO">Gastos</SelectItem>
                   <SelectItem value="RECEITA">Receitas</SelectItem>
                 </SelectContent>
@@ -385,7 +386,7 @@ export default function TransacoesPage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="PENDENTE">Pendente</SelectItem>
                   <SelectItem value="PAGO_PARCIAL">Pago Parcial</SelectItem>
                   <SelectItem value="PAGO_TOTAL">Pago Total</SelectItem>
