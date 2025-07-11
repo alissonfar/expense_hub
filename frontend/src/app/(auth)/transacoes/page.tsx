@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRequireHub, usePermissions } from '@/hooks/useAuth';
 import { useTransacoes, useDeleteTransacao, useDuplicateTransacao } from '@/hooks/useTransacoes';
+import { useRouter } from 'next/navigation';
 
 import type { TransacaoFilters, Transacao } from '@/lib/types';
 import { DataTable } from '@/components/ui/data-table';
@@ -47,8 +48,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import TransactionForm from '@/components/transacoes/TransactionForm';
 
 export default function TransacoesPage() {
+  const router = useRouter();
   const [filters, setFilters] = useState<TransacaoFilters>({
     page: 1,
     limit: 20,
@@ -324,34 +327,11 @@ export default function TransacoesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transações</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas receitas e despesas
-          </p>
-        </div>
-        {canCreate() && (
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Transação
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[600px]">
-              <SheetHeader>
-                <SheetTitle>Nova Transação</SheetTitle>
-                <SheetDescription>
-                  Criar uma nova receita ou despesa
-                </SheetDescription>
-              </SheetHeader>
-              {/* Transaction Form will be implemented next */}
-              <div className="mt-6">
-                <p className="text-sm text-gray-500">Formulário será implementado na próxima etapa</p>
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
+        <h1 className="text-2xl font-bold">Transações</h1>
+        <Button variant="default" className="gap-2" onClick={() => router.push('/transacoes/nova')}>
+          <Plus className="w-4 h-4" />
+          Nova Transação
+        </Button>
       </div>
 
       {/* Filters and Search */}
