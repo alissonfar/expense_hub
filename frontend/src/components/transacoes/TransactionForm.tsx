@@ -11,34 +11,41 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+// (Label, Avatar) não usados atualmente; comentar para evitar linter
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
+import { useCreateTransacao } from '@/hooks/useTransacoes';
+import { useParticipantesAtivos } from '@/hooks/usePessoas';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation'; // Mantido apenas para Cancelar
+import { useEffect } from 'react';
 
 // Atualizar schema Zod para incluir participantes
 const participanteSchema = z.object({
   nome: z.string().min(1, 'Nome obrigatório'),
-  valor_devido: z.number().min(0, 'Valor deve ser positivo'),
+  valor_devido: z.preprocess((v) => Number(v) || 0, z.number().min(0, 'Valor deve ser positivo')),
 });
 
 const transactionSchema = z.object({
   descricao: z.string().min(3, 'Descrição obrigatória (mínimo 3 caracteres).'),
   local: z.string().optional(),
-  valor_total: z.number().positive('O valor deve ser maior que zero.'),
+  valor_total: z.preprocess((v) => Number(v) || 0, z.number().positive('O valor deve ser maior que zero.')),
   data_transacao: z.string().min(1, 'Data obrigatória.'),
   eh_parcelado: z.boolean().optional(),
   total_parcelas: z.number().min(1).max(36).optional(),
   observacoes: z.string().max(1000, 'Máximo 1000 caracteres.').optional(),
-  participantes: z.array(participanteSchema).min(1, 'Adicione pelo menos um participante'),
+  participantes: z.preprocess(
+    (v) => Array.isArray(v) ? v : [],
+    z.array(participanteSchema).min(1, 'Adicione pelo menos um participante')
+  ),
   tags: z.array(z.string()).max(5, 'Máximo de 5 tags por transação').optional(),
   // tags serão integradas na próxima etapa
 }).refine((data) => {
-  // Soma dos valores dos participantes deve ser igual ao valor total
-  const soma = data.participantes.reduce((acc, p) => acc + p.valor_devido, 0);
-  return Math.abs(soma - data.valor_total) < 0.01;
+  const participantes = Array.isArray(data.participantes) ? data.participantes : [];
+  const soma = participantes.reduce((acc, p) => acc + (typeof p.valor_devido === 'number' ? p.valor_devido : 0), 0);
+  return Math.abs(soma - (typeof data.valor_total === 'number' ? data.valor_total : 0)) < 0.01;
 }, {
   message: 'A soma dos valores dos participantes deve ser igual ao valor total',
   path: ['participantes'],
@@ -49,6 +56,10 @@ type TransactionFormValues = z.infer<typeof transactionSchema>;
 // Estrutura visual inicial baseada no design do formulário antigo
 export default function TransactionForm() {
   const { usuario } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const { data: participantesAtivos = [] } = useParticipantesAtivos();
+  const createTransacao = useCreateTransacao();
   const [activeTab, setActiveTab] = useState('basico');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -67,6 +78,7 @@ export default function TransactionForm() {
       tags: [],
     },
     mode: 'onChange',
+    shouldUnregister: false, // Mantém valores ao alternar abas/tabs
   });
 
   React.useEffect(() => {
@@ -97,19 +109,152 @@ export default function TransactionForm() {
 
   // Funções para adicionar/remover participantes
   const addParticipante = () => {
+    // Garante que o valor atual é sempre um array antes de espalhar
+    const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
     form.setValue('participantes', [
-      ...form.getValues('participantes'),
+      ...atuais,
       { nome: '', valor_devido: 0 },
     ]);
   };
   const removeParticipante = (index: number) => {
-    const participantes = [...form.getValues('participantes')];
+    const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
+    const participantes = [...atuais];
     participantes.splice(index, 1);
     form.setValue('participantes', participantes);
   };
 
+  // Garantir participantesArr sempre array e valores numéricos
+  const participantesArr = Array.isArray(form.watch('participantes')) ? form.watch('participantes').map(p => ({
+    ...p,
+    valor_devido: Number(p.valor_devido) || 0,
+    nome: p.nome || '',
+  })) : [];
+  const valorTotal = Number(form.watch('valor_total')) || 0;
+
+  // Handler de envio
+  const onSubmit = async (values: TransactionFormValues) => {
+    try {
+      // Mapear participantes para o formato da API { pessoa_id, valor_individual }
+      const participantesPayload = (values.participantes || []).map(p => {
+        const encontrado = participantesAtivos.find(pa => pa.nome && p.nome && pa.nome.toLowerCase() === p.nome.toLowerCase());
+        const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
+        return {
+          pessoa_id: pessoaId,
+          valor_devido: Number(p.valor_devido) || 0, // conforme API
+        };
+      });
+
+      const payload = {
+        descricao: values.descricao,
+        local: values.local || undefined,
+        valor_total: Number(values.valor_total),
+        data_transacao: values.data_transacao,
+        observacoes: values.observacoes || undefined,
+        eh_parcelado: Boolean(values.eh_parcelado),
+        total_parcelas: Number(values.total_parcelas || 1),
+        participantes: participantesPayload,
+        tags: (values.tags || []).map(t => Number(t)),
+      } as any; // cast para evitar conflito de tipos locais
+
+      await createTransacao.mutateAsync(payload);
+      toast({
+        title: 'Sucesso',
+        description: 'Transação criada com sucesso!',
+      });
+      setShowSuccess(true);
+      form.reset();
+      setActiveTab('basico');
+      // Focar no primeiro campo para agilizar próximo lançamento
+      setTimeout(() => {
+        form.setFocus('descricao');
+      }, 0);
+
+      // Ocultar mensagem de sucesso após alguns segundos
+      setTimeout(() => setShowSuccess(false), 4000);
+    } catch (error: any) {
+      console.error('Erro ao criar transação', error);
+      const mensagem = error?.response?.data?.error || error?.message || 'Não foi possível criar a transação';
+      toast({
+        title: 'Erro',
+        description: mensagem,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
+  const dividirIgualmente = async () => {
+    if (participantesArr.length === 0) return;
+    if (participantesArr.length === 1) {
+      form.setValue('participantes', [{ ...participantesArr[0], valor_devido: valorTotal }]);
+    } else {
+      const valorPorPessoa = valorTotal / participantesArr.length;
+      form.setValue('participantes', participantesArr.map((p, i) => ({
+        ...p,
+        valor_devido: i === participantesArr.length - 1 ? valorTotal - valorPorPessoa * (participantesArr.length - 1) : valorPorPessoa,
+      })));
+    }
+    await form.trigger('participantes');
+  };
+
+  // Registro de atalhos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl / Cmd + Enter -> Salvar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (form.formState.isValid && !createTransacao.isPending) {
+          form.handleSubmit(onSubmit)();
+        }
+      }
+
+      // Esc -> Cancelar ou fechar atalhos
+      if (e.key === 'Escape') {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+        } else {
+          router.back();
+        }
+      }
+
+      // F1 -> Toggle painel de atalhos
+      if (e.key === 'F1') {
+        e.preventDefault();
+        setShowShortcuts((prev) => !prev);
+      }
+
+      // Alt + Left/Right -> Navegar abas
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const tabs = ['basico', 'participantes', 'tags', 'resumo'];
+        const currentIndex = tabs.indexOf(activeTab);
+        if (currentIndex !== -1) {
+          const newIndex = e.key === 'ArrowLeft' ? currentIndex - 1 : currentIndex + 1;
+          if (newIndex >= 0 && newIndex < tabs.length) {
+            setActiveTab(tabs[newIndex]);
+          }
+        }
+      }
+
+      // Ctrl+D -> Dividir igualmente
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        dividirIgualmente();
+      }
+
+      // Ctrl+N -> Novo participante
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        addParticipante();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, form, createTransacao.isPending, dividirIgualmente, addParticipante, showShortcuts]);
+
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6">
       {/* Painel de Atalhos */}
       {showShortcuts && (
         <Card className="border-blue-200 bg-blue-50">
@@ -220,12 +365,12 @@ export default function TransactionForm() {
               <TabsTrigger value="participantes" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Participantes
-                <Badge variant="secondary" className="ml-1">0</Badge>
+                <Badge variant="secondary" className="ml-1">{form.watch('participantes').length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="tags" className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
                 Tags
-                <Badge variant="secondary" className="ml-1">0</Badge>
+                <Badge variant="secondary" className="ml-1">{(form.watch('tags') || []).length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="resumo" className="flex items-center gap-2">
                 <Calculator className="h-4 w-4" />
@@ -242,7 +387,7 @@ export default function TransactionForm() {
                     <FileText className="h-4 w-4" />
                     Descrição *
                   </label>
-                  <Input id="descricao" {...form.register('descricao')} />
+                  <Input id="descricao" {...form.register('descricao')} autoFocus />
                   {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
                 </div>
                 {/* Local/Fonte */}
@@ -328,16 +473,7 @@ export default function TransactionForm() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-medium">Calculadora Rápida</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={() => {
-                      const participantes = form.getValues('participantes');
-                      const valorTotal = Number(form.getValues('valor_total'));
-                      if (participantes.length === 1) {
-                        form.setValue('participantes', [{ ...participantes[0], valor_devido: valorTotal }]);
-                      } else if (participantes.length > 1) {
-                        const valorPorPessoa = valorTotal / participantes.length;
-                        form.setValue('participantes', participantes.map((p, i) => ({ ...p, valor_devido: i === participantes.length - 1 ? valorTotal - valorPorPessoa * (participantes.length - 1) : valorPorPessoa })));
-                      }
-                    }}>
+                    <Button type="button" variant="outline" size="sm" onClick={dividirIgualmente}>
                       <Calculator className="h-4 w-4 mr-2" />
                       Dividir Igualmente
                     </Button>
@@ -351,13 +487,15 @@ export default function TransactionForm() {
                       <span className="text-muted-foreground">Participantes:</span>
                       <div className="font-semibold">{form.watch('participantes').length}</div>
                     </div>
+                    {/* Corrigir Soma Atual */}
                     <div>
                       <span className="text-muted-foreground">Soma Atual:</span>
-                      <div className={`font-semibold ${Math.abs((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0) - form.watch('valor_total')) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0)).toFixed(2)}</div>
+                      <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
                     </div>
+                    {/* Corrigir Diferença */}
                     <div>
                       <span className="text-muted-foreground">Diferença:</span>
-                      <div className={`font-semibold ${Math.abs((form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0) - form.watch('valor_total')) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(form.watch('valor_total') - (form.watch('participantes') || []).reduce((acc, p) => acc + (p.valor_devido || 0), 0)).toFixed(2)}</div>
+                      <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(valorTotal - participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
                     </div>
                   </div>
                   {/* Feedback de balanceamento */}
@@ -378,7 +516,8 @@ export default function TransactionForm() {
                     <p className="text-sm">Clique em "Adicionar" para incluir participantes</p>
                   </div>
                 )}
-                {form.watch('participantes').map((participante, index) => (
+                {/* Corrigir Resumo dos participantes */}
+                {participantesArr.map((participante, index) => (
                   <Card key={index}>
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
@@ -387,7 +526,7 @@ export default function TransactionForm() {
                           placeholder="Nome"
                           value={participante.nome}
                           onChange={e => {
-                            const participantes = [...form.getValues('participantes')];
+                            const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
                             participantes[index].nome = e.target.value;
                             form.setValue('participantes', participantes);
                           }}
@@ -400,14 +539,13 @@ export default function TransactionForm() {
                           placeholder="Valor devido"
                           value={participante.valor_devido}
                           onChange={e => {
-                            const participantes = [...form.getValues('participantes')];
+                            const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
                             participantes[index].valor_devido = parseFloat(e.target.value) || 0;
                             form.setValue('participantes', participantes);
                           }}
-                          {...form.register('participantes', { valueAsNumber: true })}
                         />
                         <div className="p-3 bg-muted rounded text-sm w-24 text-center">
-                          {form.watch('valor_total') > 0 ? `${((participante.valor_devido / form.watch('valor_total')) * 100).toFixed(1)}%` : '0%'}
+                          {valorTotal > 0 ? `${((participante.valor_devido / valorTotal) * 100).toFixed(1)}%` : '0%'}
                         </div>
                         <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
                           <Trash2 className="h-4 w-4" />
@@ -541,7 +679,8 @@ export default function TransactionForm() {
                     <div>
                       <span className="text-sm text-muted-foreground">Participantes:</span>
                       <div className="space-y-1 mt-1">
-                        {(form.watch('participantes') || []).map((participante, index) => (
+                        {/* Corrigir Resumo dos participantes */}
+                        {participantesArr.map((participante, index) => (
                           <div key={index} className="flex justify-between text-sm">
                             <span>{participante.nome}</span>
                             <span className="font-medium">R$ {Number(participante.valor_devido).toFixed(2)}</span>
@@ -591,11 +730,11 @@ export default function TransactionForm() {
           </Tabs>
           {/* Botões de ação */}
           <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" onClick={() => router.back()}>
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button type="submit" className="min-w-[140px]">
+            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTransacao.isPending}>
               <Check className="h-4 w-4 mr-2" />
               Salvar Transação
               <kbd className="ml-2 px-1 py-0.5 bg-white/20 rounded text-xs">Ctrl+↵</kbd>
@@ -603,6 +742,6 @@ export default function TransactionForm() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </form>
   );
 } 
