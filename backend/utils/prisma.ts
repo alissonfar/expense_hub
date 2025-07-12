@@ -94,6 +94,8 @@ export function getExtendedPrismaClient(ctx: AuthContext) {
             case 'count':
             case 'updateMany':
             case 'deleteMany':
+            case 'aggregate':
+            case 'groupBy':
               newArgs.where = { AND: [newArgs.where, securityWhere] };
               break;
 

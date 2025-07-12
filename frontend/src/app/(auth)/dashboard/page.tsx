@@ -79,6 +79,21 @@ export default function DashboardPage() {
   // Verificar se deve mostrar visão simplificada para VISUALIZADOR
   const isVisualizador = roleAtual === 'VISUALIZADOR';
 
+  // Logs detalhados dos valores dos KPIs
+  console.log('[KPI] Receitas no Período (dashboardData.resumo.total_receitas):', dashboardData?.resumo?.total_receitas);
+  console.log('[KPI] Despesas no Período (dashboardData.resumo.total_gastos):', dashboardData?.resumo?.total_gastos);
+  console.log('[KPI] Saldo do Período (dashboardData.resumo.saldo_periodo):', dashboardData?.resumo?.saldo_periodo);
+  console.log('[KPI] Pendências (dashboardData.resumo.transacoes_pendentes):', dashboardData?.resumo?.transacoes_pendentes);
+  console.log('[KPI] Pessoas devedoras (dashboardData.resumo.pessoas_devedoras):', dashboardData?.resumo?.pessoas_devedoras);
+
+  // Logs detalhados do frontend para rastreamento
+  const { accessToken, hubAtual, usuario } = useAuth();
+  console.log('[FRONT] Usuário logado:', usuario);
+  console.log('[FRONT] Hub atual:', hubAtual);
+  console.log('[FRONT] AccessToken:', accessToken);
+  console.log('[FRONT] Parâmetros do dashboard:', { periodo, data_inicio: dateRange?.from, data_fim: dateRange?.to });
+  console.log('[FRONT] Dados brutos do dashboardData:', dashboardData);
+
   return (
     <div className="space-y-6">
       {/* Onboarding Checklist */}
@@ -158,7 +173,7 @@ export default function DashboardPage() {
         {!isVisualizador && (
           <KPICard
             title="Receitas no Período"
-            value={dashboardData?.resumo.total_receitas || 0}
+            value={dashboardData?.resumo.total_receitas}
             icon={TrendingUp}
             change={dashboardData?.comparativo?.receitas_variacao}
             valueColor="success"
@@ -168,7 +183,7 @@ export default function DashboardPage() {
         
         <KPICard
           title="Despesas no Período"
-          value={dashboardData?.resumo.total_gastos || 0}
+          value={dashboardData?.resumo.total_gastos}
           icon={TrendingDown}
           change={dashboardData?.comparativo?.gastos_variacao}
           valueColor="danger"
@@ -178,10 +193,10 @@ export default function DashboardPage() {
         {!isVisualizador && (
           <KPICard
             title="Saldo do Período"
-            value={dashboardData?.resumo.saldo_periodo || 0}
+            value={dashboardData?.resumo.saldo_periodo}
             icon={DollarSign}
             valueColor={
-              (dashboardData?.resumo.saldo_periodo || 0) >= 0 ? 'success' : 'danger'
+              (dashboardData?.resumo.saldo_periodo ?? 0) >= 0 ? 'success' : 'danger'
             }
             loading={loadingDashboard}
           />
@@ -189,9 +204,9 @@ export default function DashboardPage() {
         
         <KPICard
           title="Pendências"
-          value={dashboardData?.resumo.transacoes_pendentes || 0}
+          value={dashboardData?.resumo.transacoes_pendentes}
           icon={AlertCircle}
-          subtitle={`${dashboardData?.resumo.pessoas_devedoras || 0} pessoas`}
+          subtitle={`${dashboardData?.resumo.pessoas_devedoras ?? 0} pessoas`}
           loading={loadingDashboard}
         />
       </div>

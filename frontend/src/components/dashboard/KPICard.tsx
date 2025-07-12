@@ -101,12 +101,14 @@ export function KPICard({
                   valueColorClasses[valueColor]
                 )}
               >
-                {typeof value === 'number' 
+                {typeof value === 'number' && !isNaN(value)
                   ? new Intl.NumberFormat('pt-BR', {
                       style: 'currency',
                       currency: 'BRL'
                     }).format(value)
-                  : value
+                  : value !== undefined && value !== null
+                    ? value
+                    : '—'
                 }
               </motion.div>
               

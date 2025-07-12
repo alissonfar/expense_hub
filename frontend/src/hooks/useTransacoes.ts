@@ -62,7 +62,6 @@ export function useCreateTransacao() {
     onSuccess: () => {
       // Invalidar todas as queries de transações
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
-      
       // Invalidar queries do dashboard para atualizar métricas
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },

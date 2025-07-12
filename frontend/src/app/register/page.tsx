@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useGuestOnly } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 const registerSchema = z.object({
   nome: z.string()
@@ -23,6 +23,9 @@ const registerSchema = z.object({
   telefone: z.string()
     .optional()
     .refine((val) => !val || val.length >= 10, 'Telefone deve ter pelo menos 10 dígitos'),
+  nomeHub: z.string()
+    .min(1, 'Nome do hub é obrigatório')
+    .min(2, 'Nome do hub deve ter pelo menos 2 caracteres'),
   senha: z.string()
     .min(1, 'Senha é obrigatória')
     .min(6, 'Senha deve ter pelo menos 6 caracteres'),
@@ -37,7 +40,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const { register: registerUser } = useGuestOnly();
+  const { register: registerUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -58,7 +61,8 @@ export default function RegisterPage() {
         nome: data.nome,
         email: data.email,
         senha: data.senha,
-        telefone: data.telefone || undefined
+        telefone: data.telefone || undefined,
+        nomeHub: data.nomeHub
       };
       
       await registerUser(registerData);
@@ -141,6 +145,20 @@ export default function RegisterPage() {
                 )}
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="nomeHub">Nome do Hub</Label>
+                <Input
+                  id="nomeHub"
+                  type="text"
+                  placeholder="Nome do seu hub (ex: Minha Família, Meu Grupo)"
+                  {...register('nomeHub')}
+                  className={errors.nomeHub ? 'border-red-500' : ''}
+                />
+                {errors.nomeHub && (
+                  <p className="text-sm text-red-500">{errors.nomeHub.message}</p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="senha">Senha</Label>
                 <Input

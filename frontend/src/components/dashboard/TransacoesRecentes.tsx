@@ -135,7 +135,11 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                         <div className="flex items-center gap-3 mt-1">
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })}
+                            {transacao.data ? (
+                              format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })
+                            ) : (
+                              'Data não informada'
+                            )}
                           </span>
                           {transacao.tag && (
                             <Badge 
@@ -211,7 +215,11 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
-                    {format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })}
+                    {transacao.data ? (
+                      format(parseISO(transacao.data), "d 'de' MMM", { locale: ptBR })
+                    ) : (
+                      'Data não informada'
+                    )}
                   </span>
                   {transacao.tag && (
                     <Badge 

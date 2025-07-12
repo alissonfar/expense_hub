@@ -32,11 +32,19 @@ interface TooltipPayload {
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
   if (active && payload && payload.length && label) {
-    const date = parseISO(label);
+    let dateString = label;
+    let date: Date | null = null;
+    try {
+      date = dateString ? parseISO(dateString) : null;
+    } catch {
+      date = null;
+    }
     return (
       <div className="bg-white p-3 rounded-lg shadow-lg border border-blue-100">
         <p className="text-sm font-medium text-gray-900">
-          {format(date, "d 'de' MMMM", { locale: ptBR })}
+          {date && !isNaN(date.getTime())
+            ? format(date, "d 'de' MMMM", { locale: ptBR })
+            : 'Data inválida'}
         </p>
         <p className="text-sm text-blue-600 font-bold mt-1">
           {new Intl.NumberFormat('pt-BR', {
@@ -96,11 +104,19 @@ export function GraficoGastosPorDia({
   }
 
   // Formatar dados para o gráfico
-  const formattedData = data.map(item => ({
-    ...item,
-    dataFormatada: format(parseISO(item.data), 'dd/MM', { locale: ptBR }),
-    diaSemana: format(parseISO(item.data), 'EEE', { locale: ptBR }),
-  }));
+  const formattedData = data.map(item => {
+    let date: Date | null = null;
+    try {
+      date = item.data ? parseISO(item.data) : null;
+    } catch {
+      date = null;
+    }
+    return {
+      ...item,
+      dataFormatada: date && !isNaN(date.getTime()) ? format(date, 'dd/MM', { locale: ptBR }) : 'Data inválida',
+      diaSemana: date && !isNaN(date.getTime()) ? format(date, 'EEE', { locale: ptBR }) : '',
+    };
+  });
 
   // Calcular valores para estatísticas
   const totalGasto = data.reduce((sum, item) => sum + item.valor, 0);

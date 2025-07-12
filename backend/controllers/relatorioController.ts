@@ -240,6 +240,10 @@ export const getSaldos = async (req: Request, res: Response): Promise<void> => {
  */
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
+    // LOG: Contexto de autenticação recebido
+    console.log('[BACKEND][DASHBOARD] req.auth:', req.auth);
+    // LOG: Parâmetros recebidos na query
+    console.log('[BACKEND][DASHBOARD] req.query:', req.query);
     // Usar Prisma Client estendido com isolamento multi-tenant
     const prisma = getExtendedPrismaClient(req.auth!);
     
@@ -296,8 +300,11 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     if (apenas_confirmadas) {
       whereBase.confirmado = true;
     }
+    // LOG: Filtro base das queries
+    console.log('[BACKEND][DASHBOARD] whereBase:', whereBase);
 
     // Buscar métricas principais
+    console.log('[BACKEND][DASHBOARD] Query Gastos:', { ...whereBase, tipo: 'GASTO' });
     const [gastosStats, receitasStats, transacoesPendentes, pessoasComPendencias] = await Promise.all([
       // Gastos do período
       prisma.transacoes.aggregate({
@@ -522,6 +529,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
         }, { pendente: 0, pagoparcial: 0, pagototal: 0 })
       };
     }
+
+    // LOG: Resumo final retornado
+    console.log('[BACKEND][DASHBOARD] Resumo final:', resumo);
 
     res.json({
       success: true,

@@ -72,7 +72,31 @@ export function useDashboard(params: DashboardParams = {}) {
       const response = await api.get('/relatorios/dashboard', {
         params: defaultParams,
       });
-      return response.data.data;
+      const data = response.data.data;
+      // Mapeamento snake_case -> camelCase para compatibilidade
+      return {
+        resumo: {
+          total_gastos: data.resumo?.total_gastos ?? data.resumo?.totalGastos ?? 0,
+          total_receitas: data.resumo?.total_receitas ?? data.resumo?.totalReceitas ?? 0,
+          saldo_periodo: data.resumo?.saldo_periodo ?? data.resumo?.saldoPeriodo ?? 0,
+          transacoes_pendentes: data.resumo?.transacoes_pendentes ?? data.resumo?.transacoesPendentes ?? 0,
+          pessoas_devedoras: data.resumo?.pessoas_devedoras ?? data.resumo?.pessoasDevedoras ?? 0,
+        },
+        comparativo: data.comparativo && {
+          gastos_variacao: data.comparativo.gastos_variacao ?? data.comparativo.gastosVariacao ?? 0,
+          receitas_variacao: data.comparativo.receitas_variacao ?? data.comparativo.receitasVariacao ?? 0,
+          transacoes_variacao: data.comparativo.transacoes_variacao ?? data.comparativo.transacoesVariacao ?? 0,
+        },
+        graficos: data.graficos && {
+          gastosPorDia: data.graficos.gastos_por_dia ?? data.graficos.gastosPorDia ?? [],
+          gastosPorCategoria: data.graficos.gastos_por_categoria ?? data.graficos.gastosPorCategoria ?? [],
+        },
+        periodo: {
+          tipo: data.periodo?.tipo,
+          data_inicio: data.periodo?.data_inicio ?? data.periodo?.dataInicio,
+          data_fim: data.periodo?.data_fim ?? data.periodo?.dataFim,
+        },
+      };
     },
     enabled: !!accessToken,
     staleTime: 1000 * 60 * 5, // 5 minutos
@@ -107,7 +131,11 @@ export function useTransacoesRecentes(limit = 5) {
           ordem: 'desc',
         },
       });
-      return response.data.data.transacoes;
+      // Garantir que valor é sempre número
+      return response.data.data.transacoes.map((transacao: any) => ({
+        ...transacao,
+        valor: Number(transacao.valor ?? transacao.valor_total ?? 0),
+      }));
     },
     enabled: !!accessToken,
     staleTime: 1000 * 60 * 2, // 2 minutos
