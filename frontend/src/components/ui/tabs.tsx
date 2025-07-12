@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const TabsContext = React.createContext<{
@@ -22,9 +21,7 @@ export function Tabs({ value, onValueChange, className, children, ...props }: Ta
   );
 }
 
-interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export function TabsList({ className, ...props }: TabsListProps) {
+export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       role="tablist"

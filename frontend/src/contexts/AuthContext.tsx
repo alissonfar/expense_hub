@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { api } from '@/lib/api';
+import { hubsApi } from '@/lib/api';
 import { UserIdentifier, Hub, HubInfo, LoginResponse, SelectHubResponse } from '@/lib/types';
 
 interface AuthContextData {
@@ -37,6 +38,7 @@ interface AuthContextData {
   // Métodos de perfil
   atualizarPerfil: (data: Partial<UserIdentifier>) => Promise<UserIdentifier>;
   alterarSenha: (senhaAtual: string, novaSenha: string) => Promise<void>;
+  createHub: (nome: string) => Promise<Hub>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      // console.error('Erro ao salvar no localStorage:', error);
+      console.error('[AuthContext][saveToStorage] Erro ao salvar no localStorage:', key, error);
     }
   }, []);
 
@@ -82,7 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      // console.error('Erro ao ler do localStorage:', error);
+      console.error('[AuthContext][loadFromStorage] Erro ao ler do localStorage:', key, error);
       return null;
     }
   };
@@ -100,38 +102,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (newRefreshToken) {
       setRefreshToken(newRefreshToken);
     }
-    
     // Salvar no localStorage
-    saveToStorage(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
+    localStorage.setItem('accessToken', newAccessToken);
     if (newRefreshToken) {
-      saveToStorage(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
     }
-    
-    // Configurar header Authorization
+    // Configurar header Authorization global
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  }, [saveToStorage, STORAGE_KEYS]);
+  }, []);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
     try {
       const response = await api.post('/auth/login', { email, senha });
       const data = response.data.data as LoginResponse;
-      
       setUsuario(data.user);
       setHubsDisponiveis(data.hubs);
-      setRefreshToken(data.refreshToken);
-      
-      saveToStorage(STORAGE_KEYS.USUARIO, data.user);
-      saveToStorage(STORAGE_KEYS.HUBS_DISPONIVEIS, data.hubs);
-      saveToStorage(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
-      
+      updateTokens('', data.refreshToken); // accessToken só será obtido após selectHub
+      localStorage.setItem('refreshToken', data.refreshToken); // compatibilidade
       // Sincronizar com cookies imediatamente
       document.cookie = `@PersonalExpenseHub:refreshToken=${data.refreshToken}; path=/; max-age=2592000; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:usuario=${JSON.stringify(data.user)}; path=/; max-age=2592000; SameSite=Strict`;
-      
       return data;
     } catch (error) {
-      // console.error('[AuthContext] login: erro', error);
+      console.error('[AuthContext][login] Erro:', error);
       throw error;
     }
   };
@@ -139,29 +133,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de seleção de hub (2ª etapa)
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
-      if (!refreshToken) {
-        // console.warn('[AuthContext] selectHub: refreshToken ausente');
-        throw new Error('Token de refresh não encontrado');
+      // Priorizar accessToken para seleção de hub
+      const tokenToUse = accessToken || refreshToken || localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+      if (!tokenToUse) {
+        throw new Error('Token de autenticação não encontrado');
       }
-
       const response = await api.post('/auth/select-hub', 
         { hubId },
         {
           headers: {
-            Authorization: `Bearer ${refreshToken}`
+            Authorization: `Bearer ${tokenToUse}`
           }
         }
       );
-      
       const data = response.data.data as SelectHubResponse;
-      
-      // Não precisamos mais converter aqui, pois o backend retorna hubContext
-      // que será convertido após a resposta
-      
-      // Atualizar tokens (selectHub não retorna refreshToken)
       updateTokens(data.accessToken);
-      
-      // Converter hubContext para Hub
       const hubCompleto: Hub = {
         id: data.hubContext.id,
         nome: data.hubContext.nome,
@@ -169,21 +155,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      
       setHubAtual(hubCompleto);
       setRoleAtual(data.hubContext.role);
       saveToStorage(STORAGE_KEYS.HUB_ATUAL, hubCompleto);
       saveToStorage('@PersonalExpenseHub:roleAtual', data.hubContext.role);
-      
-      // Sincronizar com cookies imediatamente
       document.cookie = `@PersonalExpenseHub:accessToken=${data.accessToken}; path=/; max-age=3600; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubCompleto)}; path=/; max-age=2592000; SameSite=Strict`;
-      
       setIsAuthenticated(true);
-      
       return data;
     } catch (error) {
-      // console.error('[AuthContext] selectHub: erro', error);
+      console.error('[AuthContext][selectHub] Erro:', error, {
+        accessToken: accessToken || localStorage.getItem('accessToken'),
+        refreshToken: refreshToken || localStorage.getItem('refreshToken'),
+        localStorage: localStorage.getItem('refreshToken'),
+        cookie: document.cookie
+      });
       throw error;
     }
   };
@@ -199,9 +185,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
       }
     } catch (error) {
-      // console.error('Erro ao fazer logout:', error);
+      console.error('[AuthContext][logout] Erro ao fazer logout:', error);
     } finally {
-      // Limpar estado
       setIsAuthenticated(false);
       setUsuario(null);
       setHubAtual(null);
@@ -209,20 +194,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setRoleAtual(null);
       setAccessToken(null);
       setRefreshToken(null);
-      
-      // Limpar localStorage
       clearStorage();
-      
-      // Limpar cookies
       document.cookie = '@PersonalExpenseHub:accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = '@PersonalExpenseHub:refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = '@PersonalExpenseHub:usuario=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = '@PersonalExpenseHub:hubAtual=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      
-      // Remover header Authorization
       delete api.defaults.headers.Authorization;
+      // Remover interceptor definitivamente
+      if (responseInterceptorId.current !== null) {
+        api.interceptors.response.eject(responseInterceptorId.current);
+        responseInterceptorId.current = null;
+      }
     }
-  }, [accessToken, clearStorage]);
+  }, [accessToken, clearStorage, refreshToken]);
 
   // Função de refresh token
   const refreshAccessToken = useCallback(async (): Promise<string> => {
@@ -230,20 +214,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!refreshToken) {
         throw new Error('Token de refresh não encontrado');
       }
-
       const response = await api.post('/auth/refresh', {}, {
         headers: {
           Authorization: `Bearer ${refreshToken}`
         }
       });
-      
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
-      
       updateTokens(newAccessToken, newRefreshToken);
-      
       return newAccessToken;
     } catch (error) {
-      // Se o refresh falhar, fazer logout
+      console.error('[AuthContext][refreshAccessToken] Erro:', error, {
+        refreshToken,
+        localStorage: localStorage.getItem('refreshToken'),
+        cookie: document.cookie
+      });
       await logout();
       throw error;
     }
@@ -296,6 +280,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Função para criar novo hub
+  const createHub = async (nome: string) => {
+    // Priorizar accessToken, mas usar refreshToken se necessário
+    const token = accessToken || refreshToken || localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+    if (!token) throw new Error('Token de autenticação não encontrado para criar hub');
+    const novoHub = await hubsApi.create({ nome }, token);
+    setHubsDisponiveis((prev) => {
+      const novaLista = [...(prev || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' }];
+      return novaLista;
+    });
+    return novoHub;
+  };
+
   // Sincronizar dados com cookies
   const syncWithCookies = useCallback(() => {
     if (refreshToken) {
@@ -312,33 +309,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [refreshToken, accessToken, usuario, hubAtual]);
 
-  // Configurar interceptor para refresh automático
+  // Adicione uma ref para armazenar o id do interceptor
+  const responseInterceptorId = useRef<number | null>(null);
+
+  // Configurar interceptor para refresh automático apenas uma vez
   useEffect(() => {
-    const responseInterceptor = api.interceptors.response.use(
+    if (responseInterceptorId.current !== null) {
+      api.interceptors.response.eject(responseInterceptorId.current);
+    }
+    responseInterceptorId.current = api.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
-        
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
           try {
             const newAccessToken = await refreshAccessToken();
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return api(originalRequest);
           } catch (refreshError) {
+            // Remover interceptor ao falhar
+            if (responseInterceptorId.current !== null) {
+              api.interceptors.response.eject(responseInterceptorId.current);
+              responseInterceptorId.current = null;
+            }
+            await logout();
             return Promise.reject(refreshError);
           }
         }
-        
         return Promise.reject(error);
       }
     );
-
     return () => {
-      api.interceptors.response.eject(responseInterceptor);
+      if (responseInterceptorId.current !== null) {
+        api.interceptors.response.eject(responseInterceptorId.current);
+        responseInterceptorId.current = null;
+      }
     };
-  }, [refreshToken, refreshAccessToken]);
+  }, []);
 
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
@@ -398,7 +406,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     ativarConvite,
     atualizarPerfil,
-    alterarSenha
+    alterarSenha,
+    createHub, // adicionar ao contexto
   };
 
   return (

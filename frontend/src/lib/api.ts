@@ -32,7 +32,6 @@ const createApiClient = (): AxiosInstance => {
       return response;
     },
     async (error: unknown) => {
-      // Type guard para originalRequest
       let originalRequest: Record<string, unknown> | undefined = undefined;
       if (
         typeof error === 'object' &&
@@ -42,8 +41,6 @@ const createApiClient = (): AxiosInstance => {
       ) {
         originalRequest = (error as { config: Record<string, unknown> }).config;
       }
-
-      // Tratamento de token expirado
       if (
         typeof error === 'object' &&
         error !== null &&
@@ -51,52 +48,8 @@ const createApiClient = (): AxiosInstance => {
         (error as { response?: { status?: number } }).response?.status === 401 &&
         originalRequest && !originalRequest._retry
       ) {
-        originalRequest._retry = true;
-
-        try {
-          const refreshToken = localStorage.getItem('refreshToken');
-          if (refreshToken) {
-            const response = await axios.post(
-              `${API_BASE_URL}/auth/refresh`,
-              {},
-              {
-                headers: {
-                  Authorization: `Bearer ${refreshToken}`,
-                },
-              }
-            );
-
-            // Type guard para response.data
-            let accessToken = '';
-            if (
-              response &&
-              typeof response === 'object' &&
-              'data' in response &&
-              response.data &&
-              typeof response.data === 'object' &&
-              'data' in response.data &&
-              (response.data as { data?: { accessToken?: string } }).data?.accessToken
-            ) {
-              accessToken = (response.data as { data: { accessToken: string } }).data.accessToken;
-            }
-            if (accessToken) {
-              localStorage.setItem('accessToken', accessToken);
-              if (originalRequest.headers && typeof originalRequest.headers === 'object') {
-                (originalRequest.headers as Record<string, string>).Authorization = `Bearer ${accessToken}`;
-              }
-              return client(originalRequest as AxiosRequestConfig);
-            }
-          }
-        } catch {
-          // Refresh token também expirou, redirecionar para login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          localStorage.removeItem('currentHub');
-          window.location.href = '/login';
-        }
+        return Promise.reject(error);
       }
-
       return Promise.reject(error);
     }
   );
@@ -196,6 +149,15 @@ export const configuracoesApi = {
   getComportamento: () => apiRequest.get('/configuracoes/comportamento'),
   getAlertas: () => apiRequest.get('/configuracoes/alertas'),
   getRelatorios: () => apiRequest.get('/configuracoes/relatorios'),
+};
+
+// Funções específicas da API - Hubs
+export const hubsApi = {
+  create: async (data: { nome: string }, token?: string) => {
+    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+    const response = await api.post('/hubs', data, config);
+    return response.data.data;
+  },
 };
 
 // Utilitários para tratamento de erros

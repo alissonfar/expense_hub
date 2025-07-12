@@ -85,6 +85,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[BACKEND][LOGIN] Headers recebidos:', req.headers);
+    console.log('[BACKEND][LOGIN] Payload recebido:', req.body);
     const { email, senha }: LoginInput = req.body;
 
     const user = await prisma.pessoas.findUnique({
@@ -137,6 +139,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     };
 
     const refreshToken = generateRefreshToken(userIdentifier);
+    console.log('[LOGIN] refreshToken gerado:', refreshToken);
     
     const hubs: HubInfo[] = user.hubs.map((membro: any) => ({
       id: membro.hub.id,
@@ -154,6 +157,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       },
       timestamp: new Date().toISOString(),
     });
+    console.log('[BACKEND][LOGIN] Resposta enviada:', {
+      user: userIdentifier,
+      hubs,
+      refreshToken
+    });
 
   } catch (error) {
     console.error('Erro no login:', error);
@@ -167,16 +175,26 @@ export const login = async (req: Request, res: Response): Promise<void> => {
  */
 export const selectHub = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('[BACKEND][SELECT_HUB] Headers recebidos:', req.headers);
+    console.log('[BACKEND][SELECT_HUB] Payload recebido:', req.body);
     const { hubId }: SelectHubInput = req.body;
     const { authorization } = req.headers;
     const refreshToken = extractTokenFromHeader(authorization);
+    console.log('[SELECT_HUB] refreshToken recebido:', refreshToken);
 
     if (!refreshToken) {
         res.status(401).json({ error: 'TokenInvalido', message: 'Refresh token é obrigatório.' });
         return;
     }
 
-    const userIdentifier = verifyRefreshToken(refreshToken);
+    let userIdentifier;
+    try {
+      userIdentifier = verifyRefreshToken(refreshToken);
+      console.log('[BACKEND][SELECT_HUB] userIdentifier extraído do refreshToken:', userIdentifier);
+    } catch (e) {
+      console.error('[BACKEND][SELECT_HUB] Erro ao verificar refreshToken:', refreshToken, e);
+      throw e;
+    }
 
     // Verificar se o usuário realmente pertence ao Hub solicitado
     const membership = await prisma.membros_hub.findUnique({
@@ -211,6 +229,7 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
     };
     
     const accessToken = generateAccessToken(authContext);
+    console.log('[BACKEND][SELECT_HUB] accessToken gerado:', accessToken);
 
     res.json({
       success: true,
@@ -220,6 +239,10 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
         hubContext
       },
       timestamp: new Date().toISOString(),
+    });
+    console.log('[BACKEND][SELECT_HUB] Resposta enviada:', {
+      accessToken,
+      hubContext
     });
 
   } catch (error) {

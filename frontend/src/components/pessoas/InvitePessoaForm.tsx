@@ -50,16 +50,17 @@ export function InvitePessoaForm({ onSuccess }: { onSuccess?: () => void }) {
         role: values.role,
         dataAccessPolicy: values.role === 'COLABORADOR' ? values.dataAccessPolicy : undefined,
         nome: values.nome,
-      } as any);
+      });
       toast({ title: 'Convite enviado!', description: 'A pessoa receberá um email para ativar a conta.' });
       setShowSuccess(true);
       form.reset();
       onSuccess?.();
       setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       toast({
         title: 'Erro ao convidar',
-        description: error?.response?.data?.message || error?.message || 'Não foi possível enviar o convite.',
+        description: err?.response?.data?.message || err?.message || 'Não foi possível enviar o convite.',
         variant: 'destructive',
       });
     }
@@ -99,7 +100,7 @@ export function InvitePessoaForm({ onSuccess }: { onSuccess?: () => void }) {
           <div>
             <Select
               value={form.watch('role')}
-              onValueChange={(value) => form.setValue('role', value as any)}
+              onValueChange={(value) => form.setValue('role', value as InviteFormValues['role'])}
               disabled={invitePessoa.isPending}
             >
               <SelectTrigger>
@@ -120,7 +121,7 @@ export function InvitePessoaForm({ onSuccess }: { onSuccess?: () => void }) {
             <div>
               <Select
                 value={form.watch('dataAccessPolicy')}
-                onValueChange={(value) => form.setValue('dataAccessPolicy', value as any)}
+                onValueChange={(value) => form.setValue('dataAccessPolicy', value as InviteFormValues['dataAccessPolicy'])}
                 disabled={invitePessoa.isPending}
               >
                 <SelectTrigger>

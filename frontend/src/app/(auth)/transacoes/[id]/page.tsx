@@ -1,11 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransacao, useDeleteTransacao, useUpdateTransacao } from '@/hooks/useTransacoes';
+import { useTransacao, useDeleteTransacao } from '@/hooks/useTransacoes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, DollarSign, X, Users, Tag, Trash, Edit2 } from 'lucide-react';
+import { Check, DollarSign, Users, Tag, Trash, Edit2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import TransactionForm from '@/components/transacoes/TransactionForm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -24,7 +24,7 @@ export default function TransacaoDetalhePage({ params }: { params: { id: string 
       await deleteMutation.mutateAsync(id);
       toast({ title: 'Transação excluída', description: 'Movida para a lixeira.' });
       router.push('/transacoes');
-    } catch (error) {
+    } catch {
       toast({ title: 'Erro', description: 'Não foi possível excluir.', variant: 'destructive' });
     }
   };

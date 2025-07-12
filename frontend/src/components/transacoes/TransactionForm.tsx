@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -108,14 +108,14 @@ export default function TransactionForm() {
   };
 
   // Funções para adicionar/remover participantes
-  const addParticipante = () => {
+  const addParticipante = useCallback(() => {
     // Garante que o valor atual é sempre um array antes de espalhar
     const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
     form.setValue('participantes', [
       ...atuais,
       { nome: '', valor_devido: 0 },
     ]);
-  };
+  }, [form]);
   const removeParticipante = (index: number) => {
     const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
     const participantes = [...atuais];
@@ -132,7 +132,7 @@ export default function TransactionForm() {
   const valorTotal = Number(form.watch('valor_total')) || 0;
 
   // Handler de envio
-  const onSubmit = async (values: TransactionFormValues) => {
+  const onSubmit = useCallback(async (values: TransactionFormValues) => {
     try {
       // Mapear participantes para o formato da API { pessoa_id, valor_individual }
       const participantesPayload = (values.participantes || []).map(p => {
@@ -154,7 +154,7 @@ export default function TransactionForm() {
         total_parcelas: Number(values.total_parcelas || 1),
         participantes: participantesPayload,
         tags: (values.tags || []).map(t => Number(t)),
-      } as any; // cast para evitar conflito de tipos locais
+      };
 
       await createTransacao.mutateAsync(payload);
       toast({
@@ -171,18 +171,19 @@ export default function TransactionForm() {
 
       // Ocultar mensagem de sucesso após alguns segundos
       setTimeout(() => setShowSuccess(false), 4000);
-    } catch (error: any) {
-      const mensagem = error?.response?.data?.error || error?.message || 'Não foi possível criar a transação';
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } }; message?: string };
+      const mensagem = err?.response?.data?.error || err?.message || 'Não foi possível criar a transação';
       toast({
         title: 'Erro',
         description: mensagem,
         variant: 'destructive',
       });
     }
-  };
+  }, [participantesAtivos, usuario, createTransacao, toast, form]);
 
   // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
-  const dividirIgualmente = async () => {
+  const dividirIgualmente = useCallback(async () => {
     if (participantesArr.length === 0) return;
     if (participantesArr.length === 1) {
       form.setValue('participantes', [{ ...participantesArr[0], valor_devido: valorTotal }]);
@@ -194,7 +195,7 @@ export default function TransactionForm() {
       })));
     }
     await form.trigger('participantes');
-  };
+  }, [form, participantesArr, valorTotal]);
 
   // Registro de atalhos de teclado
   useEffect(() => {
@@ -250,7 +251,7 @@ export default function TransactionForm() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, form, createTransacao.isPending, dividirIgualmente, addParticipante, showShortcuts]);
+  }, [activeTab, form, createTransacao.isPending, dividirIgualmente, addParticipante, showShortcuts, onSubmit, router]);
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6">
@@ -512,7 +513,7 @@ export default function TransactionForm() {
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Nenhum participante adicionado</p>
-                    <p className="text-sm">Clique em "Adicionar" para incluir participantes</p>
+                    <p className="text-sm">Clique em &quot;Adicionar&quot; para incluir participantes</p>
                   </div>
                 )}
                 {/* Corrigir Resumo dos participantes */}

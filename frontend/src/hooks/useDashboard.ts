@@ -132,9 +132,9 @@ export function useTransacoesRecentes(limit = 5) {
         },
       });
       // Garantir que valor é sempre número
-      return response.data.data.transacoes.map((transacao: any) => ({
+      return response.data.data.transacoes.map((transacao: unknown) => ({
         ...transacao,
-        valor: Number(transacao.valor ?? transacao.valor_total ?? 0),
+        valor: Number((transacao as TransacaoRecente).valor ?? (transacao as TransacaoRecente).valor_total ?? 0),
       }));
     },
     enabled: !!accessToken,

@@ -76,7 +76,6 @@ export const listTags = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao listar tags:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível listar as tags',
@@ -167,7 +166,6 @@ export const createTag = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao criar tag:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível criar a tag',
@@ -261,7 +259,6 @@ export const getTag = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar tag:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível buscar os dados da tag',
@@ -387,7 +384,6 @@ export const updateTag = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao atualizar tag:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível atualizar os dados da tag',
@@ -498,7 +494,6 @@ export const deleteTag = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao desativar tag:', error);
     res.status(500).json({
       error: 'Erro interno do servidor',
       message: 'Não foi possível desativar a tag',

@@ -92,7 +92,6 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
     });
 
   } catch (error) {
-    console.error('Erro ao listar transações:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao listar transações',
@@ -262,7 +261,6 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
     });
 
   } catch (error) {
-    console.error('Erro ao criar gasto:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao criar gasto',
@@ -317,7 +315,6 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error(`Erro ao buscar transação ${id}:`, error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
@@ -400,7 +397,6 @@ export const updateTransacao = async (req: Request, res: Response): Promise<void
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error(`Erro ao atualizar transação ${id}:`, error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
@@ -457,7 +453,6 @@ export const deleteTransacao = async (req: Request, res: Response): Promise<void
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error(`Erro ao excluir transação ${id}:`, error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
@@ -524,7 +519,6 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
     });
     res.status(201).json({ success: true, message: 'Receita criada com sucesso', data: novaReceita });
   } catch (error) {
-    console.error('Erro ao criar receita:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
@@ -586,7 +580,6 @@ export const updateReceita = async (req: Request, res: Response): Promise<void> 
 
     res.json({ success: true, message: 'Receita atualizada com sucesso', data: receitaAtualizada });
   } catch (error) {
-    console.error('Erro ao atualizar receita:', error);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 }; 

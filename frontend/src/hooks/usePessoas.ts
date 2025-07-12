@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Pessoa, PessoaHub } from '@/lib/types';
+import type { PessoaHub } from '@/lib/types';
 
 // Query Keys
 export const pessoaKeys = {

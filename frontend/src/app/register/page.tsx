@@ -158,7 +158,7 @@ export default function RegisterPage() {
                   <p className="text-sm text-red-500">{errors.nomeHub.message}</p>
                 )}
               </div>
-
+              
               <div className="space-y-2">
                 <Label htmlFor="senha">Senha</Label>
                 <Input

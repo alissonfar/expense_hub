@@ -225,7 +225,6 @@ export const getSaldos = async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error) {
-    console.error('Erro ao gerar relatório de saldos:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar relatório de saldos',
@@ -239,11 +238,8 @@ export const getSaldos = async (req: Request, res: Response): Promise<void> => {
  * GET /api/relatorios/dashboard
  */
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
+  console.log(`[REQ] GET /relatorios/dashboard - IP: ${req.ip} - User: ${req.auth?.pessoaId ?? 'anon'} - Hub: ${req.auth?.hubId ?? 'none'}`);
   try {
-    // LOG: Contexto de autenticação recebido
-    console.log('[BACKEND][DASHBOARD] req.auth:', req.auth);
-    // LOG: Parâmetros recebidos na query
-    console.log('[BACKEND][DASHBOARD] req.query:', req.query);
     // Usar Prisma Client estendido com isolamento multi-tenant
     const prisma = getExtendedPrismaClient(req.auth!);
     
@@ -300,11 +296,8 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     if (apenas_confirmadas) {
       whereBase.confirmado = true;
     }
-    // LOG: Filtro base das queries
-    console.log('[BACKEND][DASHBOARD] whereBase:', whereBase);
 
     // Buscar métricas principais
-    console.log('[BACKEND][DASHBOARD] Query Gastos:', { ...whereBase, tipo: 'GASTO' });
     const [gastosStats, receitasStats, transacoesPendentes, pessoasComPendencias] = await Promise.all([
       // Gastos do período
       prisma.transacoes.aggregate({
@@ -530,9 +523,6 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       };
     }
 
-    // LOG: Resumo final retornado
-    console.log('[BACKEND][DASHBOARD] Resumo final:', resumo);
-
     res.json({
       success: true,
       message: 'Dashboard gerado com sucesso',
@@ -541,7 +531,6 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
     });
 
   } catch (error) {
-    console.error('Erro ao gerar dashboard:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar dashboard',
@@ -834,7 +823,6 @@ export const getPendencias = async (req: Request, res: Response): Promise<void> 
     });
 
   } catch (error) {
-    console.error('Erro ao gerar relatório de pendências:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar relatório de pendências',
@@ -1130,7 +1118,6 @@ export const getTransacoes = async (req: Request, res: Response): Promise<void> 
     });
 
   } catch (error) {
-    console.error('Erro ao gerar relatório de transações:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar relatório de transações',
@@ -1364,7 +1351,6 @@ export const getCategorias = async (req: Request, res: Response): Promise<void> 
     });
 
   } catch (error) {
-    console.error('Erro ao gerar relatório de categorias:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar relatório de categorias',
@@ -1536,7 +1522,6 @@ export const getSaldoHistoricoPessoa = async (req: Request, res: Response): Prom
     });
 
   } catch (error) {
-    console.error('Erro ao gerar histórico de saldo:', error);
     res.status(500).json({
       success: false,
       message: 'Erro interno do servidor ao gerar histórico de saldo',

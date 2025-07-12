@@ -19,7 +19,8 @@ import pagamentoRoutes from './routes/pagamento';
 import relatorioRoutes from './routes/relatorio';
 import configuracaoRoutes from './routes/configuracao';
 // Futuras rotas de Hub
-// import hubRoutes from './routes/hub';
+import hubRoutes from './routes/hub';
+import { createHub } from './controllers/hubController';
 
 // Inicializa um PrismaClient global APENAS para operações não autenticadas (login, health check).
 const prismaGlobal = new PrismaClient();
@@ -87,6 +88,9 @@ app.get('/health', injectGlobalPrisma, async (req, res) => {
 // Rotas de autenticação são públicas e usam o cliente global
 app.use('/api/auth', injectGlobalPrisma, authRoutes);
 
+// Rota pública para criação de hub (onboarding)
+app.post('/api/hubs', createHub);
+
 // =============================================
 // ROTAS PRIVADAS (REQUEREM AUTENTICAÇÃO E CONTEXTO DE HUB)
 // =============================================
@@ -104,7 +108,7 @@ protectedApi.use('/transacoes', transacaoRoutes);
 protectedApi.use('/pagamentos', pagamentoRoutes);
 protectedApi.use('/relatorios', relatorioRoutes);
 protectedApi.use('/configuracoes', configuracaoRoutes);
-// protectedApi.use('/hubs', hubRoutes);
+// protectedApi.use('/hubs', hubRoutes); // Remover ou comentar para não sobrescrever a rota pública
 
 app.use('/api', protectedApi);
 

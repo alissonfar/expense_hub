@@ -7,37 +7,77 @@ import { useToast } from '@/hooks/use-toast';
 import { useRequirePartialAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { useEffect } from 'react';
 
 export default function SelectHubPage() {
   const [selectedHubId, setSelectedHubId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { hubsDisponiveis, selectHub, usuario } = useRequirePartialAuth();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [hubName, setHubName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const { hubsDisponiveis, selectHub, usuario, createHub, logout } = useRequirePartialAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!usuario) {
+        router.push('/login');
+      }
+    };
+    checkAuth();
+  }, [usuario, router]);
 
   const handleSelectHub = async (hubId: number) => {
     try {
       setIsLoading(true);
       setSelectedHubId(hubId);
-      
       await selectHub(hubId);
-      
       toast({
         title: "Hub selecionado com sucesso!",
         description: "Redirecionando para o dashboard...",
       });
       router.push('/dashboard');
-      
-      // O redirecionamento será feito pelo AuthContext + middleware
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorResponse = (error as { response?: { data?: { message?: string } } })?.response;
       toast({
         title: "Erro ao selecionar hub",
-                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao acessar o hub. Tente novamente.",
+        description: errorResponse?.data?.message || "Erro ao acessar o hub. Tente novamente.",
         variant: "destructive",
       });
       setSelectedHubId(null);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateHub = async () => {
+    if (!hubName.trim()) return;
+    setIsCreating(true);
+    try {
+      const novoHub = await createHub(hubName.trim());
+      toast({ title: 'Hub criado com sucesso!', description: `Você pode agora acessar o hub "${novoHub.nome}".` });
+      setShowCreateModal(false);
+      setHubName('');
+      // Selecionar o novo hub automaticamente
+      await handleSelectHub(novoHub.id);
+    } catch (error: unknown) {
+      const errorResponse = (error as { response?: { data?: { message?: string } } })?.response;
+      toast({ title: 'Erro ao criar hub', description: errorResponse?.data?.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({ title: 'Logout realizado', description: 'Você saiu da sua conta.' });
+      router.push('/login');
+    } catch (error: unknown) {
+      toast({ title: 'Erro ao sair', description: 'Tente novamente.', variant: 'destructive' });
     }
   };
 
@@ -53,16 +93,44 @@ export default function SelectHubPage() {
               Nenhum Hub Disponível
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Você não tem acesso a nenhum hub no momento. Entre em contato com um administrador.
+              Você não tem acesso a nenhum hub no momento. Crie um novo hub para começar.
             </CardDescription>
           </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <Button onClick={() => setShowCreateModal(true)} className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white">Criar novo Hub</Button>
+          </CardContent>
         </Card>
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar novo Hub</DialogTitle>
+            </DialogHeader>
+            <Input
+              placeholder="Nome do Hub"
+              value={hubName}
+              onChange={e => setHubName(e.target.value)}
+              disabled={isCreating}
+              maxLength={50}
+              className="mb-4"
+            />
+            <DialogFooter>
+              <Button onClick={handleCreateHub} disabled={isCreating || !hubName.trim()} className="bg-blue-600 text-white w-full">
+                {isCreating ? 'Criando...' : 'Criar Hub'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+      <div className="w-full flex justify-end max-w-2xl mx-auto mb-2">
+        <Button variant="ghost" onClick={handleLogout} className="text-gray-500 hover:text-blue-700">
+          Sair
+        </Button>
+      </div>
       <div className="w-full max-w-2xl">
         <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
           <CardHeader className="text-center">
@@ -73,10 +141,9 @@ export default function SelectHubPage() {
               Selecione seu Hub
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Olá, {usuario?.nome}! Escolha o hub que deseja acessar.
+              Olá, {usuario?.nome}! Escolha o hub que deseja acessar ou crie um novo.
             </CardDescription>
           </CardHeader>
-          
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
               {hubsDisponiveis.map((hub) => (
@@ -108,14 +175,12 @@ export default function SelectHubPage() {
                         {hub.role === 'VISUALIZADOR' && 'Visualizador'}
                       </Badge>
                     </div>
-                    
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-gray-600 text-sm mb-4">
                       {hub.role === 'PROPRIETARIO' && 'Você é o dono deste hub e tem controle total.'}
                       {hub.role === 'ADMINISTRADOR' && 'Você pode gerenciar usuários e configurações.'}
                       {hub.role === 'COLABORADOR' && 'Você pode criar e editar transações.'}
                       {hub.role === 'VISUALIZADOR' && 'Você pode apenas visualizar dados.'}
                     </p>
-
                     <Button
                       className={`w-full transition-all duration-200 ${
                         selectedHubId === hub.id && isLoading
@@ -123,7 +188,7 @@ export default function SelectHubPage() {
                           : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
                       }`}
                       disabled={isLoading}
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         handleSelectHub(hub.id);
                       }}
@@ -138,24 +203,40 @@ export default function SelectHubPage() {
                       )}
                     </Button>
                   </div>
-
-                  {/* Indicador visual de hover */}
                   <div className={`absolute inset-0 bg-gradient-to-r from-blue-500/5 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none ${
                     selectedHubId === hub.id ? 'opacity-100' : ''
                   }`} />
                 </div>
               ))}
             </div>
-
-            {hubsDisponiveis.length === 1 && (
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-500">
-                  💡 Você tem acesso a apenas um hub. Clique acima para continuar.
-                </p>
-              </div>
-            )}
+            {/* Botão para criar novo hub sempre visível */}
+            <div className="mt-6 text-center">
+              <Button variant="outline" onClick={() => setShowCreateModal(true)} className="border-blue-500 text-blue-700 hover:bg-blue-50">
+                + Criar novo Hub
+              </Button>
+            </div>
           </CardContent>
         </Card>
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar novo Hub</DialogTitle>
+            </DialogHeader>
+            <Input
+              placeholder="Nome do Hub"
+              value={hubName}
+              onChange={e => setHubName(e.target.value)}
+              disabled={isCreating}
+              maxLength={50}
+              className="mb-4"
+            />
+            <DialogFooter>
+              <Button onClick={handleCreateHub} disabled={isCreating || !hubName.trim()} className="bg-blue-600 text-white w-full">
+                {isCreating ? 'Criando...' : 'Criar Hub'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -32,7 +32,7 @@ interface TooltipPayload {
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
   if (active && payload && payload.length && label) {
-    let dateString = label;
+    const dateString = label;
     let date: Date | null = null;
     try {
       date = dateString ? parseISO(dateString) : null;
