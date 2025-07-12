@@ -72,16 +72,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Salvar dados no localStorage
   const saveToStorage = useCallback((key: string, data: unknown) => {
     try {
-      localStorage.setItem(key, JSON.stringify(data));
+      if (key === STORAGE_KEYS.ACCESS_TOKEN || key === STORAGE_KEYS.REFRESH_TOKEN) {
+        localStorage.setItem(key, typeof data === 'string' ? data : '');
+      } else {
+        localStorage.setItem(key, JSON.stringify(data));
+      }
     } catch (error) {
       console.error('[AuthContext][saveToStorage] Erro ao salvar no localStorage:', key, error);
     }
-  }, []);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Ler dados do localStorage
   const loadFromStorage = (key: string) => {
     try {
       const item = localStorage.getItem(key);
+      if (key === STORAGE_KEYS.ACCESS_TOKEN || key === STORAGE_KEYS.REFRESH_TOKEN) {
+        return item || null;
+      }
       return item ? JSON.parse(item) : null;
     } catch (error) {
       console.error('[AuthContext][loadFromStorage] Erro ao ler do localStorage:', key, error);
@@ -102,14 +109,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (newRefreshToken) {
       setRefreshToken(newRefreshToken);
     }
-    // Salvar no localStorage
-    localStorage.setItem('accessToken', newAccessToken);
+    // Salvar no localStorage usando as chaves padronizadas
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
     if (newRefreshToken) {
-      localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
     }
     // Configurar header Authorization global
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  }, []);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
@@ -118,8 +125,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data = response.data.data as LoginResponse;
       setUsuario(data.user);
       setHubsDisponiveis(data.hubs);
+      // Salvar usuário e hubs disponíveis no localStorage
+      saveToStorage(STORAGE_KEYS.USUARIO, data.user);
+      saveToStorage(STORAGE_KEYS.HUBS_DISPONIVEIS, data.hubs);
       updateTokens('', data.refreshToken); // accessToken só será obtido após selectHub
-      localStorage.setItem('refreshToken', data.refreshToken); // compatibilidade
+      // Salvar refreshToken no localStorage padronizado
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
       // Sincronizar com cookies imediatamente
       document.cookie = `@PersonalExpenseHub:refreshToken=${data.refreshToken}; path=/; max-age=2592000; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:usuario=${JSON.stringify(data.user)}; path=/; max-age=2592000; SameSite=Strict`;
@@ -134,7 +145,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
       // Priorizar accessToken para seleção de hub
-      const tokenToUse = accessToken || refreshToken || localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+      const tokenToUse = accessToken || refreshToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!tokenToUse) {
         throw new Error('Token de autenticação não encontrado');
       }
@@ -159,15 +170,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setRoleAtual(data.hubContext.role);
       saveToStorage(STORAGE_KEYS.HUB_ATUAL, hubCompleto);
       saveToStorage('@PersonalExpenseHub:roleAtual', data.hubContext.role);
+      // Salvar usuário e hubs disponíveis novamente para garantir persistência
+      if (usuario) saveToStorage(STORAGE_KEYS.USUARIO, usuario);
+      if (hubsDisponiveis) saveToStorage(STORAGE_KEYS.HUBS_DISPONIVEIS, hubsDisponiveis);
       document.cookie = `@PersonalExpenseHub:accessToken=${data.accessToken}; path=/; max-age=3600; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubCompleto)}; path=/; max-age=2592000; SameSite=Strict`;
       setIsAuthenticated(true);
       return data;
     } catch (error) {
       console.error('[AuthContext][selectHub] Erro:', error, {
-        accessToken: accessToken || localStorage.getItem('accessToken'),
-        refreshToken: refreshToken || localStorage.getItem('refreshToken'),
-        localStorage: localStorage.getItem('refreshToken'),
+        accessToken: accessToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
+        refreshToken: refreshToken || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
+        localStorage: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
         cookie: document.cookie
       });
       throw error;
@@ -225,7 +239,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('[AuthContext][refreshAccessToken] Erro:', error, {
         refreshToken,
-        localStorage: localStorage.getItem('refreshToken'),
+        localStorage: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
         cookie: document.cookie
       });
       await logout();
@@ -283,7 +297,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função para criar novo hub
   const createHub = async (nome: string) => {
     // Priorizar accessToken, mas usar refreshToken se necessário
-    const token = accessToken || refreshToken || localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+    const token = accessToken || refreshToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     if (!token) throw new Error('Token de autenticação não encontrado para criar hub');
     const novoHub = await hubsApi.create({ nome }, token);
     setHubsDisponiveis((prev) => {
@@ -356,27 +370,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUsuario = loadFromStorage(STORAGE_KEYS.USUARIO);
       const storedHubAtual = loadFromStorage(STORAGE_KEYS.HUB_ATUAL);
       const storedHubsDisponiveis = loadFromStorage(STORAGE_KEYS.HUBS_DISPONIVEIS);
-      
+
+      console.log('[AuthContext][Init] Tokens lidos:', {
+        storedAccessToken,
+        storedRefreshToken,
+        storedUsuario,
+        storedHubAtual,
+        storedHubsDisponiveis
+      });
       // Determinar estado inicial
       if (storedAccessToken && storedRefreshToken && storedUsuario && storedHubAtual) {
-        // Estado 3: Completamente autenticado
+        console.log('[AuthContext][Init] Estado: autenticado');
         setAccessToken(storedAccessToken);
         setRefreshToken(storedRefreshToken);
         setUsuario(storedUsuario);
         setHubAtual(storedHubAtual);
         setIsAuthenticated(true);
         api.defaults.headers.Authorization = `Bearer ${storedAccessToken}`;
+        console.log('[AuthContext][Init] Header Authorization configurado:', api.defaults.headers.Authorization);
       } else if (storedRefreshToken && storedUsuario && storedHubsDisponiveis) {
-        // Estado 2: Login feito, hub não selecionado
+        console.log('[AuthContext][Init] Estado: login feito, hub não selecionado');
         setRefreshToken(storedRefreshToken);
         setUsuario(storedUsuario);
         setHubsDisponiveis(storedHubsDisponiveis);
         setIsAuthenticated(false);
       } else {
-        // Estado 1: Não autenticado
+        console.log('[AuthContext][Init] Estado: não autenticado');
         setIsAuthenticated(false);
       }
-      
       setIsLoading(false);
     };
 

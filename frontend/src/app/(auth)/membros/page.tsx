@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,10 +16,11 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { InvitePessoaForm } from '@/components/pessoas/InvitePessoaForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { PessoaHub } from '@/lib/types';
+import { CellContext } from '@tanstack/react-table';
 
 export default function PessoasPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
-  console.log('DEBUG_MEMBROS_LISTAGEM', pessoas);
   const { toast } = useToast();
   const [showInvite, setShowInvite] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -29,40 +31,53 @@ export default function PessoasPage() {
   const columns = [
     {
       id: 'nome',
+      accessorFn: (row: PessoaHub) => row.pessoa?.nome,
       header: 'Nome',
-      cell: ({ row }: { row: { original: { pessoa: { nome: string | undefined } } } }) => (
-        <div className="font-medium flex items-center gap-2">
-          <Users className="w-4 h-4 text-blue-500" />
-          {row.original.pessoa?.nome || '-'}
-        </div>
-      ),
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const pessoa = cell.row.original.pessoa;
+        return (
+          <div className="font-medium flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-500" />
+            {pessoa?.nome || '-'}
+          </div>
+        );
+      },
     },
     {
       id: 'email',
+      accessorFn: (row: PessoaHub) => row.pessoa?.email,
       header: 'Email',
-      cell: ({ row }: { row: { original: { pessoa: { email: string | undefined } } } }) => (
-        <div className="flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gray-400" />
-          {row.original.pessoa?.email || '-'}
-        </div>
-      ),
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const pessoa = cell.row.original.pessoa;
+        return (
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-gray-400" />
+            {pessoa?.email || '-'}
+          </div>
+        );
+      },
     },
     {
       id: 'telefone',
+      accessorFn: (row: PessoaHub) => row.pessoa?.telefone,
       header: 'Telefone',
-      cell: ({ row }: { row: { original: { pessoa: { telefone: string | undefined } } } }) => (
-        <div className="flex items-center gap-2">
-          <Phone className="w-4 h-4 text-gray-400" />
-          {row.original.pessoa?.telefone || '-'}
-        </div>
-      ),
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const pessoa = cell.row.original.pessoa;
+        return (
+          <div className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-gray-400" />
+            {pessoa?.telefone || '-'}
+          </div>
+        );
+      },
     },
     {
       id: 'role',
+      accessorKey: 'role',
       header: 'Papel',
-      cell: ({ row }: { row: { original: { role: string } } }) => {
-        const role = row.original.role;
-        const roleMap: { [key: string]: { label: string; icon: JSX.Element } } = {
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const role = cell.row.original.role;
+        const roleMap: { [key: string]: { label: string; icon: React.ReactElement } } = {
           PROPRIETARIO: { label: 'Proprietário', icon: <ShieldCheck className="w-4 h-4 text-green-600" /> },
           ADMINISTRADOR: { label: 'Administrador', icon: <Shield className="w-4 h-4 text-blue-600" /> },
           COLABORADOR: { label: 'Colaborador', icon: <UserCheck className="w-4 h-4 text-indigo-600" /> },
@@ -78,28 +93,38 @@ export default function PessoasPage() {
     },
     {
       id: 'status',
+      accessorKey: 'ativo',
       header: 'Status',
-      cell: ({ row }: { row: { original: { ativo: boolean } } }) => (
-        <Badge variant={row.original.ativo ? 'default' : 'secondary'} className={row.original.ativo ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}>
-          {row.original.ativo ? 'Ativo' : 'Inativo'}
-        </Badge>
-      ),
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const ativo = cell.row.original.ativo;
+        return (
+          <Badge variant={ativo ? 'default' : 'secondary'} className={ativo ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}>
+            {ativo ? 'Ativo' : 'Inativo'}
+          </Badge>
+        );
+      },
     },
     {
       id: 'joinedAt',
+      accessorKey: 'joinedAt',
       header: 'Entrou em',
-      cell: ({ row }: { row: { original: { joinedAt: string | undefined } } }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.joinedAt ? format(new Date(row.original.joinedAt), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
-        </span>
-      ),
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const joinedAt = cell.row.original.joinedAt;
+        return (
+          <span className="text-xs text-muted-foreground">
+            {joinedAt ? format(new Date(joinedAt), 'dd/MM/yyyy', { locale: ptBR }) : '-'}
+          </span>
+        );
+      },
     },
     {
       id: 'convite',
+      accessorKey: 'pessoa.conviteToken',
       header: 'Convite',
-      cell: ({ row }: { row: { original: { pessoa: { conviteAtivo: boolean; conviteToken: string | undefined } } } }) => {
-        const conviteAtivo = row.original.pessoa?.conviteAtivo;
-        const conviteToken = row.original.pessoa?.conviteToken;
+      cell: (cell: CellContext<PessoaHub, any>) => {
+        const pessoa = cell.row.original.pessoa;
+        const conviteAtivo = pessoa?.conviteAtivo;
+        const conviteToken = pessoa?.conviteToken;
         if (conviteAtivo && conviteToken) {
           const link = getInviteLink(conviteToken);
           return (
@@ -117,7 +142,7 @@ export default function PessoasPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }: { row: { original: { id: string } } }) => (
+      cell: () => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">

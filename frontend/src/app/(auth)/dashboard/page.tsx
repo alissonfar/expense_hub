@@ -170,7 +170,7 @@ export default function DashboardPage() {
         {!isVisualizador && (
           <KPICard
             title="Receitas no Período"
-            value={dashboardData?.resumo.total_receitas}
+            value={dashboardData?.resumo.total_receitas ?? 0}
             icon={TrendingUp}
             change={dashboardData?.comparativo?.receitas_variacao}
             valueColor="success"
@@ -180,7 +180,7 @@ export default function DashboardPage() {
         
         <KPICard
           title="Despesas no Período"
-          value={dashboardData?.resumo.total_gastos}
+          value={dashboardData?.resumo.total_gastos ?? 0}
           icon={TrendingDown}
           change={dashboardData?.comparativo?.gastos_variacao}
           valueColor="danger"
@@ -190,7 +190,7 @@ export default function DashboardPage() {
         {!isVisualizador && (
           <KPICard
             title="Saldo do Período"
-            value={dashboardData?.resumo.saldo_periodo}
+            value={dashboardData?.resumo.saldo_periodo ?? 0}
             icon={DollarSign}
             valueColor={
               (dashboardData?.resumo.saldo_periodo ?? 0) >= 0 ? 'success' : 'danger'
@@ -201,7 +201,7 @@ export default function DashboardPage() {
         
         <KPICard
           title="Pendências"
-          value={dashboardData?.resumo.transacoes_pendentes}
+          value={dashboardData?.resumo.transacoes_pendentes ?? 0}
           icon={AlertCircle}
           subtitle={`${dashboardData?.resumo.pessoas_devedoras ?? 0} pessoas`}
           loading={loadingDashboard}

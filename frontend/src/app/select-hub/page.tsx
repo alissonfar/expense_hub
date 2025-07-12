@@ -40,11 +40,10 @@ export default function SelectHubPage() {
         description: "Redirecionando para o dashboard...",
       });
       router.push('/dashboard');
-    } catch (error: unknown) {
-      const errorResponse = (error as { response?: { data?: { message?: string } } })?.response;
+    } catch {
       toast({
         title: "Erro ao selecionar hub",
-        description: errorResponse?.data?.message || "Erro ao acessar o hub. Tente novamente.",
+        description: "Erro ao acessar o hub. Tente novamente.",
         variant: "destructive",
       });
       setSelectedHubId(null);
@@ -63,9 +62,8 @@ export default function SelectHubPage() {
       setHubName('');
       // Selecionar o novo hub automaticamente
       await handleSelectHub(novoHub.id);
-    } catch (error: unknown) {
-      const errorResponse = (error as { response?: { data?: { message?: string } } })?.response;
-      toast({ title: 'Erro ao criar hub', description: errorResponse?.data?.message || 'Tente novamente.', variant: 'destructive' });
+    } catch {
+      toast({ title: 'Erro ao criar hub', description: 'Tente novamente.', variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -76,7 +74,7 @@ export default function SelectHubPage() {
       await logout();
       toast({ title: 'Logout realizado', description: 'Você saiu da sua conta.' });
       router.push('/login');
-    } catch (error: unknown) {
+    } catch {
       toast({ title: 'Erro ao sair', description: 'Tente novamente.', variant: 'destructive' });
     }
   };
