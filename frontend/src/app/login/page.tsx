@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useGuestOnly } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 const loginSchema = z.object({
   email: z.string()
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useGuestOnly();
   const { toast } = useToast();
+  const router = useRouter();
   
   const {
     register,
@@ -45,6 +47,7 @@ export default function LoginPage() {
         title: "Login realizado com sucesso!",
         description: "Redirecionando...",
       });
+      router.push('/select-hub');
       
       // O redirecionamento será feito pelo AuthContext + middleware
     } catch (error) {

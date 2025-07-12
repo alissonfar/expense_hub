@@ -72,7 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      console.error('Erro ao salvar no localStorage:', error);
+      // console.error('Erro ao salvar no localStorage:', error);
     }
   }, []);
 
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      console.error('Erro ao ler do localStorage:', error);
+      // console.error('Erro ao ler do localStorage:', error);
       return null;
     }
   };
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       return data;
     } catch (error) {
-      console.error('[AuthContext] login: erro', error);
+      // console.error('[AuthContext] login: erro', error);
       throw error;
     }
   };
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
       if (!refreshToken) {
-        console.warn('[AuthContext] selectHub: refreshToken ausente');
+        // console.warn('[AuthContext] selectHub: refreshToken ausente');
         throw new Error('Token de refresh não encontrado');
       }
 
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       return data;
     } catch (error) {
-      console.error('[AuthContext] selectHub: erro', error);
+      // console.error('[AuthContext] selectHub: erro', error);
       throw error;
     }
   };
@@ -199,7 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
       }
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      // console.error('Erro ao fazer logout:', error);
     } finally {
       // Limpar estado
       setIsAuthenticated(false);

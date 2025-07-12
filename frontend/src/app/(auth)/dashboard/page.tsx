@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Select, 
   SelectContent, 
@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const { roleAtual } = useAuth();
   const [periodo, setPeriodo] = useState<PeriodoTipo>('30_dias');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const onboardingShownRef = useRef(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Buscar dados do dashboard
@@ -68,31 +69,19 @@ export default function DashboardPage() {
 
   // Verificar se deve mostrar onboarding
   useEffect(() => {
-    // Verificar se é o primeiro acesso (sem transações)
-    if (transacoesRecentes && transacoesRecentes.length === 0 && 
-        dashboardData?.resumo.total_gastos === 0 && 
-        dashboardData?.resumo.total_receitas === 0) {
+    if (
+      !onboardingShownRef.current &&
+      transacoesRecentes && transacoesRecentes.length === 0 &&
+      dashboardData?.resumo.total_gastos === 0 &&
+      dashboardData?.resumo.total_receitas === 0
+    ) {
       setShowOnboarding(true);
+      onboardingShownRef.current = true;
     }
   }, [transacoesRecentes, dashboardData]);
 
   // Verificar se deve mostrar visão simplificada para VISUALIZADOR
   const isVisualizador = roleAtual === 'VISUALIZADOR';
-
-  // Logs detalhados dos valores dos KPIs
-  console.log('[KPI] Receitas no Período (dashboardData.resumo.total_receitas):', dashboardData?.resumo?.total_receitas);
-  console.log('[KPI] Despesas no Período (dashboardData.resumo.total_gastos):', dashboardData?.resumo?.total_gastos);
-  console.log('[KPI] Saldo do Período (dashboardData.resumo.saldo_periodo):', dashboardData?.resumo?.saldo_periodo);
-  console.log('[KPI] Pendências (dashboardData.resumo.transacoes_pendentes):', dashboardData?.resumo?.transacoes_pendentes);
-  console.log('[KPI] Pessoas devedoras (dashboardData.resumo.pessoas_devedoras):', dashboardData?.resumo?.pessoas_devedoras);
-
-  // Logs detalhados do frontend para rastreamento
-  const { accessToken, hubAtual, usuario } = useAuth();
-  console.log('[FRONT] Usuário logado:', usuario);
-  console.log('[FRONT] Hub atual:', hubAtual);
-  console.log('[FRONT] AccessToken:', accessToken);
-  console.log('[FRONT] Parâmetros do dashboard:', { periodo, data_inicio: dateRange?.from, data_fim: dateRange?.to });
-  console.log('[FRONT] Dados brutos do dashboardData:', dashboardData);
 
   return (
     <div className="space-y-6">
@@ -103,6 +92,14 @@ export default function DashboardPage() {
           onDismiss={() => setShowOnboarding(false)}
         />
       )}
+      {/* Botão para reabrir o onboarding */}
+      <button
+        className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white rounded-full shadow-lg px-4 py-2 hover:bg-blue-700 transition"
+        onClick={() => setShowOnboarding(true)}
+        aria-label="Ver dicas de primeiros passos"
+      >
+        Primeiros Passos
+      </button>
 
       {/* Header com filtros */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

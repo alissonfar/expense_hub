@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRequirePartialAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 export default function SelectHubPage() {
   const [selectedHubId, setSelectedHubId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { hubsDisponiveis, selectHub, usuario } = useRequirePartialAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSelectHub = async (hubId: number) => {
     try {
@@ -24,6 +26,7 @@ export default function SelectHubPage() {
         title: "Hub selecionado com sucesso!",
         description: "Redirecionando para o dashboard...",
       });
+      router.push('/dashboard');
       
       // O redirecionamento será feito pelo AuthContext + middleware
     } catch (error) {

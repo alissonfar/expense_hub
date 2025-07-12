@@ -41,7 +41,7 @@ const menuItems = [
   },
   {
     title: 'Membros',
-    href: '/membros',
+    href: '/membros', // Corrigido para '/membros'
     icon: Users,
     description: 'Gerenciar participantes'
   },

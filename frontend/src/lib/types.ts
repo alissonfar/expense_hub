@@ -45,9 +45,10 @@ export interface Pessoa {
   ativo: boolean;
   data_cadastro: string;
   atualizado_em: string;
+  conviteToken?: string;
 }
 
-export interface MembroHub {
+export interface PessoaHub {
   hubId: number;
   pessoaId: number;
   role: Role;
@@ -56,6 +57,7 @@ export interface MembroHub {
   joinedAt: string;
   pessoa?: Pessoa;
   hub?: Hub;
+  conviteToken?: string;
 }
 
 export interface Transacao {

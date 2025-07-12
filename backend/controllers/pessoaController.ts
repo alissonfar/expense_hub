@@ -21,15 +21,22 @@ export const listMembros = async (req: Request, res: Response): Promise<void> =>
     const { page = 1, limit = 20, ativo, role } = req.query as unknown as ListMembrosQueryInput;
     const { hubId } = req.auth;
 
+    // FORÇAR FILTRO PADRÃO: Sempre mostrar membros ativos e convites pendentes
     const where: Prisma.membros_hubWhereInput = { 
       hubId, 
       ativo: true,
-      pessoa: { ativo: true }
+      pessoa: {
+        OR: [
+          { ativo: true },
+          { conviteAtivo: true }
+        ]
+      }
     };
     
-    if (ativo === false) {
-      where.ativo = false;
-    }
+    // Ignorar filtro 'ativo' vindo da query para evitar inconsistências
+    // if (ativo === false) {
+    //   where.ativo = false;
+    // }
     
     if (role) where.role = role;
 
@@ -40,7 +47,7 @@ export const listMembros = async (req: Request, res: Response): Promise<void> =>
         where,
         include: {
           pessoa: {
-            select: { id: true, nome: true, email: true, telefone: true, ativo: true, conviteAtivo: true }
+            select: { id: true, nome: true, email: true, telefone: true, ativo: true, conviteAtivo: true, conviteToken: true }
           }
         },
         orderBy: { pessoa: { nome: 'asc' } },
@@ -49,6 +56,20 @@ export const listMembros = async (req: Request, res: Response): Promise<void> =>
       }),
       req.prisma.membros_hub.count({ where })
     ]);
+
+    // Log de depuração
+    console.log('DEBUG_LIST_MEMBROS', {
+      hubId,
+      where,
+      membrosCount: membros.length,
+      membrosPreview: membros.map(m => ({
+        pessoaId: m.pessoaId,
+        nome: m.pessoa?.nome,
+        email: m.pessoa?.email,
+        conviteAtivo: m.pessoa?.conviteAtivo,
+        conviteToken: m.pessoa?.conviteToken
+      }))
+    });
 
     const totalPages = Math.ceil(total / limit);
 

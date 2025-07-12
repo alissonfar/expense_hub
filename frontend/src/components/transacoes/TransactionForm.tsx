@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateTransacao } from '@/hooks/useTransacoes';
-import { useParticipantesAtivos } from '@/hooks/usePessoas';
+import { usePessoasAtivas } from '@/hooks/usePessoas';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation'; // Mantido apenas para Cancelar
 import { useEffect } from 'react';
@@ -58,7 +58,7 @@ export default function TransactionForm() {
   const { usuario } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const { data: participantesAtivos = [] } = useParticipantesAtivos();
+  const { data: participantesAtivos = [] } = usePessoasAtivas();
   const createTransacao = useCreateTransacao();
   const [activeTab, setActiveTab] = useState('basico');
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -172,7 +172,6 @@ export default function TransactionForm() {
       // Ocultar mensagem de sucesso após alguns segundos
       setTimeout(() => setShowSuccess(false), 4000);
     } catch (error: any) {
-      console.error('Erro ao criar transação', error);
       const mensagem = error?.response?.data?.error || error?.message || 'Não foi possível criar a transação';
       toast({
         title: 'Erro',

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Pessoa, MembroHub } from '@/lib/types';
+import type { Pessoa, PessoaHub } from '@/lib/types';
 
 // Query Keys
 export const pessoaKeys = {
@@ -9,20 +9,17 @@ export const pessoaKeys = {
   list: (filters?: Record<string, unknown>) => [...pessoaKeys.lists(), filters] as const,
   details: () => [...pessoaKeys.all, 'detail'] as const,
   detail: (id: number) => [...pessoaKeys.details(), id] as const,
-  membros: () => [...pessoaKeys.all, 'membros'] as const,
 };
 
 // Hook para listar pessoas do hub atual
 export function usePessoas(filters: { ativo?: boolean } = {}) {
   return useQuery({
     queryKey: pessoaKeys.list(filters),
-    queryFn: async (): Promise<Pessoa[]> => {
+    queryFn: async (): Promise<PessoaHub[]> => {
       const params = new URLSearchParams();
-      
       if (filters.ativo !== undefined) {
         params.append('ativo', String(filters.ativo));
       }
-
       const response = await api.get(`/pessoas?${params.toString()}`);
       return response.data.data;
     },
@@ -34,7 +31,7 @@ export function usePessoas(filters: { ativo?: boolean } = {}) {
 export function usePessoa(id: number) {
   return useQuery({
     queryKey: pessoaKeys.detail(id),
-    queryFn: async (): Promise<Pessoa> => {
+    queryFn: async (): Promise<PessoaHub> => {
       const response = await api.get(`/pessoas/${id}`);
       return response.data.data;
     },
@@ -43,35 +40,17 @@ export function usePessoa(id: number) {
   });
 }
 
-// Hook para listar membros do hub com informações completas
-export function useMembrosHub(filters: { ativo?: boolean } = {}) {
-  return useQuery({
-    queryKey: [...pessoaKeys.membros(), filters],
-    queryFn: async (): Promise<MembroHub[]> => {
-      const params = new URLSearchParams();
-      
-      if (filters.ativo !== undefined) {
-        params.append('ativo', String(filters.ativo));
-      }
-
-      const response = await api.get(`/pessoas/membros?${params.toString()}`);
-      return response.data.data;
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-  });
-}
-
-// Hook para convidar novo membro
-export function useInviteMember() {
+// Hook para convidar nova pessoa
+export function useInvitePessoa() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (data: {
       email: string;
+      nome: string;
       role: 'PROPRIETARIO' | 'ADMINISTRADOR' | 'COLABORADOR' | 'VISUALIZADOR';
       dataAccessPolicy?: 'GLOBAL' | 'INDIVIDUAL';
     }) => {
-      const response = await api.post('/pessoas/invite', data);
+      const response = await api.post('/pessoas', data);
       return response.data.data;
     },
     onSuccess: () => {
@@ -80,10 +59,9 @@ export function useInviteMember() {
   });
 }
 
-// Hook para atualizar role de membro
-export function useUpdateMemberRole() {
+// Hook para atualizar role de pessoa
+export function useUpdatePessoaRole() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       pessoaId,
@@ -94,7 +72,7 @@ export function useUpdateMemberRole() {
       role: 'PROPRIETARIO' | 'ADMINISTRADOR' | 'COLABORADOR' | 'VISUALIZADOR';
       dataAccessPolicy?: 'GLOBAL' | 'INDIVIDUAL';
     }) => {
-      const response = await api.put(`/pessoas/${pessoaId}/role`, {
+      const response = await api.put(`/pessoas/${pessoaId}`, {
         role,
         dataAccessPolicy,
       });
@@ -106,10 +84,9 @@ export function useUpdateMemberRole() {
   });
 }
 
-// Hook para remover membro do hub
-export function useRemoveMember() {
+// Hook para remover pessoa do hub
+export function useRemovePessoa() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (pessoaId: number) => {
       await api.delete(`/pessoas/${pessoaId}`);
@@ -120,21 +97,20 @@ export function useRemoveMember() {
   });
 }
 
-// Hook simplificado para buscar apenas participantes ativos (para formulários)
-export function useParticipantesAtivos() {
+// Hook simplificado para buscar apenas pessoas ativas (para formulários)
+export function usePessoasAtivas() {
   return useQuery({
-    queryKey: [...pessoaKeys.lists(), { ativo: true, participantes: true }],
+    queryKey: [...pessoaKeys.lists(), { ativo: true }],
     queryFn: async (): Promise<Array<{ id: number; nome: string; email: string }>> => {
       const response = await api.get('/pessoas?ativo=true');
-      const pessoas = response.data.data as Pessoa[];
-      
+      const pessoas = response.data.data as PessoaHub[];
       return pessoas.map(pessoa => ({
-        id: pessoa.id,
-        nome: pessoa.nome,
-        email: pessoa.email,
+        id: pessoa.pessoaId,
+        nome: pessoa.pessoa?.nome || '',
+        email: pessoa.pessoa?.email || '',
       }));
     },
     staleTime: 1000 * 60 * 5, // 5 minutos
-    select: (data) => data.sort((a, b) => a.nome.localeCompare(b.nome)), // Ordenar por nome
+    select: (data) => data.sort((a, b) => a.nome.localeCompare(b.nome)),
   });
 } 
