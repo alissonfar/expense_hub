@@ -89,18 +89,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Rotas que requerem apenas login
+  // 2. Rotas que requerem apenas login (sem seleção de hub)
   if (isAuthOnlyRoute) {
     if (!isAuthenticated) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    
-    // Se já selecionou hub, redirecionar para dashboard
-    if (hasSelectedHub && pathname === '/select-hub') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    
-    // Usuário autenticado mas sem hub - permitir acesso
+    // [REMOVIDO] Se já selecionou hub, redirecionar para dashboard
+    // if (hasSelectedHub && pathname === '/select-hub') {
+    //   return NextResponse.redirect(new URL('/dashboard', request.url));
+    // }
+    // Usuário autenticado - permitir acesso SEMPRE à /select-hub
     return NextResponse.next();
   }
 

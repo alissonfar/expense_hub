@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCreateTransacao } from '@/hooks/useTransacoes';
 import { usePessoasAtivas } from '@/hooks/usePessoas';
 import { useToast } from '@/hooks/use-toast';
+import { useTags } from '@/hooks/useTags';
 import { useRouter } from 'next/navigation'; // Mantido apenas para Cancelar
 import { useEffect } from 'react';
 
@@ -63,6 +64,7 @@ export default function TransactionForm() {
   const [activeTab, setActiveTab] = useState('basico');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const { data: categorias = [], isLoading: loadingCategorias } = useTags({ ativo: true });
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -88,15 +90,8 @@ export default function TransactionForm() {
     // eslint-disable-next-line
   }, [usuario]);
 
-  // Mock de tags disponíveis
-  const availableTags = [
-    { id: '1', nome: 'Alimentação', cor: '#3b82f6' },
-    { id: '2', nome: 'Transporte', cor: '#f59e42' },
-    { id: '3', nome: 'Lazer', cor: '#10b981' },
-    { id: '4', nome: 'Saúde', cor: '#ef4444' },
-    { id: '5', nome: 'Educação', cor: '#a855f7' },
-    { id: '6', nome: 'Outros', cor: '#64748b' },
-  ];
+  // Substituir o mock de tags por categorias reais
+  const availableTags = categorias.map(tag => ({ id: String(tag.id), nome: tag.nome, cor: tag.cor }));
 
   const toggleTag = (tagId: string) => {
     const tags = form.getValues('tags') || [];
@@ -568,30 +563,41 @@ export default function TransactionForm() {
                 <h3 className="text-lg font-semibold">Tags e Categorias</h3>
                 <p className="text-sm text-muted-foreground">Selecione até 5 tags para categorizar esta transação</p>
               </div>
-              {/* Grid de tags */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {availableTags.map(tag => (
-                  <Card
-                    key={tag.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      (form.watch('tags') || []).includes(tag.id)
-                        ? 'ring-2 ring-primary bg-primary/5'
-                        : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => toggleTag(tag.id)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
-                        <span className="text-sm font-medium">{tag.nome}</span>
-                        {(form.watch('tags') || []).includes(tag.id) && (
-                          <Check className="h-4 w-4 text-primary ml-auto" />
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              {loadingCategorias ? (
+                <div className="text-center text-muted-foreground">Carregando categorias...</div>
+              ) : availableTags.length === 0 ? (
+                <div className="text-center py-8">
+                  <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="mb-2">Nenhuma categoria cadastrada</p>
+                  <Button variant="default" onClick={() => router.push('/categorias/nova')}>
+                    Cadastrar Categoria
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {availableTags.map(tag => (
+                    <Card
+                      key={tag.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        (form.watch('tags') || []).includes(tag.id)
+                          ? 'ring-2 ring-primary bg-primary/5'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
+                          <span className="text-sm font-medium">{tag.nome}</span>
+                          {(form.watch('tags') || []).includes(tag.id) && (
+                            <Check className="h-4 w-4 text-primary ml-auto" />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
               {/* Badges de tags selecionadas */}
               {(form.watch('tags') || []).length > 0 && (
                 <div className="space-y-2">

@@ -17,8 +17,13 @@ export default function AuthenticatedLayout({
 
   useEffect(() => {
     if (!isLoading) {
-      if (!isAuthenticated || !hubAtual) {
+      // Permitir acesso à página /select-hub mesmo autenticado
+      const isSelectHubPage = typeof window !== 'undefined' && window.location.pathname === '/select-hub';
+      if (!isAuthenticated) {
         router.push('/login');
+      } else if (!hubAtual && !isSelectHubPage) {
+        // Se não tem hub selecionado e não está em /select-hub, redireciona para /select-hub
+        router.push('/select-hub');
       }
     }
   }, [isAuthenticated, isLoading, hubAtual, router]);
@@ -34,7 +39,12 @@ export default function AuthenticatedLayout({
     );
   }
 
-  if (!isAuthenticated || !hubAtual) {
+  // Permitir acesso à /select-hub mesmo autenticado
+  const isSelectHubPage = typeof window !== 'undefined' && window.location.pathname === '/select-hub';
+  if (!isAuthenticated) {
+    return null;
+  }
+  if (!hubAtual && !isSelectHubPage) {
     return null;
   }
 

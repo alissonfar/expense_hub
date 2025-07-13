@@ -147,48 +147,15 @@ export function Header() {
         <div className="flex items-center justify-between">
           {/* Left side - Hub selector */}
           <div className="flex items-center space-x-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="flex items-center space-x-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50"
-                  disabled={isLoadingHub}
-                >
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium">{hubAtual?.nome || 'Selecionar Hub'}</span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>Seus Hubs</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {hubsDisponiveis.map((hub) => (
-                  <DropdownMenuItem
-                    key={hub.id}
-                    onClick={() => handleSelectHub(hub.id)}
-                    className={cn(
-                      "cursor-pointer",
-                      hub.id === hubAtual?.id && "bg-blue-50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-3">
-                        <Building2 className="h-4 w-4 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium">{hub.nome}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Papel: {hub.role}
-                          </p>
-                        </div>
-                      </div>
-                      {hub.id === hubAtual?.id && (
-                        <Check className="h-4 w-4 text-blue-600" />
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              className="flex items-center space-x-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50"
+              onClick={() => { console.log('[Header] Clique no botão de hub'); router.push('/select-hub'); }}
+            >
+              <Building2 className="h-4 w-4 text-blue-600" />
+              <span className="font-medium">{hubAtual?.nome || 'Selecionar Hub'}</span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </Button>
 
             {/* Search (desktop only) */}
             <div className="hidden lg:flex items-center relative">
