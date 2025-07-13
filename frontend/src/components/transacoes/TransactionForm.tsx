@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
 // (Label, Avatar) não usados atualmente; comentar para evitar linter
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -108,7 +109,7 @@ export default function TransactionForm() {
     const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
     form.setValue('participantes', [
       ...atuais,
-      { nome: '', valor_devido: 0 },
+      { nome: '', valor_devido: 0, pessoa_id: null }, // Adiciona pessoa_id: null
     ]);
   }, [form]);
   const removeParticipante = (index: number) => {
@@ -123,6 +124,7 @@ export default function TransactionForm() {
     ...p,
     valor_devido: Number(p.valor_devido) || 0,
     nome: p.nome || '',
+    pessoa_id: p.pessoa_id ?? null,
   })) : [];
   const valorTotal = Number(form.watch('valor_total')) || 0;
 
@@ -512,43 +514,56 @@ export default function TransactionForm() {
                   </div>
                 )}
                 {/* Corrigir Resumo dos participantes */}
-                {participantesArr.map((participante, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <Input
-                          className="w-40"
-                          placeholder="Nome"
-                          value={participante.nome}
-                          onChange={e => {
-                            const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
-                            participantes[index].nome = e.target.value;
-                            form.setValue('participantes', participantes);
-                          }}
-                        />
-                        <Input
-                          className="w-32"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Valor devido"
-                          value={participante.valor_devido}
-                          onChange={e => {
-                            const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
-                            participantes[index].valor_devido = parseFloat(e.target.value) || 0;
-                            form.setValue('participantes', participantes);
-                          }}
-                        />
-                        <div className="p-3 bg-muted rounded text-sm w-24 text-center">
-                          {valorTotal > 0 ? `${((participante.valor_devido / valorTotal) * 100).toFixed(1)}%` : '0%'}
+                {participantesArr.map((participante, index) => {
+                  // Participantes já selecionados (exceto o atual)
+                  const idsSelecionados = participantesArr.map((p, i) => i !== index ? p.pessoa_id : null).filter(Boolean);
+                  const opcoes = participantesAtivos
+                    .filter(p => !idsSelecionados.includes(p.id))
+                    .map(p => ({ label: p.nome, value: p.id, email: p.email }));
+                  return (
+                    <Card key={index}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-64 max-w-xs">
+                            <Combobox
+                              options={opcoes}
+                              value={participante.pessoa_id}
+                              onChange={valor => {
+                                const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                                const pessoa = participantesAtivos.find(p => p.id === valor);
+                                participantes[index].pessoa_id = valor;
+                                participantes[index].nome = pessoa?.nome || '';
+                                form.setValue('participantes', participantes);
+                              }}
+                              placeholder="Selecione o participante"
+                              searchPlaceholder="Buscar membro..."
+                              emptyPlaceholder="Nenhum membro encontrado."
+                            />
+                          </div>
+                          <Input
+                            className="w-32"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Valor devido"
+                            value={participante.valor_devido}
+                            onChange={e => {
+                              const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                              participantes[index].valor_devido = parseFloat(e.target.value) || 0;
+                              form.setValue('participantes', participantes);
+                            }}
+                          />
+                          <div className="p-3 bg-muted rounded text-sm w-24 text-center">
+                            {valorTotal > 0 ? `${((participante.valor_devido / valorTotal) * 100).toFixed(1)}%` : '0%'}
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
               {/* Feedback de erro (placeholder) */}
               {form.formState.errors.participantes && (

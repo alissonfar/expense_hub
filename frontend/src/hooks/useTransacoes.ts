@@ -30,6 +30,13 @@ export function useTransacoes(filters: TransacaoFilters = {}) {
       });
 
       const response = await api.get(`/transacoes?${params.toString()}`);
+      // Mapeamento: garantir que cada transação tenha participantes
+      if (response.data?.data?.transacoes) {
+        response.data.data.transacoes = response.data.data.transacoes.map((t: any) => ({
+          ...t,
+          participantes: t.participantes || t.transacao_participantes || [],
+        }));
+      }
       return response.data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutos
