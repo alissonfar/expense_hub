@@ -106,17 +106,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Atualizar tokens
   const updateTokens = useCallback((newAccessToken: string, newRefreshToken?: string) => {
     setAccessToken(newAccessToken);
-    if (newRefreshToken) {
+    if (newRefreshToken !== undefined && newRefreshToken !== null) {
       setRefreshToken(newRefreshToken);
-    }
-    // Salvar no localStorage usando as chaves padronizadas
-    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
-    if (newRefreshToken) {
       localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+    } else {
+      // Mantém o refreshToken atual do localStorage/contexto
+      const currentRefreshToken = refreshToken || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (currentRefreshToken) {
+        setRefreshToken(currentRefreshToken);
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, currentRefreshToken);
+      }
     }
+    // Salvar accessToken normalmente
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
     // Configurar header Authorization global
     api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
-  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, refreshToken]);
 
   // Função de login (1ª etapa)
   const login = async (email: string, senha: string): Promise<LoginResponse> => {
@@ -144,6 +149,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de seleção de hub (2ª etapa)
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
+      console.log('%c[AuthContext][selectHub] INICIANDO seleção de hub', 'color: #1976d2; font-weight: bold;', {
+        hubId,
+        accessToken,
+        refreshToken,
+        usuario,
+        hubsDisponiveis,
+        hubAtual,
+        localStorage: {
+          accessToken: localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
+          refreshToken: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
+          hubAtual: localStorage.getItem(STORAGE_KEYS.HUB_ATUAL),
+          hubsDisponiveis: localStorage.getItem(STORAGE_KEYS.HUBS_DISPONIVEIS),
+        },
+        cookies: document.cookie
+      });
       // Priorizar accessToken para seleção de hub
       const tokenToUse = accessToken || refreshToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!tokenToUse) {
@@ -158,7 +178,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       );
       const data = response.data.data as SelectHubResponse;
-      updateTokens(data.accessToken);
+      console.log('%c[AuthContext][selectHub] RESPOSTA do backend', 'color: #388e3c; font-weight: bold;', data);
+      updateTokens(data.accessToken); // Não sobrescreve refreshToken
       const hubCompleto: Hub = {
         id: data.hubContext.id,
         nome: data.hubContext.nome,
@@ -176,6 +197,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       document.cookie = `@PersonalExpenseHub:accessToken=${data.accessToken}; path=/; max-age=3600; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubCompleto)}; path=/; max-age=2592000; SameSite=Strict`;
       setIsAuthenticated(true);
+      console.log('%c[AuthContext][selectHub] ESTADO FINAL após seleção', 'color: #1976d2; font-weight: bold;', {
+        hubAtual: hubCompleto,
+        roleAtual: data.hubContext.role,
+        accessToken: data.accessToken,
+        usuario,
+        hubsDisponiveis
+      });
       return data;
     } catch (error) {
       console.error('[AuthContext][selectHub] Erro:', error, {
@@ -371,31 +399,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedHubAtual = loadFromStorage(STORAGE_KEYS.HUB_ATUAL);
       const storedHubsDisponiveis = loadFromStorage(STORAGE_KEYS.HUBS_DISPONIVEIS);
 
-      console.log('[AuthContext][Init] Tokens lidos:', {
+      console.log('%c[AuthContext][Init] Tokens e estado lidos do localStorage/cookies', 'color: #1976d2; font-weight: bold;', {
         storedAccessToken,
         storedRefreshToken,
         storedUsuario,
         storedHubAtual,
-        storedHubsDisponiveis
+        storedHubsDisponiveis,
+        cookies: document.cookie
       });
       // Determinar estado inicial
       if (storedAccessToken && storedRefreshToken && storedUsuario && storedHubAtual) {
-        console.log('[AuthContext][Init] Estado: autenticado');
+        console.log('%c[AuthContext][Init] Estado: autenticado', 'color: #388e3c; font-weight: bold;');
         setAccessToken(storedAccessToken);
         setRefreshToken(storedRefreshToken);
         setUsuario(storedUsuario);
         setHubAtual(storedHubAtual);
         setIsAuthenticated(true);
         api.defaults.headers.Authorization = `Bearer ${storedAccessToken}`;
-        console.log('[AuthContext][Init] Header Authorization configurado:', api.defaults.headers.Authorization);
+        console.log('%c[AuthContext][Init] Header Authorization configurado:', 'color: #1976d2;', api.defaults.headers.Authorization);
+        // NOVO: garantir que hubsDisponiveis seja carregado sempre que houver no localStorage
+        if (storedHubsDisponiveis) {
+          setHubsDisponiveis(storedHubsDisponiveis);
+        }
       } else if (storedRefreshToken && storedUsuario && storedHubsDisponiveis) {
-        console.log('[AuthContext][Init] Estado: login feito, hub não selecionado');
+        console.log('%c[AuthContext][Init] Estado: login feito, hub não selecionado', 'color: #fbc02d; font-weight: bold;');
         setRefreshToken(storedRefreshToken);
         setUsuario(storedUsuario);
         setHubsDisponiveis(storedHubsDisponiveis);
         setIsAuthenticated(false);
       } else {
-        console.log('[AuthContext][Init] Estado: não autenticado');
+        console.log('%c[AuthContext][Init] Estado: não autenticado', 'color: #d32f2f; font-weight: bold;');
         setIsAuthenticated(false);
       }
       setIsLoading(false);

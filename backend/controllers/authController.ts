@@ -85,8 +85,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  */
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('[BACKEND][LOGIN] Headers recebidos:', req.headers);
-    console.log('[BACKEND][LOGIN] Payload recebido:', req.body);
+    console.log('\x1b[44m[BACKEND][LOGIN] INÍCIO\x1b[0m', {
+      headers: req.headers,
+      payload: req.body
+    });
     const { email, senha }: LoginInput = req.body;
 
     const user = await prisma.pessoas.findUnique({
@@ -147,7 +149,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: membro.role,
     }));
 
-    res.json({
+    const resposta = {
       success: true,
       message: 'Login bem-sucedido. Selecione um Hub para continuar.',
       data: {
@@ -156,12 +158,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         refreshToken,
       },
       timestamp: new Date().toISOString(),
-    });
-    console.log('[BACKEND][LOGIN] Resposta enviada:', {
-      user: userIdentifier,
-      hubs,
-      refreshToken
-    });
+    };
+    console.log('\x1b[42m[BACKEND][LOGIN] RESPOSTA ENVIADA\x1b[0m', resposta);
+    res.json(resposta);
 
   } catch (error) {
     console.error('Erro no login:', error);
@@ -175,8 +174,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
  */
 export const selectHub = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('[BACKEND][SELECT_HUB] Headers recebidos:', req.headers);
-    console.log('[BACKEND][SELECT_HUB] Payload recebido:', req.body);
+    console.log('\x1b[44m[BACKEND][SELECT_HUB] INÍCIO\x1b[0m', {
+      headers: req.headers,
+      payload: req.body
+    });
     const { hubId }: SelectHubInput = req.body;
     const { authorization } = req.headers;
     const refreshToken = extractTokenFromHeader(authorization);
@@ -231,7 +232,7 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
     const accessToken = generateAccessToken(authContext);
     console.log('[BACKEND][SELECT_HUB] accessToken gerado:', accessToken);
 
-    res.json({
+    const resposta = {
       success: true,
       message: `Acesso ao Hub concedido.`,
       data: {
@@ -239,11 +240,9 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
         hubContext
       },
       timestamp: new Date().toISOString(),
-    });
-    console.log('[BACKEND][SELECT_HUB] Resposta enviada:', {
-      accessToken,
-      hubContext
-    });
+    };
+    console.log('\x1b[42m[BACKEND][SELECT_HUB] RESPOSTA ENVIADA\x1b[0m', resposta);
+    res.json(resposta);
 
   } catch (error) {
     console.error('Erro ao selecionar Hub:', error);

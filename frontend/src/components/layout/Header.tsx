@@ -150,7 +150,21 @@ export function Header() {
             <Button
               variant="outline"
               className="flex items-center space-x-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50"
-              onClick={() => { console.log('[Header] Clique no botão de hub'); router.push('/select-hub'); }}
+              onClick={() => { 
+                console.log('%c[Header][Botão Voltar SelectHub] Clique detectado', 'color: #1976d2; font-weight: bold;', {
+                  usuario,
+                  hubAtual,
+                  hubsDisponiveis,
+                  localStorage: {
+                    accessToken: localStorage.getItem('@PersonalExpenseHub:accessToken'),
+                    refreshToken: localStorage.getItem('@PersonalExpenseHub:refreshToken'),
+                    hubAtual: localStorage.getItem('@PersonalExpenseHub:hubAtual'),
+                    hubsDisponiveis: localStorage.getItem('@PersonalExpenseHub:hubsDisponiveis'),
+                  },
+                  cookies: document.cookie
+                });
+                router.push('/select-hub'); 
+              }}
             >
               <Building2 className="h-4 w-4 text-blue-600" />
               <span className="font-medium">{hubAtual?.nome || 'Selecionar Hub'}</span>

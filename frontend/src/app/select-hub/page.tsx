@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useEffect } from 'react';
 
 export default function SelectHubPage() {
   const [selectedHubId, setSelectedHubId] = useState<number | null>(null);
@@ -17,7 +16,8 @@ export default function SelectHubPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [hubName, setHubName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const { hubsDisponiveis, selectHub, usuario, createHub, logout } = useRequirePartialAuth();
+  const [isHubSelecionado, setIsHubSelecionado] = useState(false);
+  const { hubsDisponiveis, selectHub, usuario, createHub, logout, accessToken, hubAtual } = useRequirePartialAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -28,7 +28,19 @@ export default function SelectHubPage() {
       }
     };
     checkAuth();
-  }, [usuario, router]);
+    // LOG EXPRESSIVO DE ESTADO AO MONTAR A PÁGINA
+    console.log('%c[SelectHubPage][MOUNT] Estado inicial do contexto', 'color: #1976d2; font-weight: bold;', {
+      usuario,
+      hubsDisponiveis,
+      localStorage: {
+        accessToken: localStorage.getItem('@PersonalExpenseHub:accessToken'),
+        refreshToken: localStorage.getItem('@PersonalExpenseHub:refreshToken'),
+        hubAtual: localStorage.getItem('@PersonalExpenseHub:hubAtual'),
+        hubsDisponiveis: localStorage.getItem('@PersonalExpenseHub:hubsDisponiveis'),
+      },
+      cookies: document.cookie
+    });
+  }, [usuario, router, hubsDisponiveis]);
 
   const handleSelectHub = async (hubId: number) => {
     try {
@@ -39,7 +51,7 @@ export default function SelectHubPage() {
         title: "Hub selecionado com sucesso!",
         description: "Redirecionando para o dashboard...",
       });
-      router.push('/dashboard');
+      setIsHubSelecionado(true); // Sinaliza que deve recarregar quando contexto estiver pronto
     } catch {
       toast({
         title: "Erro ao selecionar hub",
@@ -51,6 +63,13 @@ export default function SelectHubPage() {
       setIsLoading(false);
     }
   };
+
+  // useEffect para reload robusto
+  useEffect(() => {
+    if (isHubSelecionado && accessToken && hubAtual) {
+      window.location.href = '/dashboard';
+    }
+  }, [isHubSelecionado, accessToken, hubAtual]);
 
   const handleCreateHub = async () => {
     if (!hubName.trim()) return;
