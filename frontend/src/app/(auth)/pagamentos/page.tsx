@@ -102,6 +102,28 @@ export default function PagamentosPage() {
       ),
     },
     {
+      id: 'excedente',
+      header: 'Excedente',
+      cell: ({ row }: any) => {
+        const excedente = row.original.valor_excedente > 0;
+        const receita = row.original.receita_excedente_id || row.original.receita_excedente;
+        return (
+          <div className="flex gap-1 items-center">
+            {excedente && (
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200" title="Pagamento gerou excedente e receita automática">
+                Excedente
+              </Badge>
+            )}
+            {receita && (
+              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200" title="Receita gerada pelo excedente">
+                Receita #{row.original.receita_excedente_id || row.original.receita_excedente?.id}
+              </Badge>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       id: 'acoes',
       header: '',
       cell: ({ row }: any) => (

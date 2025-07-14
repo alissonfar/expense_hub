@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function NovoPagamentoPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
@@ -25,6 +26,8 @@ export default function NovoPagamentoPage() {
   const [valoresPagamento, setValoresPagamento] = useState<Record<number, number>>({});
   const [selecionadas, setSelecionadas] = useState<number[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<string>('PIX');
+  const [processarExcedente, setProcessarExcedente] = useState<boolean>(true);
+  const [valorTotal, setValorTotal] = useState<number>(0);
   const opcoesFormaPagamento = [
     { label: 'PIX', value: 'PIX' },
     { label: 'Dinheiro', value: 'DINHEIRO' },
@@ -72,9 +75,10 @@ export default function NovoPagamentoPage() {
     setValoresPagamento(novos);
     setSelecionadas(linhas.map(l => l.id));
   };
+  // Adaptar dividir igualmente para usar valorTotal
   const dividirIgualmente = () => {
-    const total = linhas.filter(l => selecionadas.includes(l.id)).reduce((acc, l) => acc + l.saldoDevedor, 0);
-    const porTransacao = selecionadas.length ? total / selecionadas.length : 0;
+    if (selecionadas.length === 0 || valorTotal <= 0) return;
+    const porTransacao = valorTotal / selecionadas.length;
     const novos = { ...valoresPagamento };
     selecionadas.forEach(id => { novos[id] = porTransacao; });
     setValoresPagamento(novos);
@@ -187,7 +191,9 @@ export default function NovoPagamentoPage() {
   ];
 
   // Cálculo do total a pagar
-  const totalSelecionado = selecionadas.reduce((acc, id) => acc + (valoresPagamento[id] || 0), 0);
+  // O total agora é definido pelo usuário
+  // const totalSelecionado = selecionadas.reduce((acc, id) => acc + (valoresPagamento[id] || 0), 0);
+  const totalSelecionado = valorTotal;
   const podeConfirmar = selecionadas.length > 0 && totalSelecionado > 0;
 
   // Mutação para criar pagamento
@@ -196,9 +202,10 @@ export default function NovoPagamentoPage() {
       // Montar payload conforme API
       const payload = {
         pessoa_id: pessoaSelecionada,
-        valor_total: totalSelecionado,
+        valor_total: valorTotal,
         data_pagamento: new Date().toISOString().split('T')[0],
         forma_pagamento: formaPagamento,
+        processar_excedente: processarExcedente,
         transacoes: selecionadas.map(id => ({
           transacao_id: id,
           valor_aplicado: valoresPagamento[id] || 0,
@@ -254,6 +261,27 @@ export default function NovoPagamentoPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex items-center gap-2 mt-4">
+            <Checkbox id="processarExcedente" checked={processarExcedente} onCheckedChange={setProcessarExcedente} />
+            <label htmlFor="processarExcedente" className="text-sm select-none cursor-pointer">
+              Processar excedente (gerar receita automaticamente se houver valor a mais)
+            </label>
+          </div>
+
+          {/* Campo de valor total do pagamento */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="valorTotal" className="font-medium">Valor total do pagamento:</label>
+            <Input
+              id="valorTotal"
+              type="number"
+              min={0}
+              step={0.01}
+              value={valorTotal}
+              onChange={e => setValorTotal(Number(e.target.value) || 0)}
+              className="w-40"
+              placeholder="Ex: 100,00"
+            />
           </div>
 
           {/* Tabela de débitos */}
