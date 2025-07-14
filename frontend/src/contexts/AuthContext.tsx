@@ -318,10 +318,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Função para criar novo hub
   const createHub = async (nome: string) => {
-    // Priorizar accessToken, mas usar refreshToken se necessário
-    const token = accessToken || refreshToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    if (!token) throw new Error('Token de autenticação não encontrado para criar hub');
-    const novoHub = await hubsApi.create({ nome }, token);
+    // SEMPRE buscar o refreshToken diretamente do localStorage
+    const refreshTokenLS = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    const tokenToUse = refreshTokenLS;
+    const tokenSource = 'refreshToken (localStorage)';
+    console.log('%c[AuthContext][createHub][TOKEN SELECIONADO - CORRIGIDO]', 'color: #ff9800; font-weight: bold;', {
+      tokenToUse,
+      tokenSource,
+      nome
+    });
+    if (!tokenToUse) throw new Error('RefreshToken não encontrado no localStorage. Faça login novamente.');
+    const novoHub = await hubsApi.create({ nome }, tokenToUse);
     setHubsDisponiveis((prev) => {
       const novaLista = [...(prev || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' }];
       return novaLista;
