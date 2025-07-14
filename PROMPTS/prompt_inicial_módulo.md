@@ -1,6 +1,6 @@
 # 🔍 INVESTIGAÇÃO COMPLETA DE MÓDULO
 
-**MÓDULO ALVO**: [Módulo de pagamentos especificamente com foco nos pagamentos excedentes que geram receitas]
+**MÓDULO ALVO**: [Módulo de transações com foco no frontend e na visualização dos detalhes de uma transação]
 
 **IMPORTANTE**: Utilize o **MCP Sequential Thinking** para executar esta tarefa. Processe cada fase da investigação de forma sequencial e estruturada, documentando seu raciocínio e descobertas em cada etapa.
 

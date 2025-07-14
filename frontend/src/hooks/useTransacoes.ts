@@ -50,7 +50,13 @@ export function useTransacao(id: number) {
     queryKey: transactionKeys.detail(id),
     queryFn: async (): Promise<Transacao> => {
       const response = await api.get(`/transacoes/${id}`);
-      return response.data.data;
+      const data = response.data.data;
+      // Mapeamento para compatibilidade com frontend
+      return {
+        ...data,
+        participantes: data.participantes || data.transacao_participantes || [],
+        pagamentos: data.pagamentos || data.pagamento_transacoes || [],
+      };
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 5, // 5 minutos
