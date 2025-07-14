@@ -149,25 +149,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de seleção de hub (2ª etapa)
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
-      console.log('%c[AuthContext][selectHub] INICIANDO seleção de hub', 'color: #1976d2; font-weight: bold;', {
-        hubId,
-        accessToken,
-        refreshToken,
-        usuario,
-        hubsDisponiveis,
-        hubAtual,
-        localStorage: {
-          accessToken: localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
-          refreshToken: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
-          hubAtual: localStorage.getItem(STORAGE_KEYS.HUB_ATUAL),
-          hubsDisponiveis: localStorage.getItem(STORAGE_KEYS.HUBS_DISPONIVEIS),
-        },
-        cookies: document.cookie
+      // SEMPRE buscar o refreshToken diretamente do localStorage
+      const refreshTokenLS = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      const tokenToUse = refreshTokenLS;
+      const tokenSource = 'refreshToken (localStorage)';
+      console.log('%c[AuthContext][selectHub][TOKEN SELECIONADO - CORRIGIDO]', 'color: #ff9800; font-weight: bold;', {
+        tokenToUse,
+        tokenSource,
+        hubId
       });
-      // Priorizar accessToken para seleção de hub
-      const tokenToUse = accessToken || refreshToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN) || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       if (!tokenToUse) {
-        throw new Error('Token de autenticação não encontrado');
+        throw new Error('RefreshToken não encontrado no localStorage. Faça login novamente.');
       }
       const response = await api.post('/auth/select-hub', 
         { hubId },
@@ -207,9 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return data;
     } catch (error) {
       console.error('[AuthContext][selectHub] Erro:', error, {
-        accessToken: accessToken || localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
-        refreshToken: refreshToken || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
-        localStorage: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
+        refreshToken: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
         cookie: document.cookie
       });
       throw error;
@@ -253,12 +243,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de refresh token
   const refreshAccessToken = useCallback(async (): Promise<string> => {
     try {
-      if (!refreshToken) {
+      // Buscar refreshToken do estado OU localStorage (robustez máxima)
+      const tokenToUse =
+        refreshToken ||
+        localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (!tokenToUse) {
         throw new Error('Token de refresh não encontrado');
       }
       const response = await api.post('/auth/refresh', {}, {
         headers: {
-          Authorization: `Bearer ${refreshToken}`
+          Authorization: `Bearer ${tokenToUse}`
         }
       });
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
@@ -266,14 +260,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return newAccessToken;
     } catch (error) {
       console.error('[AuthContext][refreshAccessToken] Erro:', error, {
-        refreshToken,
+        refreshToken: refreshToken || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
         localStorage: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
         cookie: document.cookie
       });
       await logout();
       throw error;
     }
-  }, [refreshToken, logout, updateTokens]);
+  }, [refreshToken, logout, updateTokens, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Função de registro
   const register = async (data: {
@@ -363,6 +357,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        // Se a requisição for para /auth/refresh e der 401, não tente mais nada!
+        if (error.response?.status === 401 && originalRequest.url?.includes('/auth/refresh')) {
+          // Logout imediato e não reenvia requisição
+          await logout();
+          return Promise.reject(error);
+        }
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {

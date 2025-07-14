@@ -121,9 +121,18 @@ export function useRequirePartialAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    if (auth.isLoading) return;
-    if (!auth.refreshToken || !auth.usuario) {
-      router.push('/login');
+    // Só redireciona se isLoading for false E refreshToken/usuario realmente não existirem
+    if (!auth.isLoading) {
+      // Se refreshToken ou usuario ainda são undefined/null, redireciona
+      if (!auth.refreshToken || !auth.usuario) {
+        // Pequeno delay para garantir que contexto foi populado (evita race condition)
+        const timeout = setTimeout(() => {
+          if (!auth.refreshToken || !auth.usuario) {
+            router.push('/login');
+          }
+        }, 50); // 50ms é suficiente para a maioria dos casos
+        return () => clearTimeout(timeout);
+      }
     }
   }, [auth.isLoading, auth.refreshToken, auth.usuario, router]);
 

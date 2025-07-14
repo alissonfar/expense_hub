@@ -17,21 +17,21 @@ export default function SelectHubPage() {
   const [hubName, setHubName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isHubSelecionado, setIsHubSelecionado] = useState(false);
-  const { hubsDisponiveis, selectHub, usuario, createHub, logout, accessToken, hubAtual } = useRequirePartialAuth();
+  const auth = useRequirePartialAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (!usuario) {
+      if (!auth.usuario) {
         router.push('/login');
       }
     };
     checkAuth();
     // LOG EXPRESSIVO DE ESTADO AO MONTAR A PÁGINA
     console.log('%c[SelectHubPage][MOUNT] Estado inicial do contexto', 'color: #1976d2; font-weight: bold;', {
-      usuario,
-      hubsDisponiveis,
+      usuario: auth.usuario,
+      hubsDisponiveis: auth.hubsDisponiveis,
       localStorage: {
         accessToken: localStorage.getItem('@PersonalExpenseHub:accessToken'),
         refreshToken: localStorage.getItem('@PersonalExpenseHub:refreshToken'),
@@ -40,18 +40,27 @@ export default function SelectHubPage() {
       },
       cookies: document.cookie
     });
-  }, [usuario, router, hubsDisponiveis]);
+  }, [auth.usuario, router, auth.hubsDisponiveis]);
 
   const handleSelectHub = async (hubId: number) => {
     try {
-      setIsLoading(true);
-      setSelectedHubId(hubId);
-      await selectHub(hubId);
+      // Buscar refreshToken do localStorage explicitamente
+      const refreshToken = localStorage.getItem('@PersonalExpenseHub:refreshToken');
+      if (!refreshToken) {
+        toast({
+          title: 'Erro de autenticação',
+          description: 'Token de autenticação não encontrado. Faça login novamente.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      // Opcional: passar refreshToken explicitamente para selectHub se necessário
+      await auth.selectHub(hubId);
       toast({
         title: "Hub selecionado com sucesso!",
         description: "Redirecionando para o dashboard...",
       });
-      setIsHubSelecionado(true); // Sinaliza que deve recarregar quando contexto estiver pronto
+      setIsHubSelecionado(true);
     } catch {
       toast({
         title: "Erro ao selecionar hub",
@@ -59,23 +68,21 @@ export default function SelectHubPage() {
         variant: "destructive",
       });
       setSelectedHubId(null);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // useEffect para reload robusto
   useEffect(() => {
-    if (isHubSelecionado && accessToken && hubAtual) {
+    if (isHubSelecionado && auth.accessToken && auth.hubAtual) {
       window.location.href = '/dashboard';
     }
-  }, [isHubSelecionado, accessToken, hubAtual]);
+  }, [isHubSelecionado, auth.accessToken, auth.hubAtual]);
 
   const handleCreateHub = async () => {
     if (!hubName.trim()) return;
     setIsCreating(true);
     try {
-      const novoHub = await createHub(hubName.trim());
+      const novoHub = await auth.createHub(hubName.trim());
       toast({ title: 'Hub criado com sucesso!', description: `Você pode agora acessar o hub "${novoHub.nome}".` });
       setShowCreateModal(false);
       setHubName('');
@@ -90,7 +97,7 @@ export default function SelectHubPage() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await auth.logout();
       toast({ title: 'Logout realizado', description: 'Você saiu da sua conta.' });
       router.push('/login');
     } catch {
@@ -98,7 +105,7 @@ export default function SelectHubPage() {
     }
   };
 
-  if (!hubsDisponiveis || hubsDisponiveis.length === 0) {
+  if (!auth.hubsDisponiveis || auth.hubsDisponiveis.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
         <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
@@ -158,12 +165,12 @@ export default function SelectHubPage() {
               Selecione seu Hub
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Olá, {usuario?.nome}! Escolha o hub que deseja acessar ou crie um novo.
+              Olá, {auth.usuario?.nome}! Escolha o hub que deseja acessar ou crie um novo.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
-              {hubsDisponiveis.map((hub) => (
+              {auth.hubsDisponiveis.map((hub) => (
                 <div
                   key={hub.id}
                   className={`group relative overflow-hidden rounded-lg border-2 transition-all duration-200 cursor-pointer
@@ -171,7 +178,7 @@ export default function SelectHubPage() {
                       ? 'border-blue-500 bg-blue-50/50' 
                       : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/25'
                     }`}
-                  onClick={() => !isLoading && handleSelectHub(hub.id)}
+                  onClick={() => !auth.isLoading && handleSelectHub(hub.id)}
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-3">
@@ -200,17 +207,17 @@ export default function SelectHubPage() {
                     </p>
                     <Button
                       className={`w-full transition-all duration-200 ${
-                        selectedHubId === hub.id && isLoading
+                        selectedHubId === hub.id && auth.isLoading
                           ? 'bg-blue-400 cursor-not-allowed'
                           : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
                       }`}
-                      disabled={isLoading}
+                      disabled={auth.isLoading}
                       onClick={e => {
                         e.stopPropagation();
                         handleSelectHub(hub.id);
                       }}
                     >
-                      {selectedHubId === hub.id && isLoading ? (
+                      {selectedHubId === hub.id && auth.isLoading ? (
                         <div className="flex items-center justify-center">
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                           Acessando...
