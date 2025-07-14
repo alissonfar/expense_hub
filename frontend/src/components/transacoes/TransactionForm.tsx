@@ -23,6 +23,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useTags } from '@/hooks/useTags';
 import { useRouter } from 'next/navigation'; // Mantido apenas para Cancelar
 import { useEffect } from 'react';
+import { Tabs as UITabs, TabsList as UITabsList, TabsTrigger as UITabsTrigger } from '@/components/ui/tabs';
+import { TipoTransacao } from '@/lib/types';
+import { useCreateReceita } from '@/hooks/useTransacoes';
 
 // Atualizar schema Zod para incluir participantes
 const participanteSchema = z.object({
@@ -53,6 +56,16 @@ const transactionSchema = z.object({
   path: ['participantes'],
 });
 
+// NOVOS SCHEMAS
+const receitaSchema = z.object({
+  descricao: z.string().min(3, 'Descrição obrigatória (mínimo 3 caracteres).'),
+  local: z.string().optional(),
+  valor_recebido: z.preprocess((v) => Number(v) || 0, z.number().positive('O valor deve ser maior que zero.')),
+  data_transacao: z.string().min(1, 'Data obrigatória.'),
+  observacoes: z.string().max(1000, 'Máximo 1000 caracteres.').optional(),
+  tags: z.array(z.string()).max(5, 'Máximo de 5 tags por transação').optional(),
+});
+
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 // Estrutura visual inicial baseada no design do formulário antigo
@@ -62,14 +75,19 @@ export default function TransactionForm() {
   const { toast } = useToast();
   const { data: participantesAtivos = [] } = usePessoasAtivas();
   const createTransacao = useCreateTransacao();
+  const createReceita = useCreateReceita();
+  // NOVO: Estado para tipo de transação
+  const [tipoTransacao, setTipoTransacao] = useState<'GASTO' | 'RECEITA'>(TipoTransacao.GASTO);
   const [activeTab, setActiveTab] = useState('basico');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const { data: categorias = [], isLoading: loadingCategorias } = useTags({ ativo: true });
 
-  const form = useForm<TransactionFormValues>({
-    resolver: zodResolver(transactionSchema),
-    defaultValues: {
+  // NOVO: Alternar schema conforme tipo
+  const schema = tipoTransacao === 'GASTO' ? transactionSchema : receitaSchema;
+  const form = useForm<any>({
+    resolver: zodResolver(schema),
+    defaultValues: tipoTransacao === 'GASTO' ? {
       descricao: '',
       local: '',
       valor_total: 0,
@@ -79,9 +97,16 @@ export default function TransactionForm() {
       observacoes: '',
       participantes: [],
       tags: [],
+    } : {
+      descricao: '',
+      local: '',
+      valor_recebido: 0,
+      data_transacao: '',
+      observacoes: '',
+      tags: [],
     },
     mode: 'onChange',
-    shouldUnregister: false, // Mantém valores ao alternar abas/tabs
+    shouldUnregister: false,
   });
 
   React.useEffect(() => {
@@ -129,35 +154,52 @@ export default function TransactionForm() {
   const valorTotal = Number(form.watch('valor_total')) || 0;
 
   // Handler de envio
-  const onSubmit = useCallback(async (values: TransactionFormValues) => {
+  const onSubmit = useCallback(async (values: any) => {
     try {
-      // Mapear participantes para o formato da API { pessoa_id, valor_individual }
-      const participantesPayload = (values.participantes || []).map(p => {
-        const encontrado = participantesAtivos.find(pa => pa.nome && p.nome && pa.nome.toLowerCase() === p.nome.toLowerCase());
-        const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
-        return {
-          pessoa_id: pessoaId,
-          valor_devido: Number(p.valor_devido) || 0, // conforme API
+      if (tipoTransacao === TipoTransacao.GASTO) {
+        // Mapear participantes para o formato da API { pessoa_id, valor_individual }
+        const participantesPayload = (values.participantes || []).map(p => {
+          const encontrado = participantesAtivos.find(pa => pa.nome && p.nome && pa.nome.toLowerCase() === p.nome.toLowerCase());
+          const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
+          return {
+            pessoa_id: pessoaId,
+            valor_devido: Number(p.valor_devido) || 0, // conforme API
+          };
+        });
+
+        const payload = {
+          descricao: values.descricao,
+          local: values.local || undefined,
+          valor_total: Number(values.valor_total),
+          data_transacao: values.data_transacao,
+          observacoes: values.observacoes || undefined,
+          eh_parcelado: Boolean(values.eh_parcelado),
+          total_parcelas: Number(values.total_parcelas || 1),
+          participantes: participantesPayload,
+          tags: (values.tags || []).map(t => Number(t)),
         };
-      });
 
-      const payload = {
-        descricao: values.descricao,
-        local: values.local || undefined,
-        valor_total: Number(values.valor_total),
-        data_transacao: values.data_transacao,
-        observacoes: values.observacoes || undefined,
-        eh_parcelado: Boolean(values.eh_parcelado),
-        total_parcelas: Number(values.total_parcelas || 1),
-        participantes: participantesPayload,
-        tags: (values.tags || []).map(t => Number(t)),
-      };
-
-      await createTransacao.mutateAsync(payload);
-      toast({
-        title: 'Sucesso',
-        description: 'Transação criada com sucesso!',
-      });
+        await createTransacao.mutateAsync(payload);
+        toast({
+          title: 'Sucesso',
+          description: 'Transação criada com sucesso!',
+        });
+      } else {
+        // RECEITA
+        const payload = {
+          descricao: values.descricao,
+          local: values.local || undefined,
+          valor_recebido: Number(values.valor_recebido),
+          data_transacao: values.data_transacao,
+          observacoes: values.observacoes || undefined,
+          tags: (values.tags || []).map(t => Number(t)),
+        };
+        await createReceita.mutateAsync(payload);
+        toast({
+          title: 'Sucesso',
+          description: 'Receita criada com sucesso!',
+        });
+      }
       setShowSuccess(true);
       form.reset();
       setActiveTab('basico');
@@ -177,7 +219,7 @@ export default function TransactionForm() {
         variant: 'destructive',
       });
     }
-  }, [participantesAtivos, usuario, createTransacao, toast, form]);
+  }, [participantesAtivos, usuario, createTransacao, createReceita, toast, form, tipoTransacao]);
 
   // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
   const dividirIgualmente = useCallback(async () => {
@@ -250,8 +292,19 @@ export default function TransactionForm() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab, form, createTransacao.isPending, dividirIgualmente, addParticipante, showShortcuts, onSubmit, router]);
 
+  // NOVO: Renderização condicional dos campos
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6">
+      <UITabs value={tipoTransacao} onValueChange={setTipoTransacao} className="mb-4">
+        <UITabsList className="grid grid-cols-2 w-64 mx-auto">
+          <UITabsTrigger value="GASTO" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" /> Gasto
+          </UITabsTrigger>
+          <UITabsTrigger value="RECEITA" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" /> Receita
+          </UITabsTrigger>
+        </UITabsList>
+      </UITabs>
       {/* Painel de Atalhos */}
       {showShortcuts && (
         <Card className="border-blue-200 bg-blue-50">
@@ -340,7 +393,7 @@ export default function TransactionForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-xl flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Nova Transação
+            {tipoTransacao === 'GASTO' ? 'Nova Transação' : 'Nova Receita'}
             <Button
               variant="ghost"
               size="sm"
@@ -353,411 +406,524 @@ export default function TransactionForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basico" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Básico
-              </TabsTrigger>
-              <TabsTrigger value="participantes" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Participantes
-                <Badge variant="secondary" className="ml-1">{form.watch('participantes').length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="tags" className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                Tags
-                <Badge variant="secondary" className="ml-1">{(form.watch('tags') || []).length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="resumo" className="flex items-center gap-2">
-                <Calculator className="h-4 w-4" />
-                Resumo
-              </TabsTrigger>
-            </TabsList>
+          {/* Tabs internas só para GASTO */}
+          {tipoTransacao === 'GASTO' ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="basico" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Básico
+                </TabsTrigger>
+                <TabsTrigger value="participantes" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Participantes
+                  <Badge variant="secondary" className="ml-1">{form.watch('participantes').length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="tags" className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Tags
+                  <Badge variant="secondary" className="ml-1">{(form.watch('tags') || []).length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="resumo" className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Resumo
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Conteúdo das abas - placeholders para próxima etapa */}
-            <TabsContent value="basico" className="space-y-4 mt-6">
+              {/* Conteúdo das abas - placeholders para próxima etapa */}
+              <TabsContent value="basico" className="space-y-4 mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Descrição */}
+                  <div className="space-y-2 md:col-span-2">
+                    <label htmlFor="descricao" className="flex items-center gap-2 font-medium">
+                      <FileText className="h-4 w-4" />
+                      Descrição *
+                    </label>
+                    <Input id="descricao" {...form.register('descricao')} autoFocus />
+                    {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
+                  </div>
+                  {/* Local/Fonte */}
+                  <div className="space-y-2">
+                    <label htmlFor="local" className="flex items-center gap-2 font-medium">
+                      <MapPin className="h-4 w-4" />
+                      Local/Fonte
+                    </label>
+                    <Input id="local" {...form.register('local')} />
+                  </div>
+                  {/* Valor Total */}
+                  <div className="space-y-2">
+                    <label htmlFor="valor" className="flex items-center gap-2 font-medium">
+                      <DollarSign className="h-4 w-4" />
+                      Valor Total *
+                    </label>
+                    <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} />
+                    {form.formState.errors.valor_total && <p className="text-sm text-red-500">{form.formState.errors.valor_total.message}</p>}
+                  </div>
+                  {/* Data */}
+                  <div className="space-y-2">
+                    <label htmlFor="data" className="flex items-center gap-2 font-medium">
+                      <Calendar className="h-4 w-4" />
+                      Data *
+                    </label>
+                    <Input id="data" type="date" {...form.register('data_transacao')} />
+                    {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
+                  </div>
+                  {/* Parcelamento */}
+                  <div className="space-y-4 md:col-span-2">
+                    <Separator />
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="parcelado" {...form.register('eh_parcelado')} />
+                      <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
+                        <CreditCard className="h-4 w-4" />
+                        Parcelar este gasto
+                      </label>
+                    </div>
+                    {/* Total de Parcelas (condicional) */}
+                    <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
+                      <div className="space-y-2">
+                        <label htmlFor="parcelas">Total de Parcelas *</label>
+                        <Select value={String(form.watch('total_parcelas'))} onValueChange={value => form.setValue('total_parcelas', Number(value))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="1" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 36 }, (_, i) => i + 1).map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num}x</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {form.formState.errors.total_parcelas && <p className="text-sm text-red-500">{form.formState.errors.total_parcelas.message}</p>}
+                      </div>
+                      <div className="space-y-2">
+                        <label>Valor por Parcela</label>
+                        <div className="p-3 bg-background rounded border text-lg font-semibold">
+                          {form.watch('eh_parcelado') ? `R$ ${(Number(form.watch('valor_total') || 0) / Math.max(Number(form.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(form.watch('valor_total') || 0).toFixed(2)}`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Observações */}
+                  <div className="space-y-2 md:col-span-2">
+                    <label htmlFor="observacoes" className="font-medium">Observações</label>
+                    <Textarea id="observacoes" {...form.register('observacoes')} className="min-h-[80px]" />
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="participantes" className="space-y-4 mt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Participantes do Gasto</h3>
+                    <p className="text-sm text-muted-foreground">Defina quem vai participar e quanto cada pessoa deve pagar</p>
+                  </div>
+                  <Button type="button" variant="outline" onClick={addParticipante}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar
+                  </Button>
+                </div>
+                {/* Calculadora rápida */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">Calculadora Rápida</h4>
+                      <Button type="button" variant="outline" size="sm" onClick={dividirIgualmente}>
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Dividir Igualmente
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Valor Total:</span>
+                        <div className="font-semibold">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Participantes:</span>
+                        <div className="font-semibold">{form.watch('participantes').length}</div>
+                      </div>
+                      {/* Corrigir Soma Atual */}
+                      <div>
+                        <span className="text-muted-foreground">Soma Atual:</span>
+                        <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
+                      </div>
+                      {/* Corrigir Diferença */}
+                      <div>
+                        <span className="text-muted-foreground">Diferença:</span>
+                        <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(valorTotal - participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
+                      </div>
+                    </div>
+                    {/* Feedback de balanceamento */}
+                    {form.formState.errors.participantes && (
+                      <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        {form.formState.errors.participantes.message as string}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                {/* Lista de participantes */}
+                <div className="space-y-3">
+                  {form.watch('participantes').length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhum participante adicionado</p>
+                      <p className="text-sm">Clique em &quot;Adicionar&quot; para incluir participantes</p>
+                    </div>
+                  )}
+                  {/* Corrigir Resumo dos participantes */}
+                  {participantesArr.map((participante, index) => {
+                    // Participantes já selecionados (exceto o atual)
+                    const idsSelecionados = participantesArr.map((p, i) => i !== index ? p.pessoa_id : null).filter(Boolean);
+                    const opcoes = participantesAtivos
+                      .filter(p => !idsSelecionados.includes(p.id))
+                      .map(p => ({ label: p.nome, value: p.id, email: p.email }));
+                    return (
+                      <Card key={index}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-64 max-w-xs">
+                              <Combobox
+                                options={opcoes}
+                                value={participante.pessoa_id}
+                                onChange={valor => {
+                                  const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                                  const pessoa = participantesAtivos.find(p => p.id === valor);
+                                  participantes[index].pessoa_id = valor;
+                                  participantes[index].nome = pessoa?.nome || '';
+                                  form.setValue('participantes', participantes);
+                                }}
+                                placeholder="Selecione o participante"
+                                searchPlaceholder="Buscar membro..."
+                                emptyPlaceholder="Nenhum membro encontrado."
+                              />
+                            </div>
+                            <Input
+                              className="w-32"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Valor devido"
+                              value={participante.valor_devido}
+                              onChange={e => {
+                                const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                                participantes[index].valor_devido = parseFloat(e.target.value) || 0;
+                                form.setValue('participantes', participantes);
+                              }}
+                            />
+                            <div className="p-3 bg-muted rounded text-sm w-24 text-center">
+                              {valorTotal > 0 ? `${((participante.valor_devido / valorTotal) * 100).toFixed(1)}%` : '0%'}
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+                {/* Feedback de erro (placeholder) */}
+                {form.formState.errors.participantes && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 mt-2">
+                    <AlertCircle className="h-4 w-4 inline mr-1" />
+                    {form.formState.errors.participantes.message as string}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="tags" className="space-y-4 mt-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Tags e Categorias</h3>
+                  <p className="text-sm text-muted-foreground">Selecione até 5 tags para categorizar esta transação</p>
+                </div>
+                {loadingCategorias ? (
+                  <div className="text-center text-muted-foreground">Carregando categorias...</div>
+                ) : availableTags.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="mb-2">Nenhuma categoria cadastrada</p>
+                    <Button variant="default" onClick={() => router.push('/categorias/nova')}>
+                      Cadastrar Categoria
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {availableTags.map(tag => (
+                      <Card
+                        key={tag.id}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          (form.watch('tags') || []).includes(tag.id)
+                            ? 'ring-2 ring-primary bg-primary/5'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleTag(tag.id)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
+                            <span className="text-sm font-medium">{tag.nome}</span>
+                            {(form.watch('tags') || []).includes(tag.id) && (
+                              <Check className="h-4 w-4 text-primary ml-auto" />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                {/* Badges de tags selecionadas */}
+                {(form.watch('tags') || []).length > 0 && (
+                  <div className="space-y-2">
+                    <label className="font-medium">Tags Selecionadas:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(form.watch('tags') || []).map(tagId => {
+                        const tag = availableTags.find(t => t.id === tagId);
+                        return tag ? (
+                          <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
+                            {tag.nome}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-transparent"
+                              onClick={() => toggleTag(tagId)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Feedback de erro */}
+                {form.formState.errors.tags && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 inline mr-1" />
+                    {form.formState.errors.tags.message as string}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="resumo" className="space-y-4 mt-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Resumo da Transação</h3>
+                  <p className="text-sm text-muted-foreground">Revise todos os dados antes de salvar</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Informações Básicas */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Informações Básicas
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Tipo:</span>
+                        <div className="font-medium">Gasto</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Descrição:</span>
+                        <div className="font-medium">{form.watch('descricao')}</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Local/Fonte:</span>
+                        <div className="font-medium">{form.watch('local')}</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Valor:</span>
+                        <div className="font-medium text-lg">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Data:</span>
+                        <div className="font-medium">{form.watch('data_transacao')}</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Parcelamento:</span>
+                        <div className="font-medium">{form.watch('eh_parcelado') ? `${form.watch('total_parcelas')}x` : 'À vista'}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* Participantes e Tags */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Participantes e Tags
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Participantes:</span>
+                        <div className="space-y-1 mt-1">
+                          {/* Corrigir Resumo dos participantes */}
+                          {participantesArr.map((participante, index) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span>{participante.nome}</span>
+                              <span className="font-medium">R$ {Number(participante.valor_devido).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Tags:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(form.watch('tags') || []).map(tagId => {
+                            const tag = availableTags.find(t => t.id === tagId);
+                            return tag ? (
+                              <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
+                                {tag.nome}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Observações:</span>
+                        <div className="text-sm bg-muted p-2 rounded mt-1">{form.watch('observacoes')}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* Status de validação (placeholder) */}
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-5 w-5 text-green-600" />
+                      <span className="text-green-700 font-medium">Pronto para salvar</span>
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* <Card className="border-red-200 bg-red-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <span className="text-red-700 font-medium">Verificar participantes</span>
+                    </div>
+                  </CardContent>
+                </Card> */}
+              </TabsContent>
+            </Tabs>
+          ) : (
+            // RECEITA: campos simplificados
+            <div className="space-y-4 mt-6">
               <div className="grid gap-4 md:grid-cols-2">
-                {/* Descrição */}
                 <div className="space-y-2 md:col-span-2">
                   <label htmlFor="descricao" className="flex items-center gap-2 font-medium">
-                    <FileText className="h-4 w-4" />
-                    Descrição *
+                    <FileText className="h-4 w-4" /> Descrição *
                   </label>
                   <Input id="descricao" {...form.register('descricao')} autoFocus />
                   {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
                 </div>
-                {/* Local/Fonte */}
                 <div className="space-y-2">
                   <label htmlFor="local" className="flex items-center gap-2 font-medium">
-                    <MapPin className="h-4 w-4" />
-                    Local/Fonte
+                    <MapPin className="h-4 w-4" /> Fonte
                   </label>
                   <Input id="local" {...form.register('local')} />
                 </div>
-                {/* Valor Total */}
                 <div className="space-y-2">
-                  <label htmlFor="valor" className="flex items-center gap-2 font-medium">
-                    <DollarSign className="h-4 w-4" />
-                    Valor Total *
+                  <label htmlFor="valor_recebido" className="flex items-center gap-2 font-medium">
+                    <DollarSign className="h-4 w-4" /> Valor Recebido *
                   </label>
-                  <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} />
-                  {form.formState.errors.valor_total && <p className="text-sm text-red-500">{form.formState.errors.valor_total.message}</p>}
+                  <Input id="valor_recebido" type="number" step="0.01" min="0.01" {...form.register('valor_recebido', { valueAsNumber: true })} />
+                  {form.formState.errors.valor_recebido && <p className="text-sm text-red-500">{form.formState.errors.valor_recebido.message}</p>}
                 </div>
-                {/* Data */}
                 <div className="space-y-2">
                   <label htmlFor="data" className="flex items-center gap-2 font-medium">
-                    <Calendar className="h-4 w-4" />
-                    Data *
+                    <Calendar className="h-4 w-4" /> Data *
                   </label>
                   <Input id="data" type="date" {...form.register('data_transacao')} />
                   {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
                 </div>
-                {/* Parcelamento */}
-                <div className="space-y-4 md:col-span-2">
-                  <Separator />
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="parcelado" {...form.register('eh_parcelado')} />
-                    <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
-                      <CreditCard className="h-4 w-4" />
-                      Parcelar este gasto
-                    </label>
-                  </div>
-                  {/* Total de Parcelas (condicional) */}
-                  <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
-                    <div className="space-y-2">
-                      <label htmlFor="parcelas">Total de Parcelas *</label>
-                      <Select value={String(form.watch('total_parcelas'))} onValueChange={value => form.setValue('total_parcelas', Number(value))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="1" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 36 }, (_, i) => i + 1).map(num => (
-                            <SelectItem key={num} value={num.toString()}>{num}x</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.formState.errors.total_parcelas && <p className="text-sm text-red-500">{form.formState.errors.total_parcelas.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <label>Valor por Parcela</label>
-                      <div className="p-3 bg-background rounded border text-lg font-semibold">
-                        {form.watch('eh_parcelado') ? `R$ ${(Number(form.watch('valor_total') || 0) / Math.max(Number(form.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(form.watch('valor_total') || 0).toFixed(2)}`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Observações */}
                 <div className="space-y-2 md:col-span-2">
                   <label htmlFor="observacoes" className="font-medium">Observações</label>
                   <Textarea id="observacoes" {...form.register('observacoes')} className="min-h-[80px]" />
                 </div>
               </div>
-            </TabsContent>
-            <TabsContent value="participantes" className="space-y-4 mt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Participantes do Gasto</h3>
-                  <p className="text-sm text-muted-foreground">Defina quem vai participar e quanto cada pessoa deve pagar</p>
-                </div>
-                <Button type="button" variant="outline" onClick={addParticipante}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar
-                </Button>
-              </div>
-              {/* Calculadora rápida */}
-              <Card className="bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium">Calculadora Rápida</h4>
-                    <Button type="button" variant="outline" size="sm" onClick={dividirIgualmente}>
-                      <Calculator className="h-4 w-4 mr-2" />
-                      Dividir Igualmente
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Valor Total:</span>
-                      <div className="font-semibold">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Participantes:</span>
-                      <div className="font-semibold">{form.watch('participantes').length}</div>
-                    </div>
-                    {/* Corrigir Soma Atual */}
-                    <div>
-                      <span className="text-muted-foreground">Soma Atual:</span>
-                      <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
-                    </div>
-                    {/* Corrigir Diferença */}
-                    <div>
-                      <span className="text-muted-foreground">Diferença:</span>
-                      <div className={`font-semibold ${Math.abs(participantesArr.reduce((acc, p) => acc + p.valor_devido, 0) - valorTotal) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>R$ {Number(valorTotal - participantesArr.reduce((acc, p) => acc + p.valor_devido, 0)).toFixed(2)}</div>
-                    </div>
-                  </div>
-                  {/* Feedback de balanceamento */}
-                  {form.formState.errors.participantes && (
-                    <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
-                      <AlertCircle className="h-4 w-4 inline mr-1" />
-                      {form.formState.errors.participantes.message as string}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              {/* Lista de participantes */}
-              <div className="space-y-3">
-                {form.watch('participantes').length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Nenhum participante adicionado</p>
-                    <p className="text-sm">Clique em &quot;Adicionar&quot; para incluir participantes</p>
-                  </div>
-                )}
-                {/* Corrigir Resumo dos participantes */}
-                {participantesArr.map((participante, index) => {
-                  // Participantes já selecionados (exceto o atual)
-                  const idsSelecionados = participantesArr.map((p, i) => i !== index ? p.pessoa_id : null).filter(Boolean);
-                  const opcoes = participantesAtivos
-                    .filter(p => !idsSelecionados.includes(p.id))
-                    .map(p => ({ label: p.nome, value: p.id, email: p.email }));
-                  return (
-                    <Card key={index}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-64 max-w-xs">
-                            <Combobox
-                              options={opcoes}
-                              value={participante.pessoa_id}
-                              onChange={valor => {
-                                const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
-                                const pessoa = participantesAtivos.find(p => p.id === valor);
-                                participantes[index].pessoa_id = valor;
-                                participantes[index].nome = pessoa?.nome || '';
-                                form.setValue('participantes', participantes);
-                              }}
-                              placeholder="Selecione o participante"
-                              searchPlaceholder="Buscar membro..."
-                              emptyPlaceholder="Nenhum membro encontrado."
-                            />
-                          </div>
-                          <Input
-                            className="w-32"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Valor devido"
-                            value={participante.valor_devido}
-                            onChange={e => {
-                              const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
-                              participantes[index].valor_devido = parseFloat(e.target.value) || 0;
-                              form.setValue('participantes', participantes);
-                            }}
-                          />
-                          <div className="p-3 bg-muted rounded text-sm w-24 text-center">
-                            {valorTotal > 0 ? `${((participante.valor_devido / valorTotal) * 100).toFixed(1)}%` : '0%'}
-                          </div>
-                          <Button type="button" variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => removeParticipante(index)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-              {/* Feedback de erro (placeholder) */}
-              {form.formState.errors.participantes && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 mt-2">
-                  <AlertCircle className="h-4 w-4 inline mr-1" />
-                  {form.formState.errors.participantes.message as string}
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="tags" className="space-y-4 mt-6">
+              {/* Tags */}
               <div>
                 <h3 className="text-lg font-semibold">Tags e Categorias</h3>
-                <p className="text-sm text-muted-foreground">Selecione até 5 tags para categorizar esta transação</p>
-              </div>
-              {loadingCategorias ? (
-                <div className="text-center text-muted-foreground">Carregando categorias...</div>
-              ) : availableTags.length === 0 ? (
-                <div className="text-center py-8">
-                  <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="mb-2">Nenhuma categoria cadastrada</p>
-                  <Button variant="default" onClick={() => router.push('/categorias/nova')}>
-                    Cadastrar Categoria
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {availableTags.map(tag => (
-                    <Card
-                      key={tag.id}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        (form.watch('tags') || []).includes(tag.id)
-                          ? 'ring-2 ring-primary bg-primary/5'
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => toggleTag(tag.id)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
-                          <span className="text-sm font-medium">{tag.nome}</span>
-                          {(form.watch('tags') || []).includes(tag.id) && (
-                            <Check className="h-4 w-4 text-primary ml-auto" />
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-              {/* Badges de tags selecionadas */}
-              {(form.watch('tags') || []).length > 0 && (
-                <div className="space-y-2">
-                  <label className="font-medium">Tags Selecionadas:</label>
-                  <div className="flex flex-wrap gap-2">
-                    {(form.watch('tags') || []).map(tagId => {
-                      const tag = availableTags.find(t => t.id === tagId);
-                      return tag ? (
-                        <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
-                          {tag.nome}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 hover:bg-transparent"
-                            onClick={() => toggleTag(tagId)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ) : null;
-                    })}
+                <p className="text-sm text-muted-foreground">Selecione até 5 tags para categorizar esta receita</p>
+                {loadingCategorias ? (
+                  <div className="text-center text-muted-foreground">Carregando categorias...</div>
+                ) : availableTags.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="mb-2">Nenhuma categoria cadastrada</p>
+                    <Button variant="default" onClick={() => router.push('/categorias/nova')}>
+                      Cadastrar Categoria
+                    </Button>
                   </div>
-                </div>
-              )}
-              {/* Feedback de erro */}
-              {form.formState.errors.tags && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                  <AlertCircle className="h-4 w-4 inline mr-1" />
-                  {form.formState.errors.tags.message as string}
-                </div>
-              )}
-            </TabsContent>
-            <TabsContent value="resumo" className="space-y-4 mt-6">
-              <div>
-                <h3 className="text-lg font-semibold">Resumo da Transação</h3>
-                <p className="text-sm text-muted-foreground">Revise todos os dados antes de salvar</p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Informações Básicas */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Informações Básicas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <span className="text-sm text-muted-foreground">Tipo:</span>
-                      <div className="font-medium">Gasto</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Descrição:</span>
-                      <div className="font-medium">{form.watch('descricao')}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Local/Fonte:</span>
-                      <div className="font-medium">{form.watch('local')}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Valor:</span>
-                      <div className="font-medium text-lg">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Data:</span>
-                      <div className="font-medium">{form.watch('data_transacao')}</div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Parcelamento:</span>
-                      <div className="font-medium">{form.watch('eh_parcelado') ? `${form.watch('total_parcelas')}x` : 'À vista'}</div>
-                    </div>
-                  </CardContent>
-                </Card>
-                {/* Participantes e Tags */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Participantes e Tags
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <span className="text-sm text-muted-foreground">Participantes:</span>
-                      <div className="space-y-1 mt-1">
-                        {/* Corrigir Resumo dos participantes */}
-                        {participantesArr.map((participante, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span>{participante.nome}</span>
-                            <span className="font-medium">R$ {Number(participante.valor_devido).toFixed(2)}</span>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {availableTags.map(tag => (
+                      <Card
+                        key={tag.id}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          (form.watch('tags') || []).includes(tag.id)
+                            ? 'ring-2 ring-primary bg-primary/5'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleTag(tag.id)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
+                            <span className="text-sm font-medium">{tag.nome}</span>
+                            {(form.watch('tags') || []).includes(tag.id) && (
+                              <Check className="h-4 w-4 text-primary ml-auto" />
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                {/* Badges de tags selecionadas */}
+                {(form.watch('tags') || []).length > 0 && (
+                  <div className="space-y-2">
+                    <label className="font-medium">Tags Selecionadas:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(form.watch('tags') || []).map(tagId => {
+                        const tag = availableTags.find(t => t.id === tagId);
+                        return tag ? (
+                          <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
+                            {tag.nome}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-transparent"
+                              onClick={() => toggleTag(tagId)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ) : null;
+                      })}
                     </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Tags:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {(form.watch('tags') || []).map(tagId => {
-                          const tag = availableTags.find(t => t.id === tagId);
-                          return tag ? (
-                            <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.cor }} />
-                              {tag.nome}
-                            </Badge>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-sm text-muted-foreground">Observações:</span>
-                      <div className="text-sm bg-muted p-2 rounded mt-1">{form.watch('observacoes')}</div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                )}
+                {/* Feedback de erro */}
+                {form.formState.errors.tags && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 inline mr-1" />
+                    {form.formState.errors.tags.message as string}
+                  </div>
+                )}
               </div>
-              {/* Status de validação (placeholder) */}
-              <Card className="border-green-200 bg-green-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Check className="h-5 w-5 text-green-600" />
-                    <span className="text-green-700 font-medium">Pronto para salvar</span>
-                  </div>
-                </CardContent>
-              </Card>
-              {/* <Card className="border-red-200 bg-red-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                    <span className="text-red-700 font-medium">Verificar participantes</span>
-                  </div>
-                </CardContent>
-              </Card> */}
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
           {/* Botões de ação */}
           <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
             <Button type="button" variant="outline" onClick={() => router.back()}>
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTransacao.isPending}>
+            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTransacao.isPending || createReceita.isPending}>
               <Check className="h-4 w-4 mr-2" />
-              Salvar Transação
+              {tipoTransacao === 'GASTO' ? 'Salvar Transação' : 'Salvar Receita'}
               <kbd className="ml-2 px-1 py-0.5 bg-white/20 rounded text-xs">Ctrl+↵</kbd>
             </Button>
           </div>
