@@ -15,10 +15,13 @@ import {
   Sparkles,
   TrendingUp,
   Tag,
-  Menu
+  Menu,
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useDashboard } from '@/hooks/useDashboard';
+import { useMemo } from 'react';
 
 const menuItems = [
   {
@@ -34,16 +37,10 @@ const menuItems = [
     description: 'Gastos e receitas'
   },
   {
-    title: 'Relatórios',
-    href: '/relatorios',
-    icon: FileText,
-    description: 'Análises detalhadas'
-  },
-  {
-    title: 'Membros',
-    href: '/membros', // Corrigido para '/membros'
-    icon: Users,
-    description: 'Gerenciar participantes'
+    title: 'Pagamentos',
+    href: '/pagamentos',
+    icon: DollarSign,
+    description: 'Gestão de pagamentos'
   },
   {
     title: 'Categorias',
@@ -52,17 +49,45 @@ const menuItems = [
     description: 'Tags e categorias'
   },
   {
-    title: 'Configurações',
-    href: '/configuracoes',
-    icon: Settings,
-    description: 'Preferências do Hub'
-  }
+    title: 'Membros',
+    href: '/membros',
+    icon: Users,
+    description: 'Gerenciar participantes'
+  },
+  {
+    title: 'Relatórios',
+    href: '/relatorios',
+    icon: FileText,
+    description: 'Análises detalhadas'
+  },
 ];
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
+
+  // NOVO: calcular período do mês atual
+  const periodoMesAtual = useMemo(() => {
+    const now = new Date();
+    const ano = now.getFullYear();
+    const mes = now.getMonth(); // 0-index
+    const primeiroDia = new Date(ano, mes, 1);
+    const ultimoDia = new Date(ano, mes + 1, 0);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return {
+      data_inicio: `${ano}-${pad(mes + 1)}-01`,
+      data_fim: `${ano}-${pad(mes + 1)}-${pad(ultimoDia.getDate())}`
+    };
+  }, []);
+  // Hook para buscar saldo do mês
+  const { data, isLoading, isError } = useDashboard({
+    periodo: 'personalizado',
+    data_inicio: periodoMesAtual.data_inicio,
+    data_fim: periodoMesAtual.data_fim,
+    incluir_graficos: false,
+    incluir_comparativo: false,
+  });
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
@@ -200,12 +225,17 @@ export function Sidebar() {
                 <span className="text-sm font-medium text-gray-700">Saldo do mês</span>
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </div>
-              <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                R$ 2.450,00
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                +12% em relação ao mês anterior
-              </p>
+              {isLoading ? (
+                <p className="text-2xl font-bold text-gray-400 animate-pulse">Carregando...</p>
+              ) : isError ? (
+                <p className="text-2xl font-bold text-red-500">Erro</p>
+              ) : (
+                <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data?.resumo?.saldo_periodo ?? 0)}
+                </p>
+              )}
+              {/* Opcional: variação percentual, se disponível no backend */}
+              {/* <p className="text-xs text-gray-500 mt-1">+12% em relação ao mês anterior</p> */}
             </div>
           </div>
         )}
