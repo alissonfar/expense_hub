@@ -1,6 +1,6 @@
 # 🔍 INVESTIGAÇÃO COMPLETA DE MÓDULO
 
-**MÓDULO ALVO**: [Módulo de transações com foco no frontend e na visualização dos detalhes de uma transação]
+**MÓDULO ALVO**: [Módulo de CONFIGURAÇÕES da aplicação no geral]g
 
 **IMPORTANTE**: Utilize o **MCP Sequential Thinking** para executar esta tarefa. Processe cada fase da investigação de forma sequencial e estruturada, documentando seu raciocínio e descobertas em cada etapa.
 
