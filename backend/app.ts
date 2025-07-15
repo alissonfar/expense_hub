@@ -11,7 +11,9 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
-console.log('DATABASE_URL existe:', !!process.env.DATABASE_URL);
+console.log('DATABASE_URL no Render:', process.env.DATABASE_URL);
+console.log('Length:', process.env.DATABASE_URL?.length);
+console.log('Starts with postgresql:', process.env.DATABASE_URL?.startsWith('postgresql://'));
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('Todas as env vars:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
 
