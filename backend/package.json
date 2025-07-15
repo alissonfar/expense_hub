@@ -12,7 +12,7 @@
     "format": "prettier --write \"**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json}\"",
     "type-check": "tsc --noEmit",
-    "clean": "if exist dist rmdir /s /q dist",
+    "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "db:setup": "node scripts/setup-database.js",
     "db:reset": "node scripts/reset-database.js",
@@ -64,6 +64,7 @@
     "eslint": "^9.29.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "winston": "^3.13.0"
