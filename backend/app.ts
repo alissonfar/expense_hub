@@ -6,11 +6,14 @@ import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 
-if (process.env.NODE_ENV === 'development') {
-  dotenv.config({ path: '.env.development' });
-} else {
-  dotenv.config(); // padrão: .env
+if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('dotenv').config();
 }
+
+console.log('DATABASE_URL existe:', !!process.env.DATABASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('Todas as env vars:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
 
 // Import dos tipos personalizados e middlewares
 import './types';
