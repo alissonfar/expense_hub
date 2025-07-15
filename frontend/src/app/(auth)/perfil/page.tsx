@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { senhaSchema, changePasswordSchema } from "@/lib/validations";
+import { changePasswordSchema } from "@/lib/validations";
 
 const perfilSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -45,8 +45,12 @@ export default function PerfilPage() {
     try {
       await atualizarPerfil(data);
       toast({ title: "Perfil atualizado com sucesso!" });
-    } catch (error: any) {
-      toast({ title: "Erro ao atualizar perfil", description: error?.response?.data?.message || "Tente novamente.", variant: "destructive" });
+    } catch (error: unknown) {
+      let message = "Tente novamente.";
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        message = (error.response.data as { message?: string }).message || message;
+      }
+      toast({ title: "Erro ao atualizar perfil", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -64,8 +68,12 @@ export default function PerfilPage() {
       toast({ title: "Senha alterada com sucesso!" });
       setShowPasswordModal(false);
       passwordForm.reset();
-    } catch (error: any) {
-      toast({ title: "Erro ao alterar senha", description: error?.response?.data?.message || "Tente novamente.", variant: "destructive" });
+    } catch (error: unknown) {
+      let message = "Tente novamente.";
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        message = (error.response.data as { message?: string }).message || message;
+      }
+      toast({ title: "Erro ao alterar senha", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

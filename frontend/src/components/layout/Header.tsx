@@ -76,34 +76,11 @@ const mockNotifications = [
 export function Header() {
   const router = useRouter();
   const { toast } = useToast();
-  const { usuario, hubAtual, hubsDisponiveis, selectHub, logout } = useAuth();
+  const { usuario, hubAtual, hubsDisponiveis, logout } = useAuth();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [isDark, setIsDark] = useState(false);
-  const [isLoadingHub, setIsLoadingHub] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-
-  const handleSelectHub = async (hubId: number) => {
-    if (hubId === hubAtual?.id) return;
-    
-    try {
-      setIsLoadingHub(true);
-      await selectHub(hubId);
-      toast({
-        title: 'Hub alterado com sucesso!',
-        description: 'A página será recarregada...',
-      });
-      window.location.reload();
-    } catch {
-      toast({
-        title: 'Erro ao alterar Hub',
-        description: 'Não foi possível alterar o Hub.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingHub(false);
-    }
-  };
 
   const handleLogout = async () => {
     try {

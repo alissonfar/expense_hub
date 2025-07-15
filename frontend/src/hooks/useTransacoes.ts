@@ -16,6 +16,12 @@ export const transactionKeys = {
   detail: (id: number) => [...transactionKeys.details(), id] as const,
 };
 
+// Tipo intermediário para resposta do backend
+interface BackendTransacaoRaw extends Omit<Transacao, 'participantes'> {
+  participantes?: unknown;
+  transacao_participantes?: unknown;
+}
+
 // Hook para listar transações
 export function useTransacoes(filters: TransacaoFilters = {}) {
   return useQuery({
@@ -32,10 +38,18 @@ export function useTransacoes(filters: TransacaoFilters = {}) {
       const response = await api.get(`/transacoes?${params.toString()}`);
       // Mapeamento: garantir que cada transação tenha participantes
       if (response.data?.data?.transacoes) {
-        response.data.data.transacoes = response.data.data.transacoes.map((t: any) => ({
-          ...t,
-          participantes: t.participantes || t.transacao_participantes || [],
-        }));
+        response.data.data.transacoes = response.data.data.transacoes.map((t: BackendTransacaoRaw) => {
+          let participantes: TransacaoParticipante[] = [];
+          if (Array.isArray(t.participantes)) {
+            participantes = t.participantes as TransacaoParticipante[];
+          } else if (Array.isArray(t.transacao_participantes)) {
+            participantes = t.transacao_participantes as TransacaoParticipante[];
+          }
+          return {
+            ...t,
+            participantes,
+          };
+        });
       }
       return response.data;
     },

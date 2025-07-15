@@ -30,8 +30,11 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     configuracoesApi.getInterface()
       .then((res) => {
-        if (res?.data?.theme_interface) {
-          form.reset({ theme_interface: res.data.theme_interface });
+        // Mapeamento flexível: aceita tanto 'theme_interface' quanto 'tema' do backend
+        const data = res.data as { theme_interface?: string; tema?: string };
+        const theme = data?.theme_interface || data?.tema;
+        if (theme === 'auto' || theme === 'light' || theme === 'dark') {
+          form.reset({ theme_interface: theme });
         }
       })
       .catch(() => {
@@ -44,7 +47,7 @@ export default function ConfiguracoesPage() {
     try {
       await configuracoesApi.updateInterface({ theme_interface: data.theme_interface });
       toast({ title: "Configuração salva com sucesso!" });
-    } catch (error) {
+    } catch {
       toast({ title: "Erro ao salvar configuração", variant: "destructive" });
     }
   };
@@ -61,7 +64,7 @@ export default function ConfiguracoesPage() {
               <Label htmlFor="theme_interface">Tema da Interface</Label>
               <Select
                 value={form.watch("theme_interface")}
-                onValueChange={value => form.setValue("theme_interface", value as any)}
+                onValueChange={value => form.setValue("theme_interface", value as "light" | "dark" | "auto")}
                 disabled={form.formState.isSubmitting}
               >
                 <SelectTrigger id="theme_interface">

@@ -67,11 +67,12 @@ const receitaSchema = z.object({
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
+type ReceitaFormValues = z.infer<typeof receitaSchema>;
 
 interface TransactionFormProps {
   modoEdicao?: boolean;
-  defaultValues?: any;
-  onSubmitEdicao?: (data: any) => Promise<void>;
+  defaultValues?: TransactionFormValues | ReceitaFormValues;
+  onSubmitEdicao?: (data: TransactionFormValues | ReceitaFormValues) => Promise<void>;
 }
 
 // Estrutura visual inicial baseada no design do formulário antigo
@@ -92,7 +93,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
   // NOVO: Alternar schema conforme tipo
   const schema = tipoTransacao === 'GASTO' ? transactionSchema : receitaSchema;
   // Usar defaultValues se fornecido
-  const form = useForm<any>({
+  const form = useForm<TransactionFormValues | ReceitaFormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues || (tipoTransacao === 'GASTO' ? {
       descricao: '',
@@ -161,7 +162,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
   const valorTotal = Number(form.watch('valor_total')) || 0;
 
   // Handler de envio
-  const onSubmit = useCallback(async (values: any) => {
+  const onSubmit = useCallback(async (values: TransactionFormValues | ReceitaFormValues) => {
     if (modoEdicao && onSubmitEdicao) {
       const payload = {
         descricao: values.descricao,
@@ -175,7 +176,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
     try {
       if (tipoTransacao === TipoTransacao.GASTO) {
         // Mapear participantes para o formato da API { pessoa_id, valor_individual }
-        const participantesPayload = (values.participantes || []).map(p => {
+        const participantesPayload = (values as TransactionFormValues).participantes.map(p => {
           const encontrado = participantesAtivos.find(pa => pa.nome && p.nome && pa.nome.toLowerCase() === p.nome.toLowerCase());
           const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
           return {
@@ -187,11 +188,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
         const payload = {
           descricao: values.descricao,
           local: values.local || undefined,
-          valor_total: Number(values.valor_total),
+          valor_total: Number((values as TransactionFormValues).valor_total),
           data_transacao: values.data_transacao,
           observacoes: values.observacoes || undefined,
-          eh_parcelado: Boolean(values.eh_parcelado),
-          total_parcelas: Number(values.total_parcelas || 1),
+          eh_parcelado: Boolean((values as TransactionFormValues).eh_parcelado),
+          total_parcelas: Number((values as TransactionFormValues).total_parcelas || 1),
           participantes: participantesPayload,
           tags: (values.tags || []).map(t => Number(t)),
         };
@@ -206,7 +207,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
         const payload = {
           descricao: values.descricao,
           local: values.local || undefined,
-          valor_recebido: Number(values.valor_recebido),
+          valor_recebido: Number((values as ReceitaFormValues).valor_recebido),
           data_transacao: values.data_transacao,
           observacoes: values.observacoes || undefined,
           tags: (values.tags || []).map(t => Number(t)),

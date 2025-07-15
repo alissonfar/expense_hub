@@ -33,7 +33,7 @@ export default function PessoasPage() {
       id: 'nome',
       accessorFn: (row: PessoaHub) => row.pessoa?.nome,
       header: 'Nome',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const pessoa = cell.row.original.pessoa;
         return (
           <div className="font-medium flex items-center gap-2">
@@ -47,7 +47,7 @@ export default function PessoasPage() {
       id: 'email',
       accessorFn: (row: PessoaHub) => row.pessoa?.email,
       header: 'Email',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const pessoa = cell.row.original.pessoa;
         return (
           <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export default function PessoasPage() {
       id: 'telefone',
       accessorFn: (row: PessoaHub) => row.pessoa?.telefone,
       header: 'Telefone',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const pessoa = cell.row.original.pessoa;
         return (
           <div className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export default function PessoasPage() {
       id: 'role',
       accessorKey: 'role',
       header: 'Papel',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const role = cell.row.original.role;
         const roleMap: { [key: string]: { label: string; icon: React.ReactElement } } = {
           PROPRIETARIO: { label: 'Proprietário', icon: <ShieldCheck className="w-4 h-4 text-green-600" /> },
@@ -95,7 +95,7 @@ export default function PessoasPage() {
       id: 'status',
       accessorKey: 'ativo',
       header: 'Status',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const ativo = cell.row.original.ativo;
         return (
           <Badge variant={ativo ? 'default' : 'secondary'} className={ativo ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}>
@@ -108,7 +108,7 @@ export default function PessoasPage() {
       id: 'joinedAt',
       accessorKey: 'joinedAt',
       header: 'Entrou em',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const joinedAt = cell.row.original.joinedAt;
         return (
           <span className="text-xs text-muted-foreground">
@@ -121,9 +121,9 @@ export default function PessoasPage() {
       id: 'convite',
       accessorKey: 'pessoa.conviteToken',
       header: 'Convite',
-      cell: (cell: CellContext<PessoaHub, any>) => {
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
         const pessoa = cell.row.original.pessoa;
-        const conviteAtivo = pessoa?.conviteAtivo;
+        const conviteAtivo = !pessoa?.ativo && !!pessoa?.conviteToken;
         const conviteToken = pessoa?.conviteToken;
         if (conviteAtivo && conviteToken) {
           const link = getInviteLink(conviteToken);

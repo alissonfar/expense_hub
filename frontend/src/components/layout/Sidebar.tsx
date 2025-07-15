@@ -9,7 +9,6 @@ import {
   Receipt,
   FileText,
   Users,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -72,7 +71,6 @@ export function Sidebar() {
     const now = new Date();
     const ano = now.getFullYear();
     const mes = now.getMonth(); // 0-index
-    const primeiroDia = new Date(ano, mes, 1);
     const ultimoDia = new Date(ano, mes + 1, 0);
     const pad = (n: number) => n.toString().padStart(2, '0');
     return {

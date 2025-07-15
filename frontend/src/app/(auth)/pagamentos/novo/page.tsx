@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Users, CheckSquare, Divide, ListChecks } from 'lucide-react';
 import { usePessoas } from '@/hooks/usePessoas';
-import { useTransacoes } from '@/hooks/useTransacoes';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,19 @@ import { api } from '@/lib/api';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+
+// Tipo explícito para as linhas da tabela de pendências
+interface PendenciaLinha {
+  id: number;
+  descricao: string;
+  valorDevido: number;
+  valorPago: number;
+  saldoDevedor: number;
+  status: 'Quitado' | 'Parcial' | 'Pendente';
+  ehParcelado: boolean;
+  parcelaAtual?: number;
+  totalParcelas?: number;
+}
 
 export default function NovoPagamentoPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
@@ -57,8 +69,8 @@ export default function NovoPagamentoPage() {
     enabled: !!pessoaSelecionada,
     staleTime: 1000 * 60 * 2,
   });
-  const linhas = useMemo(() => (pendenciasData || []).map((p: any) => ({
-    id: p.transacao_id,
+  const linhas: PendenciaLinha[] = useMemo(() => (pendenciasData || []).map((p: any) => ({
+    id: p.id,
     descricao: p.descricao + (p.parcela_atual && p.total_parcelas ? ` (Parc. ${p.parcela_atual}/${p.total_parcelas})` : ''),
     valorDevido: p.valor_devido,
     valorPago: p.valor_pago,
@@ -98,7 +110,7 @@ export default function NovoPagamentoPage() {
     {
       id: 'select',
       header: '',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <input
           type="checkbox"
           checked={selecionadas.includes(row.original.id)}
@@ -116,12 +128,12 @@ export default function NovoPagamentoPage() {
     {
       id: 'descricao',
       header: 'Descrição',
-      cell: ({ row }: any) => row.original.descricao,
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => row.original.descricao,
     },
     {
       id: 'valorDevido',
       header: 'Valor devido',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <span className="font-medium">
           {row.original.valorDevido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </span>
@@ -130,7 +142,7 @@ export default function NovoPagamentoPage() {
     {
       id: 'valorPago',
       header: 'Valor já pago',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <span>
           {row.original.valorPago.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </span>
@@ -139,7 +151,7 @@ export default function NovoPagamentoPage() {
     {
       id: 'saldoDevedor',
       header: 'Saldo devedor',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <span className="text-red-600 font-semibold">
           {row.original.saldoDevedor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </span>
@@ -148,7 +160,7 @@ export default function NovoPagamentoPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -170,7 +182,7 @@ export default function NovoPagamentoPage() {
     {
       id: 'valorPagar',
       header: 'Valor a pagar',
-      cell: ({ row }: any) => (
+      cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <Input
           type="number"
           min={0}
@@ -220,10 +232,14 @@ export default function NovoPagamentoPage() {
       // Redirecionar para listagem após sucesso
       setTimeout(() => router.push('/pagamentos'), 1200);
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      let message = 'Tente novamente.';
+      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
+        message = (err.response.data as { message?: string }).message || message;
+      }
       toast({
         title: 'Erro ao registrar pagamento',
-        description: err?.response?.data?.message || 'Tente novamente.',
+        description: message,
         variant: 'destructive',
       });
     },

@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 
 export default function SelectHubPage() {
   const [selectedHubId, setSelectedHubId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [hubName, setHubName] = useState('');
   const [isCreating, setIsCreating] = useState(false);

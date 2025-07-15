@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SelectHubPage from './page';
+import * as useAuthModule from '@/hooks/useAuth';
 
 // Mock do contexto e hooks
 jest.mock('@/hooks/useAuth', () => ({
@@ -36,7 +37,7 @@ describe('SelectHubPage', () => {
   });
 
   it('desabilita botão de seleção enquanto isLoading for true', () => {
-    jest.spyOn(require('@/hooks/useAuth'), 'useRequirePartialAuth').mockReturnValueOnce({
+    jest.spyOn(useAuthModule, 'useRequirePartialAuth').mockReturnValueOnce({
       hubsDisponiveis: [
         { id: 1, nome: 'Hub 1', role: 'PROPRIETARIO' }
       ],
@@ -55,7 +56,7 @@ describe('SelectHubPage', () => {
 
   it('usa refreshToken do localStorage ao selecionar hub', async () => {
     const selectHubMock = jest.fn(() => Promise.resolve());
-    jest.spyOn(require('@/hooks/useAuth'), 'useRequirePartialAuth').mockReturnValueOnce({
+    jest.spyOn(useAuthModule, 'useRequirePartialAuth').mockReturnValueOnce({
       hubsDisponiveis: [
         { id: 1, nome: 'Hub 1', role: 'PROPRIETARIO' }
       ],
@@ -79,7 +80,7 @@ describe('SelectHubPage', () => {
   it('exibe erro se refreshToken não estiver no localStorage', async () => {
     localStorage.removeItem('@PersonalExpenseHub:refreshToken');
     const toastMock = jest.fn();
-    jest.spyOn(require('@/hooks/useAuth'), 'useRequirePartialAuth').mockReturnValueOnce({
+    jest.spyOn(useAuthModule, 'useRequirePartialAuth').mockReturnValueOnce({
       hubsDisponiveis: [
         { id: 1, nome: 'Hub 1', role: 'PROPRIETARIO' }
       ],

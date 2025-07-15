@@ -6,16 +6,13 @@ import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'development') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('dotenv').config({ path: '.env.development' });
+} else {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('dotenv').config();
 }
-
-console.log('DATABASE_URL no Render:', process.env.DATABASE_URL);
-console.log('Length:', process.env.DATABASE_URL?.length);
-console.log('Starts with postgresql:', process.env.DATABASE_URL?.startsWith('postgresql://'));
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('Todas as env vars:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
 
 // Import dos tipos personalizados e middlewares
 import './types';
@@ -157,10 +154,22 @@ app.use(errorHandler);
 const server = app.listen(PORT, async () => {
     try {
         await prismaGlobal.$connect();
-        console.log(`✅ Conexão com o banco de dados estabelecida.`);
-        console.log(`🚀 Servidor rodando na porta ${PORT}`);
+        console.log('==============================');
+        console.log('💰 Personal Expense Hub - Backend');
+        console.log('==============================');
+        console.log(`Ambiente: ${process.env.NODE_ENV}`);
+        console.log(`Porta: ${PORT}`);
+        console.log(`Banco de dados: ${process.env.DATABASE_URL ? 'Conectado' : 'NÃO CONECTADO'}`);
+        if (process.env.DATABASE_URL) {
+          const host = process.env.DATABASE_URL.split('@')[1]?.split('/')[0] || 'Desconhecido';
+          console.log(`Host do banco: ${host}`);
+        }
+        console.log('Status: ✅ Conexão com o banco de dados estabelecida.');
+        console.log('Status: 🚀 Servidor rodando e pronto para receber requisições.');
+        console.log('==============================');
     } catch (error) {
-        console.error('❌ Não foi possível conectar ao banco de dados ao iniciar o servidor.', error);
+        console.error('❌ ERRO: Não foi possível conectar ao banco de dados ao iniciar o servidor.');
+        console.error(error);
         process.exit(1);
     }
 });

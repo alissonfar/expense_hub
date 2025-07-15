@@ -103,10 +103,14 @@ export default function TransacoesPage() {
         title: "Transação excluída",
         description: "A transação foi movida para a lixeira.",
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      let message = "Erro ao excluir transação";
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        message = (error.response.data as { message?: string }).message || message;
+      }
       toast({
         title: "Erro ao excluir",
-                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao excluir transação",
+        description: message,
         variant: "destructive",
       });
     }
@@ -119,10 +123,14 @@ export default function TransacoesPage() {
         title: "Transação duplicada",
         description: "Uma nova transação foi criada baseada na original.",
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      let message = "Erro ao duplicar transação";
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        message = (error.response.data as { message?: string }).message || message;
+      }
       toast({
         title: "Erro ao duplicar",
-                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao duplicar transação",
+        description: message,
         variant: "destructive",
       });
     }

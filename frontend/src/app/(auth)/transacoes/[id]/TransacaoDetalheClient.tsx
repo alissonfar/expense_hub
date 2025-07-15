@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, DollarSign, Users, Tag, Trash, Edit2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import TransactionForm from '@/components/transacoes/TransactionForm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useState } from 'react';
 import EditTransactionForm from '@/components/transacoes/EditTransactionForm';
@@ -112,19 +111,6 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
           {transacao.participantes?.length ? (
             <div className="space-y-3">
               {transacao.participantes.map((p) => {
-                console.log('DEBUG participante:', p);
-                // Determinar status textual
-                let status = 'Pendente';
-                if (p.quitado) {
-                  status = 'Quitado';
-                } else if (p.valor_pago > 0) {
-                  status = 'Parcial';
-                }
-                // Badge de status
-                let badgeClass = 'bg-gray-100 text-gray-700';
-                if (status === 'Quitado') badgeClass = 'bg-green-100 text-green-700';
-                if (status === 'Parcial') badgeClass = 'bg-yellow-100 text-yellow-800';
-                if (status === 'Pendente') badgeClass = 'bg-red-100 text-red-700';
                 return (
                   <div key={p.id} className="flex flex-col md:flex-row md:items-center md:justify-between border-b py-2 gap-2">
                     <div className="flex-1">
@@ -142,8 +128,10 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                       </div>
                     </div>
                     <div className="flex flex-col items-end min-w-[120px]">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${badgeClass}`}>{status}</span>
-                      {status === 'Quitado' && <Check className="w-4 h-4 text-green-600 mt-1" />}
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${p.quitado ? 'bg-green-100 text-green-700' : p.valor_pago > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
+                        {p.quitado ? 'Quitado' : p.valor_pago > 0 ? 'Parcial' : 'Pendente'}
+                      </span>
+                      {p.quitado && <Check className="w-4 h-4 text-green-600 mt-1" />}
                     </div>
                   </div>
                 );
@@ -185,18 +173,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
             <div className="space-y-3">
               {transacao.pagamentos.map((pg) => {
                 console.log('DEBUG pagamento real:', pg.pagamentos);
-                // Determinar status textual
-                let status = 'Pendente';
-                if (pg.quitado) {
-                  status = 'Quitado';
-                } else if (pg.valor_pago > 0) {
-                  status = 'Parcial';
-                }
                 // Badge de status
-                let badgeClass = 'bg-gray-100 text-gray-700';
-                if (status === 'Quitado') badgeClass = 'bg-green-100 text-green-700';
-                if (status === 'Parcial') badgeClass = 'bg-yellow-100 text-yellow-800';
-                if (status === 'Pendente') badgeClass = 'bg-red-100 text-red-700';
                 return (
                   <div key={pg.id} className="border-b pb-2 mb-2">
                     {/* Frase explicativa do pagamento */}
@@ -263,6 +240,12 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                         </ul>
                       </div>
                     )}
+                    <div className="flex flex-col items-end min-w-[120px]">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${pg.quitado ? 'bg-green-100 text-green-700' : pg.valor_pago > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
+                        {pg.quitado ? 'Quitado' : pg.valor_pago > 0 ? 'Parcial' : 'Pendente'}
+                      </span>
+                      {pg.quitado && <Check className="w-4 h-4 text-green-600 mt-1" />}
+                    </div>
                   </div>
                 );
               })}
@@ -298,7 +281,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                 toast({ title: 'Transação atualizada', description: 'Alterações salvas com sucesso.' });
                 setEditOpen(false);
                 router.refresh();
-              } catch (err) {
+              } catch {
                 toast({ title: 'Erro', description: 'Não foi possível atualizar.', variant: 'destructive' });
               }
             }}
