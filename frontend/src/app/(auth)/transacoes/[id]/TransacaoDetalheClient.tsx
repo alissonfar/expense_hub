@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransacao, useDeleteTransacao } from '@/hooks/useTransacoes';
+import { useTransacao, useDeleteTransacao, useUpdateTransacao } from '@/hooks/useTransacoes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import TransactionForm from '@/components/transacoes/TransactionForm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useState } from 'react';
+import EditTransactionForm from '@/components/transacoes/EditTransactionForm';
+import { useTags } from '@/hooks/useTags';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface TransacaoDetalheClientProps {
   id: string;
@@ -22,7 +25,10 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
   const { data: transacao, isLoading } = useTransacao(transacaoId);
   console.log('DEBUG transacao detalhes:', transacao);
   const deleteMutation = useDeleteTransacao();
+  const updateMutation = useUpdateTransacao();
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const { data: tagsData = [], isLoading: loadingTags } = useTags({ ativo: true });
 
   const handleDelete = async () => {
     try {
@@ -50,7 +56,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Edit2 className="h-4 w-4 mr-2" /> Editar
           </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
             <Trash className="h-4 w-4 mr-2" /> Excluir
           </Button>
         </div>
@@ -271,10 +277,54 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
           <SheetHeader>
             <SheetTitle>Editar Transação</SheetTitle>
           </SheetHeader>
-          {/* Reutiliza TransactionForm em modo edição - passando defaultValues e override de onSubmit */}
-          <TransactionForm /* futuro: aceitar props para edição */ />
+          <EditTransactionForm
+            defaultValues={{
+              descricao: transacao.descricao,
+              local: transacao.local,
+              observacoes: transacao.observacoes,
+              tags: (transacao.tags || []).map(tag => String(tag.id)),
+            }}
+            availableTags={tagsData.map(tag => ({ id: String(tag.id), nome: tag.nome, cor: tag.cor }))}
+            loadingTags={loadingTags}
+            onSubmit={async (payload) => {
+              try {
+                await updateMutation.mutateAsync({
+                  id: transacao.id,
+                  data: {
+                    ...payload,
+                    tags: (payload.tags || []).map(Number),
+                  },
+                });
+                toast({ title: 'Transação atualizada', description: 'Alterações salvas com sucesso.' });
+                setEditOpen(false);
+                router.refresh();
+              } catch (err) {
+                toast({ title: 'Erro', description: 'Não foi possível atualizar.', variant: 'destructive' });
+              }
+            }}
+            onCancel={() => setEditOpen(false)}
+          />
         </SheetContent>
       </Sheet>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Tem certeza que deseja excluir esta transação? Esta ação não poderá ser desfeita.
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)} disabled={deleteMutation.isPending}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={async () => { setConfirmDeleteOpen(false); await handleDelete(); }} disabled={deleteMutation.isPending}>
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

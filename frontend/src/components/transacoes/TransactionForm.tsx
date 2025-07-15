@@ -68,8 +68,14 @@ const receitaSchema = z.object({
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
+interface TransactionFormProps {
+  modoEdicao?: boolean;
+  defaultValues?: any;
+  onSubmitEdicao?: (data: any) => Promise<void>;
+}
+
 // Estrutura visual inicial baseada no design do formulário antigo
-export default function TransactionForm() {
+export default function TransactionForm({ modoEdicao = false, defaultValues, onSubmitEdicao }: TransactionFormProps) {
   const { usuario } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -85,9 +91,10 @@ export default function TransactionForm() {
 
   // NOVO: Alternar schema conforme tipo
   const schema = tipoTransacao === 'GASTO' ? transactionSchema : receitaSchema;
+  // Usar defaultValues se fornecido
   const form = useForm<any>({
     resolver: zodResolver(schema),
-    defaultValues: tipoTransacao === 'GASTO' ? {
+    defaultValues: defaultValues || (tipoTransacao === 'GASTO' ? {
       descricao: '',
       local: '',
       valor_total: 0,
@@ -104,14 +111,14 @@ export default function TransactionForm() {
       data_transacao: '',
       observacoes: '',
       tags: [],
-    },
+    }),
     mode: 'onChange',
     shouldUnregister: false,
   });
 
   React.useEffect(() => {
-    if (usuario && form.getValues('participantes').length === 0) {
-      form.setValue('participantes', [{ nome: usuario.nome, valor_devido: Number(form.getValues('valor_total')) || 0 }]);
+    if (usuario && (form.watch('participantes') || []).length === 0) {
+      form.setValue('participantes', [{ nome: usuario.nome, valor_devido: Number(form.watch('valor_total')) || 0 }]);
     }
     // eslint-disable-next-line
   }, [usuario]);
@@ -155,6 +162,16 @@ export default function TransactionForm() {
 
   // Handler de envio
   const onSubmit = useCallback(async (values: any) => {
+    if (modoEdicao && onSubmitEdicao) {
+      const payload = {
+        descricao: values.descricao,
+        local: values.local,
+        observacoes: values.observacoes,
+        tags: (values.tags || []).map(t => Number(t)),
+      };
+      await onSubmitEdicao(payload);
+      return;
+    }
     try {
       if (tipoTransacao === TipoTransacao.GASTO) {
         // Mapear participantes para o formato da API { pessoa_id, valor_individual }
@@ -219,7 +236,7 @@ export default function TransactionForm() {
         variant: 'destructive',
       });
     }
-  }, [participantesAtivos, usuario, createTransacao, createReceita, toast, form, tipoTransacao]);
+  }, [participantesAtivos, usuario, createTransacao, createReceita, toast, form, tipoTransacao, modoEdicao, onSubmitEdicao]);
 
   // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
   const dividirIgualmente = useCallback(async () => {
@@ -295,6 +312,11 @@ export default function TransactionForm() {
   // NOVO: Renderização condicional dos campos
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6">
+      {modoEdicao && (
+        <div className="p-3 mb-4 bg-yellow-50 border border-yellow-300 rounded text-yellow-800 text-sm">
+          Apenas os campos <b>descrição</b>, <b>local</b>, <b>observações</b> e <b>tags</b> podem ser editados. Os demais campos são bloqueados por regras do sistema.
+        </div>
+      )}
       <UITabs value={tipoTransacao} onValueChange={setTipoTransacao} className="mb-4">
         <UITabsList className="grid grid-cols-2 w-64 mx-auto">
           <UITabsTrigger value="GASTO" className="flex items-center gap-2">
@@ -417,7 +439,7 @@ export default function TransactionForm() {
                 <TabsTrigger value="participantes" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Participantes
-                  <Badge variant="secondary" className="ml-1">{form.watch('participantes').length}</Badge>
+                  <Badge variant="secondary" className="ml-1">{(form.watch('participantes') || []).length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="tags" className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
@@ -456,7 +478,7 @@ export default function TransactionForm() {
                       <DollarSign className="h-4 w-4" />
                       Valor Total *
                     </label>
-                    <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} />
+                    <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} disabled={modoEdicao} />
                     {form.formState.errors.valor_total && <p className="text-sm text-red-500">{form.formState.errors.valor_total.message}</p>}
                   </div>
                   {/* Data */}
@@ -465,14 +487,14 @@ export default function TransactionForm() {
                       <Calendar className="h-4 w-4" />
                       Data *
                     </label>
-                    <Input id="data" type="date" {...form.register('data_transacao')} />
+                    <Input id="data" type="date" {...form.register('data_transacao')} disabled={modoEdicao} />
                     {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
                   </div>
                   {/* Parcelamento */}
                   <div className="space-y-4 md:col-span-2">
                     <Separator />
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="parcelado" {...form.register('eh_parcelado')} />
+                      <Checkbox id="parcelado" {...form.register('eh_parcelado')} disabled={modoEdicao} />
                       <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
                         <CreditCard className="h-4 w-4" />
                         Parcelar este gasto
@@ -537,7 +559,7 @@ export default function TransactionForm() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Participantes:</span>
-                        <div className="font-semibold">{form.watch('participantes').length}</div>
+                        <div className="font-semibold">{(form.watch('participantes') || []).length}</div>
                       </div>
                       {/* Corrigir Soma Atual */}
                       <div>
@@ -561,7 +583,7 @@ export default function TransactionForm() {
                 </Card>
                 {/* Lista de participantes */}
                 <div className="space-y-3">
-                  {form.watch('participantes').length === 0 && (
+                  {(form.watch('participantes') || []).length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>Nenhum participante adicionado</p>

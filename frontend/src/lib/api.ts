@@ -10,6 +10,7 @@ const createApiClient = (): AxiosInstance => {
     headers: {
       'Content-Type': 'application/json',
     },
+    withCredentials: true, // Adicionado para enviar cookies em todas as requisições
   });
 
   // Interceptor para adicionar token de autenticação
