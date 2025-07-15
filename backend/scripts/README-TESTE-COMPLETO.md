@@ -1,3 +1,7 @@
+# Personal Expense Hub - Backend
+
+> **Atenção:** Para configurar variáveis de ambiente, siga o guia em `../../docs/ENV_SETUP.md` antes de rodar ou fazer deploy.
+
 # 🎯 SCRIPT DE TESTE COMPLETO - TODOS OS 42 ENDPOINTS
 
 ## 📋 RESUMO DA DESCOBERTA

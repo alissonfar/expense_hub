@@ -1,3 +1,7 @@
+# Personal Expense Hub - Frontend
+
+> **Atenção:** Para configurar variáveis de ambiente, siga o guia em `../docs/ENV_SETUP.md` antes de rodar ou fazer deploy.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

@@ -4,6 +4,13 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+
+if (process.env.NODE_ENV === 'development') {
+  dotenv.config({ path: '.env.development' });
+} else {
+  dotenv.config(); // padrão: .env
+}
 
 // Import dos tipos personalizados e middlewares
 import './types';
@@ -24,6 +31,7 @@ import { createHub } from './controllers/hubController';
 
 // Inicializa um PrismaClient global APENAS para operações não autenticadas (login, health check).
 const prismaGlobal = new PrismaClient();
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
