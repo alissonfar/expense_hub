@@ -124,6 +124,7 @@ export interface Pagamento {
   pessoa?: Pessoa;
   registrador?: Pessoa;
   transacoes?: Transacao[];
+  receita_excedente?: { id: number; descricao: string; valor_total: number };
 }
 
 export interface Convite {

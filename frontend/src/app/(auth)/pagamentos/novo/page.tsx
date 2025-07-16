@@ -69,7 +69,7 @@ export default function NovoPagamentoPage() {
     enabled: !!pessoaSelecionada,
     staleTime: 1000 * 60 * 2,
   });
-  const linhas: PendenciaLinha[] = useMemo(() => (pendenciasData || []).map((p: any) => ({
+  const linhas: PendenciaLinha[] = useMemo(() => (pendenciasData || []).map((p: { id: number; descricao: string; valor_devido: number; valor_pago: number; valor_pendente: number; parcela_atual?: number; total_parcelas?: number }) => ({
     id: p.id,
     descricao: p.descricao + (p.parcela_atual && p.total_parcelas ? ` (Parc. ${p.parcela_atual}/${p.total_parcelas})` : ''),
     valorDevido: p.valor_devido,
@@ -260,7 +260,7 @@ export default function NovoPagamentoPage() {
             <Combobox
               options={opcoesPessoas}
               value={pessoaSelecionada}
-              onChange={setPessoaSelecionada}
+              onChange={v => setPessoaSelecionada(v as number | null)}
               placeholder={isLoading ? 'Carregando pessoas...' : 'Buscar membro...'}
               className="max-w-md"
             />
@@ -279,7 +279,7 @@ export default function NovoPagamentoPage() {
             </Select>
           </div>
           <div className="flex items-center gap-2 mt-4">
-            <Checkbox id="processarExcedente" checked={processarExcedente} onCheckedChange={setProcessarExcedente} />
+            <Checkbox id="processarExcedente" checked={processarExcedente} onChange={e => setProcessarExcedente(e.target.checked)} />
             <label htmlFor="processarExcedente" className="text-sm select-none cursor-pointer">
               Processar excedente (gerar receita automaticamente se houver valor a mais)
             </label>
@@ -337,10 +337,10 @@ export default function NovoPagamentoPage() {
                     variant="default"
                     size="lg"
                     className="w-full"
-                    disabled={!podeConfirmar || mutation.isLoading || !formaPagamento}
+                    disabled={!podeConfirmar || mutation.isPending || !formaPagamento}
                     onClick={() => mutation.mutate()}
                   >
-                    {mutation.isLoading ? 'Registrando...' : 'Confirmar Pagamento'}
+                    {mutation.isPending ? 'Registrando...' : 'Confirmar Pagamento'}
                   </Button>
                 </div>
               </>
