@@ -69,7 +69,7 @@ export default function TransacoesPage() {
   const deleteTransacao = useDeleteTransacao();
   const duplicateTransacao = useDuplicateTransacao();
 
-  const transacoes = transacoesData?.data?.transacoes || [];
+  const transacoes = transacoesData?.data || [];
 
   // Handlers
   const handleSearch = (value: string) => {

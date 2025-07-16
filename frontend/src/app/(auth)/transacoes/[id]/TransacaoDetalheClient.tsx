@@ -115,13 +115,13 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                   <div key={p.id} className="flex flex-col md:flex-row md:items-center md:justify-between border-b py-2 gap-2">
                     <div className="flex-1">
                       <div className="font-medium flex items-center gap-2">
-                        {p.pessoas?.nome || 'N/A'}
+                        {p.pessoa?.nome || 'N/A'}
                         {p.pessoa?.email && (
                           <span className="text-xs text-muted-foreground">({p.pessoa.email})</span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Valor devido: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_devido ?? 0))}</span>
+                        Valor devido: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_individual ?? 0))}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Valor pago: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_pago ?? 0))}</span>
@@ -172,16 +172,15 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
           <CardContent>
             <div className="space-y-3">
               {transacao.pagamentos.map((pg) => {
-                console.log('DEBUG pagamento real:', pg.pagamentos);
                 // Badge de status
                 return (
                   <div key={pg.id} className="border-b pb-2 mb-2">
                     {/* Frase explicativa do pagamento */}
                     {(() => {
-                      const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pagamentos?.pessoa_id);
-                      const nome = pagador?.pessoas?.nome || 'N/A';
-                      const valorDevido = Number(pagador?.valor_devido ?? 0);
-                      const valorPago = Number(pg.valor_aplicado ?? 0);
+                      const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pessoa_id);
+                      const nome = pagador?.pessoa?.nome || 'N/A';
+                      const valorDevido = Number(pagador?.valor_individual ?? 0);
+                      const valorPago = Number(pg.valor_total ?? 0);
                       if (!pagador) return null;
                       if (valorPago >= valorDevido) {
                         return (
@@ -202,25 +201,25 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                       <div className="flex-1">
                         <div className="font-medium flex items-center gap-2">
                           {(() => {
-                            const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pagamentos?.pessoa_id);
-                            return pagador?.pessoas?.nome || 'N/A';
+                            const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pessoa_id);
+                            return pagador?.pessoa?.nome || 'N/A';
                           })()}
-                          {pg.pagamentos?.pessoa?.email && (
-                            <span className="text-xs text-muted-foreground">({pg.pagamentos.pessoa.email})</span>
+                          {pg.pessoa?.email && (
+                            <span className="text-xs text-muted-foreground">({pg.pessoa.email})</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Valor: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(pg.pagamentos?.valor_total ?? 0))}</span>
+                          Valor: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(pg.valor_total ?? 0))}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Data: <span className="font-semibold text-black dark:text-white">{new Date(pg.pagamentos?.data_pagamento).toLocaleDateString('pt-BR')}</span>
+                          Data: <span className="font-semibold text-black dark:text-white">{new Date(pg.data_pagamento).toLocaleDateString('pt-BR')}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Forma: <span className="font-semibold text-black dark:text-white">{pg.pagamentos?.forma_pagamento}</span>
+                          Forma: <span className="font-semibold text-black dark:text-white">{pg.forma_pagamento}</span>
                         </div>
-                        {pg.pagamentos?.observacoes && (
+                        {pg.observacoes && (
                           <div className="text-xs text-muted-foreground">
-                            Observações: <span className="font-normal">{pg.pagamentos.observacoes}</span>
+                            Observações: <span className="font-normal">{pg.observacoes}</span>
                           </div>
                         )}
                       </div>
@@ -241,10 +240,9 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                       </div>
                     )}
                     <div className="flex flex-col items-end min-w-[120px]">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${pg.quitado ? 'bg-green-100 text-green-700' : pg.valor_pago > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
-                        {pg.quitado ? 'Quitado' : pg.valor_pago > 0 ? 'Parcial' : 'Pendente'}
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${pg.valor_total > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
+                        {pg.valor_total > 0 ? 'Parcial' : 'Pendente'}
                       </span>
-                      {pg.quitado && <Check className="w-4 h-4 text-green-600 mt-1" />}
                     </div>
                   </div>
                 );

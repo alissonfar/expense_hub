@@ -148,6 +148,8 @@ export interface UserIdentifier {
   nome: string;
   email: string;
   ehAdministrador: boolean;
+  telefone?: string;
+  data_cadastro?: string;
 }
 
 export interface HubInfo {

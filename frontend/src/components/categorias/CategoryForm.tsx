@@ -13,7 +13,7 @@ import { Check, X, Tag, Palette, Smile } from 'lucide-react';
 
 const categorySchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(50, 'Máximo 50 caracteres'),
-  cor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve ser um código hexadecimal válido').default('#6B7280'),
+  cor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Cor deve ser um código hexadecimal válido'),
   icone: z.string().max(10, 'Máximo 10 caracteres').optional().or(z.literal('')),
 });
 

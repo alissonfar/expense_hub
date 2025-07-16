@@ -91,11 +91,10 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
   const { data: categorias = [], isLoading: loadingCategorias } = useTags({ ativo: true });
 
   // NOVO: Alternar schema conforme tipo
-  const schema = tipoTransacao === 'GASTO' ? transactionSchema : receitaSchema;
-  // Usar defaultValues se fornecido
-  const form = useForm<TransactionFormValues | ReceitaFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: defaultValues || (tipoTransacao === 'GASTO' ? {
+  // Separação dos formulários por tipo
+  const gastoForm = useForm({
+    resolver: zodResolver(transactionSchema),
+    defaultValues: defaultValues && 'valor_total' in defaultValues ? defaultValues : {
       descricao: '',
       local: '',
       valor_total: 0,
@@ -105,71 +104,119 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       observacoes: '',
       participantes: [],
       tags: [],
-    } : {
+    },
+    mode: 'onChange',
+    shouldUnregister: false,
+  });
+
+  const receitaForm = useForm({
+    resolver: zodResolver(receitaSchema),
+    defaultValues: defaultValues && 'valor_recebido' in defaultValues ? defaultValues : {
       descricao: '',
       local: '',
       valor_recebido: 0,
       data_transacao: '',
       observacoes: '',
       tags: [],
-    }),
+    },
     mode: 'onChange',
     shouldUnregister: false,
   });
 
+  // Seleciona o form correto conforme o tipo
+  const form = tipoTransacao === 'GASTO' ? gastoForm : receitaForm;
+
   React.useEffect(() => {
-    if (usuario && (form.watch('participantes') || []).length === 0) {
-      form.setValue('participantes', [{ nome: usuario.nome, valor_devido: Number(form.watch('valor_total')) || 0 }]);
+    const participantes = gastoForm.watch('participantes');
+    if (tipoTransacao === 'GASTO' && usuario && Array.isArray(participantes) && participantes.length === 0) {
+      gastoForm.setValue('participantes', [{ nome: usuario.nome, valor_devido: Number(gastoForm.watch('valor_total')) || 0 }]);
     }
     // eslint-disable-next-line
-  }, [usuario]);
+  }, [usuario, tipoTransacao]);
 
   // Substituir o mock de tags por categorias reais
   const availableTags = categorias.map(tag => ({ id: String(tag.id), nome: tag.nome, cor: tag.cor }));
 
   const toggleTag = (tagId: string) => {
-    const tags = form.getValues('tags') || [];
-    if (tags.includes(tagId)) {
-      form.setValue('tags', tags.filter((id: string) => id !== tagId));
-    } else if (tags.length < 5) {
-      form.setValue('tags', [...tags, tagId]);
+    if (tipoTransacao === 'GASTO') {
+      const tags = gastoForm.getValues().tags || [];
+      if (tags.includes(tagId)) {
+        gastoForm.setValue('tags', tags.filter((id: string) => id !== tagId));
+      } else if (tags.length < 5) {
+        gastoForm.setValue('tags', [...tags, tagId]);
+      }
+    } else {
+      const tags = receitaForm.getValues().tags || [];
+      if (tags.includes(tagId)) {
+        receitaForm.setValue('tags', tags.filter((id: string) => id !== tagId));
+      } else if (tags.length < 5) {
+        receitaForm.setValue('tags', [...tags, tagId]);
+      }
     }
   };
 
   // Funções para adicionar/remover participantes
   const addParticipante = useCallback(() => {
-    // Garante que o valor atual é sempre um array antes de espalhar
-    const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
-    form.setValue('participantes', [
-      ...atuais,
-      { nome: '', valor_devido: 0, pessoa_id: null }, // Adiciona pessoa_id: null
-    ]);
-  }, [form]);
+    if (tipoTransacao === 'GASTO') {
+      const participantesRaw = gastoForm.getValues().participantes;
+      const atuais = Array.isArray(participantesRaw) ? participantesRaw : [];
+      gastoForm.setValue('participantes', [
+        ...atuais,
+        { nome: '', valor_devido: 0, pessoa_id: null },
+      ]);
+    }
+  }, [gastoForm, tipoTransacao]);
   const removeParticipante = (index: number) => {
-    const atuais = Array.isArray(form.getValues('participantes')) ? form.getValues('participantes') : [];
-    const participantes = [...atuais];
-    participantes.splice(index, 1);
-    form.setValue('participantes', participantes);
+    if (tipoTransacao === 'GASTO') {
+      const participantesRaw = gastoForm.getValues().participantes;
+      const atuais = Array.isArray(participantesRaw) ? participantesRaw : [];
+      const participantes = [...atuais];
+      participantes.splice(index, 1);
+      gastoForm.setValue('participantes', participantes);
+    }
   };
 
   // Garantir participantesArr sempre array e valores numéricos
-  const participantesArr = Array.isArray(form.watch('participantes')) ? form.watch('participantes').map(p => ({
-    ...p,
-    valor_devido: Number(p.valor_devido) || 0,
-    nome: p.nome || '',
-    pessoa_id: p.pessoa_id ?? null,
-  })) : [];
-  const valorTotal = Number(form.watch('valor_total')) || 0;
+  let participantesArr: Array<{ nome: string; valor_devido: number; pessoa_id?: number | null }> = [];
+  if (tipoTransacao === 'GASTO') {
+    const participantesRaw = gastoForm.watch('participantes');
+    if (Array.isArray(participantesRaw)) {
+      participantesArr = participantesRaw.map(p => ({
+        ...p,
+        valor_devido: Number(p.valor_devido) || 0,
+        nome: p.nome || '',
+        pessoa_id: p.pessoa_id ?? null,
+      }));
+    }
+  }
+  const valorTotal = tipoTransacao === 'GASTO' ? Number(gastoForm.watch('valor_total')) || 0 : 0;
 
   // Handler de envio
   const onSubmit = useCallback(async (values: TransactionFormValues | ReceitaFormValues) => {
     if (modoEdicao && onSubmitEdicao) {
-      const payload = {
-        descricao: values.descricao,
-        local: values.local,
-        observacoes: values.observacoes,
-        tags: (values.tags || []).map(t => Number(t)),
-      };
+      let payload;
+      if (tipoTransacao === 'GASTO') {
+        payload = {
+          descricao: values.descricao,
+          local: values.local,
+          observacoes: values.observacoes,
+          tags: (values.tags || []).map(t => Number(t)),
+          data_transacao: (values as TransactionFormValues).data_transacao,
+          valor_total: (values as TransactionFormValues).valor_total,
+          participantes: (values as TransactionFormValues).participantes,
+          eh_parcelado: (values as TransactionFormValues).eh_parcelado,
+          total_parcelas: (values as TransactionFormValues).total_parcelas,
+        };
+      } else {
+        payload = {
+          descricao: values.descricao,
+          local: values.local,
+          observacoes: values.observacoes,
+          tags: (values.tags || []).map(t => Number(t)),
+          data_transacao: (values as ReceitaFormValues).data_transacao,
+          valor_recebido: (values as ReceitaFormValues).valor_recebido,
+        };
+      }
       await onSubmitEdicao(payload);
       return;
     }
@@ -440,12 +487,12 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                 <TabsTrigger value="participantes" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Participantes
-                  <Badge variant="secondary" className="ml-1">{(form.watch('participantes') || []).length}</Badge>
+                  <Badge variant="secondary" className="ml-1">{(gastoForm.watch('participantes') || []).length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="tags" className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
                   Tags
-                  <Badge variant="secondary" className="ml-1">{(form.watch('tags') || []).length}</Badge>
+                  <Badge variant="secondary" className="ml-1">{(gastoForm.watch('tags') || []).length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="resumo" className="flex items-center gap-2">
                   <Calculator className="h-4 w-4" />
@@ -462,8 +509,8 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <FileText className="h-4 w-4" />
                       Descrição *
                     </label>
-                    <Input id="descricao" {...form.register('descricao')} autoFocus />
-                    {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
+                    <Input id="descricao" {...gastoForm.register('descricao')} autoFocus />
+                    {gastoForm.formState.errors.descricao && <p className="text-sm text-red-500">{gastoForm.formState.errors.descricao.message}</p>}
                   </div>
                   {/* Local/Fonte */}
                   <div className="space-y-2">
@@ -471,7 +518,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <MapPin className="h-4 w-4" />
                       Local/Fonte
                     </label>
-                    <Input id="local" {...form.register('local')} />
+                    <Input id="local" {...gastoForm.register('local')} />
                   </div>
                   {/* Valor Total */}
                   <div className="space-y-2">
@@ -479,8 +526,8 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <DollarSign className="h-4 w-4" />
                       Valor Total *
                     </label>
-                    <Input id="valor" type="number" step="0.01" min="0.01" {...form.register('valor_total', { valueAsNumber: true })} disabled={modoEdicao} />
-                    {form.formState.errors.valor_total && <p className="text-sm text-red-500">{form.formState.errors.valor_total.message}</p>}
+                    <Input id="valor" type="number" step="0.01" min="0.01" {...gastoForm.register('valor_total', { valueAsNumber: true })} disabled={modoEdicao} />
+                    {gastoForm.formState.errors.valor_total && <p className="text-sm text-red-500">{gastoForm.formState.errors.valor_total.message}</p>}
                   </div>
                   {/* Data */}
                   <div className="space-y-2">
@@ -488,14 +535,14 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <Calendar className="h-4 w-4" />
                       Data *
                     </label>
-                    <Input id="data" type="date" {...form.register('data_transacao')} disabled={modoEdicao} />
-                    {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
+                    <Input id="data" type="date" {...gastoForm.register('data_transacao')} disabled={modoEdicao} />
+                    {gastoForm.formState.errors.data_transacao && <p className="text-sm text-red-500">{gastoForm.formState.errors.data_transacao.message}</p>}
                   </div>
                   {/* Parcelamento */}
                   <div className="space-y-4 md:col-span-2">
                     <Separator />
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="parcelado" {...form.register('eh_parcelado')} disabled={modoEdicao} />
+                      <Checkbox id="parcelado" {...gastoForm.register('eh_parcelado')} disabled={modoEdicao} />
                       <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
                         <CreditCard className="h-4 w-4" />
                         Parcelar este gasto
@@ -505,7 +552,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                     <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
                       <div className="space-y-2">
                         <label htmlFor="parcelas">Total de Parcelas *</label>
-                        <Select value={String(form.watch('total_parcelas'))} onValueChange={value => form.setValue('total_parcelas', Number(value))}>
+                        <Select value={String(gastoForm.watch('total_parcelas'))} onValueChange={value => gastoForm.setValue('total_parcelas', Number(value))}>
                           <SelectTrigger>
                             <SelectValue placeholder="1" />
                           </SelectTrigger>
@@ -515,12 +562,12 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                             ))}
                           </SelectContent>
                         </Select>
-                        {form.formState.errors.total_parcelas && <p className="text-sm text-red-500">{form.formState.errors.total_parcelas.message}</p>}
+                        {gastoForm.formState.errors.total_parcelas && <p className="text-sm text-red-500">{gastoForm.formState.errors.total_parcelas.message}</p>}
                       </div>
                       <div className="space-y-2">
                         <label>Valor por Parcela</label>
                         <div className="p-3 bg-background rounded border text-lg font-semibold">
-                          {form.watch('eh_parcelado') ? `R$ ${(Number(form.watch('valor_total') || 0) / Math.max(Number(form.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(form.watch('valor_total') || 0).toFixed(2)}`}
+                          {gastoForm.watch('eh_parcelado') ? `R$ ${(Number(gastoForm.watch('valor_total') || 0) / Math.max(Number(gastoForm.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(gastoForm.watch('valor_total') || 0).toFixed(2)}`}
                         </div>
                       </div>
                     </div>
@@ -528,7 +575,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   {/* Observações */}
                   <div className="space-y-2 md:col-span-2">
                     <label htmlFor="observacoes" className="font-medium">Observações</label>
-                    <Textarea id="observacoes" {...form.register('observacoes')} className="min-h-[80px]" />
+                    <Textarea id="observacoes" {...gastoForm.register('observacoes')} className="min-h-[80px]" />
                   </div>
                 </div>
               </TabsContent>
@@ -556,11 +603,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Valor Total:</span>
-                        <div className="font-semibold">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                        <div className="font-semibold">R$ {Number(gastoForm.watch('valor_total') || 0).toFixed(2)}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Participantes:</span>
-                        <div className="font-semibold">{(form.watch('participantes') || []).length}</div>
+                        <div className="font-semibold">{(gastoForm.watch('participantes') || []).length}</div>
                       </div>
                       {/* Corrigir Soma Atual */}
                       <div>
@@ -574,17 +621,17 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       </div>
                     </div>
                     {/* Feedback de balanceamento */}
-                    {form.formState.errors.participantes && (
+                    {gastoForm.formState.errors.participantes && (
                       <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-sm text-yellow-800">
                         <AlertCircle className="h-4 w-4 inline mr-1" />
-                        {form.formState.errors.participantes.message as string}
+                        {gastoForm.formState.errors.participantes.message as string}
                       </div>
                     )}
                   </CardContent>
                 </Card>
                 {/* Lista de participantes */}
                 <div className="space-y-3">
-                  {(form.watch('participantes') || []).length === 0 && (
+                  {(gastoForm.watch('participantes') || []).length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                       <p>Nenhum participante adicionado</p>
@@ -607,11 +654,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                                 options={opcoes}
                                 value={participante.pessoa_id}
                                 onChange={valor => {
-                                  const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                                  const participantes = Array.isArray(gastoForm.getValues().participantes) ? [...gastoForm.getValues().participantes] : [];
                                   const pessoa = participantesAtivos.find(p => p.id === valor);
                                   participantes[index].pessoa_id = valor;
                                   participantes[index].nome = pessoa?.nome || '';
-                                  form.setValue('participantes', participantes);
+                                  gastoForm.setValue('participantes', participantes);
                                 }}
                                 placeholder="Selecione o participante"
                                 searchPlaceholder="Buscar membro..."
@@ -626,9 +673,9 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                               placeholder="Valor devido"
                               value={participante.valor_devido}
                               onChange={e => {
-                                const participantes = Array.isArray(form.getValues('participantes')) ? [...form.getValues('participantes')] : [];
+                                const participantes = Array.isArray(gastoForm.getValues().participantes) ? [...gastoForm.getValues().participantes] : [];
                                 participantes[index].valor_devido = parseFloat(e.target.value) || 0;
-                                form.setValue('participantes', participantes);
+                                gastoForm.setValue('participantes', participantes);
                               }}
                             />
                             <div className="p-3 bg-muted rounded text-sm w-24 text-center">
@@ -644,10 +691,10 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   })}
                 </div>
                 {/* Feedback de erro (placeholder) */}
-                {form.formState.errors.participantes && (
+                {gastoForm.formState.errors.participantes && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 mt-2">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    {form.formState.errors.participantes.message as string}
+                    {gastoForm.formState.errors.participantes.message as string}
                   </div>
                 )}
               </TabsContent>
@@ -672,7 +719,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <Card
                         key={tag.id}
                         className={`cursor-pointer transition-all hover:shadow-md ${
-                          (form.watch('tags') || []).includes(tag.id)
+                          (gastoForm.watch('tags') || []).includes(tag.id)
                             ? 'ring-2 ring-primary bg-primary/5'
                             : 'hover:bg-muted/50'
                         }`}
@@ -682,7 +729,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
                             <span className="text-sm font-medium">{tag.nome}</span>
-                            {(form.watch('tags') || []).includes(tag.id) && (
+                            {(gastoForm.watch('tags') || []).includes(tag.id) && (
                               <Check className="h-4 w-4 text-primary ml-auto" />
                             )}
                           </div>
@@ -692,11 +739,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   </div>
                 )}
                 {/* Badges de tags selecionadas */}
-                {(form.watch('tags') || []).length > 0 && (
+                {(gastoForm.watch('tags') || []).length > 0 && (
                   <div className="space-y-2">
                     <label className="font-medium">Tags Selecionadas:</label>
                     <div className="flex flex-wrap gap-2">
-                      {(form.watch('tags') || []).map(tagId => {
+                      {(gastoForm.watch('tags') || []).map(tagId => {
                         const tag = availableTags.find(t => t.id === tagId);
                         return tag ? (
                           <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
@@ -718,10 +765,10 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   </div>
                 )}
                 {/* Feedback de erro */}
-                {form.formState.errors.tags && (
+                {gastoForm.formState.errors.tags && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    {form.formState.errors.tags.message as string}
+                    {gastoForm.formState.errors.tags.message as string}
                   </div>
                 )}
               </TabsContent>
@@ -746,23 +793,23 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Descrição:</span>
-                        <div className="font-medium">{form.watch('descricao')}</div>
+                        <div className="font-medium">{gastoForm.watch('descricao')}</div>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Local/Fonte:</span>
-                        <div className="font-medium">{form.watch('local')}</div>
+                        <div className="font-medium">{gastoForm.watch('local')}</div>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Valor:</span>
-                        <div className="font-medium text-lg">R$ {Number(form.watch('valor_total') || 0).toFixed(2)}</div>
+                        <div className="font-medium text-lg">R$ {Number(gastoForm.watch('valor_total') || 0).toFixed(2)}</div>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Data:</span>
-                        <div className="font-medium">{form.watch('data_transacao')}</div>
+                        <div className="font-medium">{gastoForm.watch('data_transacao')}</div>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Parcelamento:</span>
-                        <div className="font-medium">{form.watch('eh_parcelado') ? `${form.watch('total_parcelas')}x` : 'À vista'}</div>
+                        <div className="font-medium">{gastoForm.watch('eh_parcelado') ? `${gastoForm.watch('total_parcelas')}x` : 'À vista'}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -790,7 +837,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <div>
                         <span className="text-sm text-muted-foreground">Tags:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {(form.watch('tags') || []).map(tagId => {
+                          {(gastoForm.watch('tags') || []).map(tagId => {
                             const tag = availableTags.find(t => t.id === tagId);
                             return tag ? (
                               <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
@@ -803,7 +850,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Observações:</span>
-                        <div className="text-sm bg-muted p-2 rounded mt-1">{form.watch('observacoes')}</div>
+                        <div className="text-sm bg-muted p-2 rounded mt-1">{gastoForm.watch('observacoes')}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -835,32 +882,32 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   <label htmlFor="descricao" className="flex items-center gap-2 font-medium">
                     <FileText className="h-4 w-4" /> Descrição *
                   </label>
-                  <Input id="descricao" {...form.register('descricao')} autoFocus />
-                  {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
+                  <Input id="descricao" {...receitaForm.register('descricao')} autoFocus />
+                  {receitaForm.formState.errors.descricao && <p className="text-sm text-red-500">{receitaForm.formState.errors.descricao.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="local" className="flex items-center gap-2 font-medium">
                     <MapPin className="h-4 w-4" /> Fonte
                   </label>
-                  <Input id="local" {...form.register('local')} />
+                  <Input id="local" {...receitaForm.register('local')} />
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="valor_recebido" className="flex items-center gap-2 font-medium">
                     <DollarSign className="h-4 w-4" /> Valor Recebido *
                   </label>
-                  <Input id="valor_recebido" type="number" step="0.01" min="0.01" {...form.register('valor_recebido', { valueAsNumber: true })} />
-                  {form.formState.errors.valor_recebido && <p className="text-sm text-red-500">{form.formState.errors.valor_recebido.message}</p>}
+                  <Input id="valor_recebido" type="number" step="0.01" min="0.01" {...receitaForm.register('valor_recebido', { valueAsNumber: true })} />
+                  {receitaForm.formState.errors.valor_recebido && <p className="text-sm text-red-500">{receitaForm.formState.errors.valor_recebido.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="data" className="flex items-center gap-2 font-medium">
                     <Calendar className="h-4 w-4" /> Data *
                   </label>
-                  <Input id="data" type="date" {...form.register('data_transacao')} />
-                  {form.formState.errors.data_transacao && <p className="text-sm text-red-500">{form.formState.errors.data_transacao.message}</p>}
+                  <Input id="data" type="date" {...receitaForm.register('data_transacao')} />
+                  {receitaForm.formState.errors.data_transacao && <p className="text-sm text-red-500">{receitaForm.formState.errors.data_transacao.message}</p>}
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <label htmlFor="observacoes" className="font-medium">Observações</label>
-                  <Textarea id="observacoes" {...form.register('observacoes')} className="min-h-[80px]" />
+                  <Textarea id="observacoes" {...receitaForm.register('observacoes')} className="min-h-[80px]" />
                 </div>
               </div>
               {/* Tags */}
@@ -883,7 +930,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                       <Card
                         key={tag.id}
                         className={`cursor-pointer transition-all hover:shadow-md ${
-                          (form.watch('tags') || []).includes(tag.id)
+                          (receitaForm.watch('tags') || []).includes(tag.id)
                             ? 'ring-2 ring-primary bg-primary/5'
                             : 'hover:bg-muted/50'
                         }`}
@@ -893,7 +940,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                           <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.cor }} />
                             <span className="text-sm font-medium">{tag.nome}</span>
-                            {(form.watch('tags') || []).includes(tag.id) && (
+                            {(receitaForm.watch('tags') || []).includes(tag.id) && (
                               <Check className="h-4 w-4 text-primary ml-auto" />
                             )}
                           </div>
@@ -903,11 +950,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   </div>
                 )}
                 {/* Badges de tags selecionadas */}
-                {(form.watch('tags') || []).length > 0 && (
+                {(receitaForm.watch('tags') || []).length > 0 && (
                   <div className="space-y-2">
                     <label className="font-medium">Tags Selecionadas:</label>
                     <div className="flex flex-wrap gap-2">
-                      {(form.watch('tags') || []).map(tagId => {
+                      {(receitaForm.watch('tags') || []).map(tagId => {
                         const tag = availableTags.find(t => t.id === tagId);
                         return tag ? (
                           <Badge key={tagId} variant="secondary" className="flex items-center gap-1">
@@ -929,10 +976,10 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
                   </div>
                 )}
                 {/* Feedback de erro */}
-                {form.formState.errors.tags && (
+                {receitaForm.formState.errors.tags && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    {form.formState.errors.tags.message as string}
+                    {receitaForm.formState.errors.tags.message as string}
                   </div>
                 )}
               </div>
