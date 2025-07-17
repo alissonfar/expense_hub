@@ -108,9 +108,9 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
             <div className="space-y-1">
               {transacoes.map((transacao, index) => {
                 let dataFormatada = 'Data não informada';
-                if (transacao.data_transacao) {
+                if (transacao.data) {
                   try {
-                    const data = parseISO(transacao.data_transacao);
+                    const data = parseISO(transacao.data);
                     dataFormatada = format(data, 'dd/MM/yyyy', { locale: ptBR });
                   } catch {
                     dataFormatada = 'Data inválida';
@@ -186,9 +186,9 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
           <div className="md:hidden space-y-3">
             {transacoes.map((transacao, index) => {
               let dataFormatada = 'Data não informada';
-              if (transacao.data_transacao) {
+              if (transacao.data) {
                 try {
-                  const data = parseISO(transacao.data_transacao);
+                  const data = parseISO(transacao.data);
                   dataFormatada = format(data, 'dd/MM/yyyy', { locale: ptBR });
                 } catch {
                   dataFormatada = 'Data inválida';

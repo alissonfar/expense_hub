@@ -6,7 +6,13 @@
     "dev": "cross-env NODE_ENV=development next dev",
     "build": "next build",
     "start": "cross-env NODE_ENV=production next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "clean": "rm -rf .next && rm -rf node_modules && rm -rf .turbo",
+    "clean:cache": "rm -rf .next && rm -rf .turbo",
+    "clean:modules": "rm -rf node_modules && rm -rf package-lock.json",
+    "rebuild": "npm run clean:cache && npm run build",
+    "rebuild:full": "npm run clean && npm install && npm run build",
+    "reset": "npm run clean && npm install && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

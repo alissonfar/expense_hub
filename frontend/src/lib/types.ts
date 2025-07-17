@@ -90,7 +90,7 @@ export interface TransacaoParticipante {
   id: number;
   transacao_id: number;
   pessoa_id: number;
-  valor_individual: number;
+  valor_devido: number;
   valor_pago: number;
   quitado: boolean;
   pessoa?: Pessoa;
@@ -215,7 +215,7 @@ export interface CreateTransacaoFormData {
   tags?: number[];
   participantes?: {
     pessoa_id: number;
-    valor_individual: number;
+    valor_devido: number; // ✅ Correto: backend espera valor_devido
   }[];
 }
 

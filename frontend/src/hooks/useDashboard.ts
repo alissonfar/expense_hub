@@ -131,18 +131,36 @@ export function useTransacoesRecentes(limit = 5) {
           ordem: 'desc',
         },
       });
-      // Garantir que valor é sempre número
+      // Mapear dados do backend para o formato esperado pelo frontend
       return response.data.data.transacoes.map((transacao: unknown) => {
         if (typeof transacao === 'object' && transacao !== null) {
-          type TransacaoPossivel = { valor?: number; valor_total?: number };
-          const t = transacao as TransacaoPossivel;
+          type TransacaoBackend = { 
+            valor?: number; 
+            valor_total?: number; 
+            data_transacao?: string;
+            id?: number;
+            descricao?: string;
+            tipo?: string;
+            tag?: { id: number; nome: string; cor: string } | null;
+          };
+          const t = transacao as TransacaoBackend;
           const valor = t.valor !== undefined ? Number(t.valor) : (t.valor_total !== undefined ? Number(t.valor_total) : 0);
           return {
-            ...transacao,
+            id: t.id || 0,
+            descricao: t.descricao || '',
             valor,
+            data: t.data_transacao || '', // ✅ Mapeamento correto: data_transacao → data
+            tipo: (t.tipo as 'GASTO' | 'RECEITA') || 'GASTO',
+            tag: t.tag,
           };
         }
-        return { valor: 0 };
+        return { 
+          id: 0, 
+          descricao: '', 
+          valor: 0, 
+          data: '', 
+          tipo: 'GASTO' as const 
+        };
       });
     },
     enabled: !!accessToken,

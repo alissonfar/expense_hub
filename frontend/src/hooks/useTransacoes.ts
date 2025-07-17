@@ -252,7 +252,7 @@ export function useDuplicateTransacao() {
         tags: original.tags?.map(tag => tag.id) || [],
         participantes: original.participantes?.map(p => ({
           pessoa_id: p.pessoa_id,
-          valor_individual: p.valor_individual,
+          valor_devido: p.valor_devido,
         })) || [],
       };
       

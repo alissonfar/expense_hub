@@ -220,8 +220,8 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       tipoTransacao === 'GASTO' &&
       Array.isArray(participantesAtivos) &&
       participantesAtivos.length > 0 &&
-      Array.isArray(gastoForm.getValues().participantes) &&
-      gastoForm.getValues().participantes.length === 0
+      Array.isArray((gastoForm.getValues() as TransactionFormValues).participantes) &&
+      (gastoForm.getValues() as TransactionFormValues).participantes.length === 0
     ) {
       const primeiro = participantesAtivos[0];
       const novoParticipante = { nome: primeiro.nome, valor_devido: 0, pessoa_id: primeiro.id };
@@ -268,7 +268,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
           const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
           return {
             pessoa_id: pessoaId,
-            valor_devido: Number(p.valor_devido) || 0, // Corrigido!
+            valor_devido: Number(p.valor_devido) || 0, // ✅ Correto: backend espera valor_devido
           };
         });
 
