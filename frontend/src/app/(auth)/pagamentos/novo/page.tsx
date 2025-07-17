@@ -35,7 +35,8 @@ interface PendenciaLinha {
 export default function NovoPagamentoPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
   const [pessoaSelecionada, setPessoaSelecionada] = useState<number | null>(null);
-  const [valoresPagamento, setValoresPagamento] = useState<Record<number, number>>({});
+  // Refatorar valoresPagamento para string
+  const [valoresPagamento, setValoresPagamento] = useState<Record<number, string>>({});
   const [selecionadas, setSelecionadas] = useState<number[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<string>('PIX');
   const [processarExcedente, setProcessarExcedente] = useState<boolean>(true);
@@ -83,7 +84,7 @@ export default function NovoPagamentoPage() {
 
   // Atalhos inteligentes
   const pagarTudo = () => {
-    const novos = Object.fromEntries(linhas.map(l => [l.id, l.saldoDevedor]));
+    const novos = Object.fromEntries(linhas.map(l => [l.id, l.saldoDevedor.toString()]));
     setValoresPagamento(novos);
     setSelecionadas(linhas.map(l => l.id));
   };
@@ -92,11 +93,22 @@ export default function NovoPagamentoPage() {
     if (selecionadas.length === 0 || valorTotal <= 0) return;
     const porTransacao = valorTotal / selecionadas.length;
     const novos = { ...valoresPagamento };
-    selecionadas.forEach(id => { novos[id] = porTransacao; });
+    selecionadas.forEach(id => { novos[id] = porTransacao.toString(); });
     setValoresPagamento(novos);
   };
   const marcarTodas = () => setSelecionadas(linhas.map(l => l.id));
   const desmarcarTodas = () => setSelecionadas([]);
+
+  // Corrigir seleção individual: evitar duplicidade
+  const handleSelectTransacao = (id: number, checked: boolean) => {
+    setSelecionadas(sel => {
+      if (checked) {
+        return sel.includes(id) ? sel : [...sel, id];
+      } else {
+        return sel.filter(item => item !== id);
+      }
+    });
+  };
 
   // Tooltips para status
   const statusTooltips: Record<string, string> = {
@@ -114,11 +126,7 @@ export default function NovoPagamentoPage() {
         <input
           type="checkbox"
           checked={selecionadas.includes(row.original.id)}
-          onChange={e => {
-            setSelecionadas(sel =>
-              e.target.checked ? [...sel, row.original.id] : sel.filter(id => id !== row.original.id)
-            );
-          }}
+          onChange={e => handleSelectTransacao(row.original.id, e.target.checked)}
           disabled={row.original.status === 'Quitado'}
           tabIndex={0}
           className={row.original.status === 'Quitado' ? 'opacity-50 cursor-not-allowed' : ''}
@@ -184,15 +192,19 @@ export default function NovoPagamentoPage() {
       header: 'Valor a pagar',
       cell: ({ row }: { row: { original: PendenciaLinha } }) => (
         <Input
-          type="number"
+          type="text"
+          inputMode="decimal"
           min={0}
           max={row.original.saldoDevedor}
           step={0.01}
           value={valoresPagamento[row.original.id] ?? ''}
           disabled={!selecionadas.includes(row.original.id) || row.original.status === 'Quitado' || row.original.saldoDevedor === 0}
           onChange={e => {
-            const v = parseFloat(e.target.value) || 0;
-            setValoresPagamento(vals => ({ ...vals, [row.original.id]: v }));
+            const v = e.target.value;
+            // Permitir string vazia, números válidos e ponto/virgula
+            if (/^\d*(\.|,)?\d{0,2}$/.test(v) || v === '') {
+              setValoresPagamento(vals => ({ ...vals, [row.original.id]: v.replace(',', '.') }));
+            }
           }}
           className={`w-28 ${selecionadas.includes(row.original.id) ? 'ring-2 ring-blue-300' : ''}`}
           placeholder={row.original.saldoDevedor > 0 ? `Até ${row.original.saldoDevedor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : '—'}
@@ -202,11 +214,12 @@ export default function NovoPagamentoPage() {
     },
   ];
 
-  // Cálculo do total a pagar
-  // O total agora é definido pelo usuário
-  // const totalSelecionado = selecionadas.reduce((acc, id) => acc + (valoresPagamento[id] || 0), 0);
-  const totalSelecionado = valorTotal;
+  // Calcular total das selecionadas dinamicamente (convertendo para número)
+  const totalSelecionado = selecionadas.reduce((acc, id) => acc + (parseFloat(valoresPagamento[id]) || 0), 0);
   const podeConfirmar = selecionadas.length > 0 && totalSelecionado > 0;
+
+  // Calcular total devido das selecionadas
+  const totalDevidoSelecionado = selecionadas.reduce((acc, id) => acc + (linhas.find(l => l.id === id)?.saldoDevedor || 0), 0);
 
   // Mutação para criar pagamento
   const mutation = useMutation({
@@ -220,7 +233,7 @@ export default function NovoPagamentoPage() {
         processar_excedente: processarExcedente,
         transacoes: selecionadas.map(id => ({
           transacao_id: id,
-          valor_aplicado: valoresPagamento[id] || 0,
+          valor_aplicado: parseFloat(valoresPagamento[id]) || 0,
         })),
       };
       await pagamentosApi.create(payload);
@@ -285,21 +298,6 @@ export default function NovoPagamentoPage() {
             </label>
           </div>
 
-          {/* Campo de valor total do pagamento */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="valorTotal" className="font-medium">Valor total do pagamento:</label>
-            <Input
-              id="valorTotal"
-              type="number"
-              min={0}
-              step={0.01}
-              value={valorTotal}
-              onChange={e => setValorTotal(Number(e.target.value) || 0)}
-              className="w-40"
-              placeholder="Ex: 100,00"
-            />
-          </div>
-
           {/* Tabela de débitos */}
           <div className="mt-8">
             {!pessoaSelecionada ? (
@@ -325,14 +323,40 @@ export default function NovoPagamentoPage() {
                 <div className="mt-8 border-t pt-6">
                   <h3 className="text-lg font-semibold mb-2">Resumo do Pagamento</h3>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-muted-foreground">Total a pagar:</span>
-                    <span className="text-2xl font-bold text-blue-700">
-                      {totalSelecionado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    <span className="text-muted-foreground">Total devido das selecionadas:</span>
+                    <span className="text-lg font-bold text-blue-700">
+                      {totalDevidoSelecionado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
-                  <div className="text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <label htmlFor="valorTotal" className="font-medium">Valor total do pagamento:</label>
+                    <Input
+                      id="valorTotal"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={valorTotal}
+                      onChange={e => setValorTotal(Number(e.target.value) || 0)}
+                      className="w-40"
+                      placeholder="Ex: 100,00"
+                    />
+                  </div>
+                  {valorTotal > totalDevidoSelecionado && (
+                    <div className="text-xs text-yellow-700 bg-yellow-100 rounded px-2 py-1 mb-2">
+                      Atenção: O valor pago excede o saldo das transações. O excedente será processado como receita.
+                    </div>
+                  )}
+                  <div className="text-sm text-muted-foreground mb-2">
                     {selecionadas.length === 0 ? 'Nenhuma transação selecionada.' : `${selecionadas.length} transação(ões) selecionada(s).`}
                   </div>
+                  {selecionadas.length > 0 && (
+                    <ul className="text-xs text-muted-foreground mb-4 list-disc ml-5">
+                      {selecionadas.map(id => {
+                        const linha = linhas.find(l => l.id === id);
+                        return linha ? <li key={`${id}-${valoresPagamento[id]}`}>{linha.descricao} — {(parseFloat(valoresPagamento[id]) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</li> : null;
+                      })}
+                    </ul>
+                  )}
                   <Button
                     variant="default"
                     size="lg"

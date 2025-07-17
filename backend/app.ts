@@ -57,15 +57,9 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(o => o.trim()) : ['https://expense-hub-three.vercel.app'])
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
+// ATENÇÃO: CORS aberto para qualquer origem. Entenda os riscos de segurança!
 const corsOptions: CorsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Permite requests sem origin (ex: mobile, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: true, // Permite requisições de QUALQUER origem
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']

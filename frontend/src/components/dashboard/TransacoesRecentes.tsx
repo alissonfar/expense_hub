@@ -107,16 +107,12 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
           <div className="hidden md:block">
             <div className="space-y-1">
               {transacoes.map((transacao, index) => {
-                // LOG: Valor recebido do campo de data
-                console.log('[TransacoesRecentes] transacao.data_transacao:', transacao.data_transacao);
                 let dataFormatada = 'Data não informada';
                 if (transacao.data_transacao) {
                   try {
                     const data = parseISO(transacao.data_transacao);
                     dataFormatada = format(data, 'dd/MM/yyyy', { locale: ptBR });
-                    // LOG: Valor formatado
-                    console.log('[TransacoesRecentes] dataFormatada:', dataFormatada);
-                  } catch (e) {
+                  } catch {
                     dataFormatada = 'Data inválida';
                   }
                 }
@@ -189,16 +185,12 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
           {/* Vista Mobile - Cards */}
           <div className="md:hidden space-y-3">
             {transacoes.map((transacao, index) => {
-              // LOG: Valor recebido do campo de data
-              console.log('[TransacoesRecentes] transacao.data_transacao:', transacao.data_transacao);
               let dataFormatada = 'Data não informada';
               if (transacao.data_transacao) {
                 try {
                   const data = parseISO(transacao.data_transacao);
                   dataFormatada = format(data, 'dd/MM/yyyy', { locale: ptBR });
-                  // LOG: Valor formatado
-                  console.log('[TransacoesRecentes] dataFormatada:', dataFormatada);
-                } catch (e) {
+                } catch {
                   dataFormatada = 'Data inválida';
                 }
               }

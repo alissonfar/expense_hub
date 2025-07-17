@@ -70,7 +70,7 @@ export default function TransacoesPage() {
   const duplicateTransacao = useDuplicateTransacao();
 
   // Corrigir: acessar o array de transações corretamente
-  const transacoes = transacoesData?.data?.transacoes || [];
+  const transacoes = transacoesData?.data || [];
 
   // Handlers
   const handleSearch = (value: string) => {
@@ -243,11 +243,11 @@ export default function TransacoesPage() {
       header: 'Participantes',
       cell: ({ row }: { row: { original: Transacao } }) => {
         const transacao = row.original;
-        const count = transacao.participantes?.length || transacao.transacao_participantes?.length || 0;
+        const count = transacao.participantes?.length || 0;
         return (
           <div className="flex items-center text-sm text-gray-600">
             <Users className="w-4 h-4 mr-1" />
-            {count} {count === 1 ? 'pessoa' : 'pessoas'}
+            {count} participante(s)
           </div>
         );
       },

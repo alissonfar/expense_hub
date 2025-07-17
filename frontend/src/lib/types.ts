@@ -225,6 +225,13 @@ export interface CreateTagFormData {
   icone?: string;
 }
 
+// Tipo auxiliar para transações em pagamento composto
+export interface CreatePagamentoTransacao {
+  transacao_id: number;
+  valor_aplicado: number;
+}
+
+// Ajuste: CreatePagamentoFormData aceita array de transações (pagamento composto)
 export interface CreatePagamentoFormData {
   pessoa_id: number;
   valor_total: number;
@@ -232,7 +239,7 @@ export interface CreatePagamentoFormData {
   forma_pagamento: PaymentMethod;
   observacoes?: string;
   processar_excedente: boolean;
-  transacoes?: number[];
+  transacoes: CreatePagamentoTransacao[];
 }
 
 export interface InviteMemberFormData {

@@ -200,9 +200,9 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
     }
   };
 
-  // Garantir participantesArr sempre array e valores numéricos
+  // Extrair dependência complexa para variável
+  const participantesRaw = gastoForm.watch('participantes');
   const participantesArr = useMemo(() => {
-    const participantesRaw = gastoForm.watch('participantes');
     if (Array.isArray(participantesRaw)) {
       return participantesRaw.map(p => ({
         ...p,
@@ -212,7 +212,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       }));
     }
     return [];
-  }, [gastoForm.watch('participantes')]);
+  }, [participantesRaw, gastoForm]);
 
   // Efeito para inicializar participantes quando participantesAtivos for carregado
   useEffect(() => {
