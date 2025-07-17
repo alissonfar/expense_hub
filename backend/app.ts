@@ -5,10 +5,14 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import type { CorsOptions, CorsOptionsDelegate } from 'cors';
 
 if (process.env.NODE_ENV === 'development') {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('dotenv').config({ path: '.env.development' });
+} else if (process.env.NODE_ENV === 'production') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('dotenv').config({ path: '.env.production' });
 } else {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('dotenv').config();
@@ -48,10 +52,20 @@ app.use(helmet({
   contentSecurityPolicy: false
 }));
 
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'http://localhost:3000']
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+// Permitir múltiplos origins em produção (ex: FRONTEND_URL="https://expense-hub-three.vercel.app,http://localhost:3000")
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(o => o.trim()) : ['https://expense-hub-three.vercel.app'])
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+const corsOptions: CorsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Permite requests sem origin (ex: mobile, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']

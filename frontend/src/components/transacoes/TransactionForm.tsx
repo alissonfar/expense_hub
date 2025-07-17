@@ -177,16 +177,19 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
   };
 
   // Funções para adicionar/remover participantes
+  // Adicionar participante
   const addParticipante = useCallback(() => {
     if (tipoTransacao === 'GASTO') {
       const participantesRaw = gastoForm.getValues().participantes;
       const atuais = Array.isArray(participantesRaw) ? participantesRaw : [];
+      const novoParticipante = { nome: '', valor_devido: 0, pessoa_id: null };
       gastoForm.setValue('participantes', [
         ...atuais,
-        { nome: '', valor_devido: 0, pessoa_id: null },
+        novoParticipante,
       ]);
     }
   }, [tipoTransacao, gastoForm]);
+  // Remover participante
   const removeParticipante = (index: number) => {
     if (tipoTransacao === 'GASTO') {
       const participantesRaw = gastoForm.getValues().participantes;
@@ -199,19 +202,33 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
 
   // Garantir participantesArr sempre array e valores numéricos
   const participantesArr = useMemo(() => {
-    if (tipoTransacao === 'GASTO') {
-      const participantesRaw = gastoForm.watch('participantes');
-      if (Array.isArray(participantesRaw)) {
-        return participantesRaw.map(p => ({
-          ...p,
-          valor_devido: Number(p.valor_devido) || 0,
-          nome: p.nome || '',
-          pessoa_id: p.pessoa_id ?? null,
-        }));
-      }
+    const participantesRaw = gastoForm.watch('participantes');
+    if (Array.isArray(participantesRaw)) {
+      return participantesRaw.map(p => ({
+        ...p,
+        valor_devido: Number(p.valor_devido) || 0,
+        nome: p.nome || '',
+        pessoa_id: p.pessoa_id ?? null,
+      }));
     }
     return [];
-  }, [gastoForm, tipoTransacao]);
+  }, [gastoForm.watch('participantes')]);
+
+  // Efeito para inicializar participantes quando participantesAtivos for carregado
+  useEffect(() => {
+    if (
+      tipoTransacao === 'GASTO' &&
+      Array.isArray(participantesAtivos) &&
+      participantesAtivos.length > 0 &&
+      Array.isArray(gastoForm.getValues().participantes) &&
+      gastoForm.getValues().participantes.length === 0
+    ) {
+      const primeiro = participantesAtivos[0];
+      const novoParticipante = { nome: primeiro.nome, valor_devido: 0, pessoa_id: primeiro.id };
+      gastoForm.setValue('participantes', [novoParticipante]);
+    }
+  }, [tipoTransacao, participantesAtivos, gastoForm]);
+
   const valorTotal = tipoTransacao === 'GASTO' ? Number(gastoForm.watch('valor_total')) || 0 : 0;
 
   // Handler de envio
@@ -245,13 +262,13 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
     }
     try {
       if (tipoTransacao === TipoTransacao.GASTO) {
-        // Mapear participantes para o formato da API { pessoa_id, valor_individual }
+        // Mapear participantes para o formato da API { pessoa_id, valor_devido }
         const participantesPayload = (values as TransactionFormValues).participantes.map(p => {
           const encontrado = participantesAtivos.find(pa => pa.nome && p.nome && pa.nome.toLowerCase() === p.nome.toLowerCase());
           const pessoaId = encontrado ? encontrado.id : (usuario?.pessoaId ?? 0);
           return {
             pessoa_id: pessoaId,
-            valor_individual: Number(p.valor_devido) || 0, // conforme API
+            valor_devido: Number(p.valor_devido) || 0, // Corrigido!
           };
         });
 
@@ -316,6 +333,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
   }, [participantesAtivos, usuario, createTransacao, createReceita, toast, form, tipoTransacao, modoEdicao, onSubmitEdicao, gastoForm, receitaForm]);
 
   // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
+  // Dividir igualmente
   const dividirIgualmente = useCallback(async () => {
     if (tipoTransacao !== 'GASTO') return;
     if (participantesArr.length === 0) return;
@@ -323,10 +341,11 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       gastoForm.setValue('participantes', [{ ...participantesArr[0], valor_devido: valorTotal }]);
     } else {
       const valorPorPessoa = valorTotal / participantesArr.length;
-      gastoForm.setValue('participantes', participantesArr.map((p, i) => ({
+      const novosParticipantes = participantesArr.map((p, i) => ({
         ...p,
         valor_devido: i === participantesArr.length - 1 ? valorTotal - valorPorPessoa * (participantesArr.length - 1) : valorPorPessoa,
-      })));
+      }));
+      gastoForm.setValue('participantes', novosParticipantes);
     }
     await gastoForm.trigger('participantes');
   }, [participantesArr, valorTotal, tipoTransacao, gastoForm]);
