@@ -132,10 +132,18 @@ export function useTransacoesRecentes(limit = 5) {
         },
       });
       // Garantir que valor é sempre número
-      return response.data.data.transacoes.map((transacao: unknown) => ({
-        ...transacao,
-        valor: Number((transacao as TransacaoRecente).valor ?? (transacao as TransacaoRecente).valor_total ?? 0),
-      }));
+      return response.data.data.transacoes.map((transacao: unknown) => {
+        if (typeof transacao === 'object' && transacao !== null) {
+          type TransacaoPossivel = { valor?: number; valor_total?: number };
+          const t = transacao as TransacaoPossivel;
+          const valor = t.valor !== undefined ? Number(t.valor) : (t.valor_total !== undefined ? Number(t.valor_total) : 0);
+          return {
+            ...transacao,
+            valor,
+          };
+        }
+        return { valor: 0 };
+      });
     },
     enabled: !!accessToken,
     staleTime: 1000 * 60 * 2, // 2 minutos

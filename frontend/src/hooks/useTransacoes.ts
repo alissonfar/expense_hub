@@ -4,7 +4,8 @@ import type {
   Transacao, 
   PaginatedResponse, 
   TransacaoFilters, 
-  CreateTransacaoFormData 
+  CreateTransacaoFormData, 
+  TransacaoParticipante 
 } from '@/lib/types';
 
 // Query Keys

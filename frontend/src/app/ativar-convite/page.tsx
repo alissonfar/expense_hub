@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +28,7 @@ const schema = z.object({
 
 type AtivarConviteFormData = z.infer<typeof schema>;
 
-export default function AtivarConvitePage() {
+function AtivarConviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -140,4 +140,25 @@ export default function AtivarConvitePage() {
       </div>
     </div>
   );
-} 
+}
+
+export default function AtivarConvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-blue-100">
+        <div className="w-full max-w-md">
+          <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-lg">
+            <CardContent className="flex items-center justify-center p-8">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-gray-600">Carregando...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    }>
+      <AtivarConviteContent />
+    </Suspense>
+  );
+}

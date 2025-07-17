@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback,
 import { api } from '@/lib/api';
 import { hubsApi } from '@/lib/api';
 import { UserIdentifier, Hub, HubInfo, LoginResponse, SelectHubResponse } from '@/lib/types';
+import type { Role } from '../lib/types';
 
 interface AuthContextData {
   // Estado de autenticação
@@ -83,7 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Ler dados do localStorage
-  const loadFromStorage = (key: string) => {
+  const loadFromStorage = useCallback((key: string) => {
     try {
       const item = localStorage.getItem(key);
       if (key === STORAGE_KEYS.ACCESS_TOKEN || key === STORAGE_KEYS.REFRESH_TOKEN) {
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('[AuthContext][loadFromStorage] Erro ao ler do localStorage:', key, error);
       return null;
     }
-  };
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN]);
 
   // Limpar dados do localStorage
   const clearStorage = useCallback(() => {
@@ -238,7 +239,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         responseInterceptorId.current = null;
       }
     }
-  }, [accessToken, clearStorage, refreshToken]);
+  }, [accessToken, clearStorage]);
 
   // Função de refresh token
   const refreshAccessToken = useCallback(async (): Promise<string> => {
@@ -267,7 +268,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await logout();
       throw error;
     }
-  }, [refreshToken, logout, updateTokens, STORAGE_KEYS.REFRESH_TOKEN]);
+  }, [refreshToken, updateTokens, STORAGE_KEYS.REFRESH_TOKEN, logout]);
 
   // Função de registro
   const register = async (data: {
@@ -330,7 +331,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!tokenToUse) throw new Error('RefreshToken não encontrado no localStorage. Faça login novamente.');
     const novoHub = await hubsApi.create({ nome }, tokenToUse);
     setHubsDisponiveis((prev) => {
-      const novaLista = [...(prev || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' }];
+      const novaLista = [...(prev || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' as Role }];
       return novaLista;
     });
     return novoHub;
@@ -395,7 +396,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         responseInterceptorId.current = null;
       }
     };
-  }, []);
+  }, [logout, refreshAccessToken]);
 
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
@@ -442,7 +443,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     loadStoredData();
-  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USUARIO, STORAGE_KEYS.HUB_ATUAL, STORAGE_KEYS.HUBS_DISPONIVEIS]);
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USUARIO, STORAGE_KEYS.HUB_ATUAL, STORAGE_KEYS.HUBS_DISPONIVEIS, loadFromStorage]);
 
   // Sincronizar com cookies após carregar dados
   useEffect(() => {
