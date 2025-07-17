@@ -55,6 +55,9 @@ export default function DashboardPage() {
   // Buscar transações recentes
   const { data: transacoesRecentes, isLoading: loadingTransacoes } = useTransacoesRecentes(5);
 
+  // LOG: Array de transações recentes recebido do backend
+  console.log('[DashboardPage] transacoesRecentes:', transacoesRecentes);
+
   const handlePeriodoChange = (value: string) => {
     setPeriodo(value as PeriodoTipo);
     if (value !== 'personalizado') {
@@ -228,6 +231,25 @@ export default function DashboardPage() {
         transacoes={transacoesRecentes || []}
         loading={loadingTransacoes}
       />
+      {transacoesRecentes?.map(transacao => {
+        // LOG: Transação individual e data_transacao
+        console.log('[DashboardPage] transacao:', transacao);
+        console.log('[DashboardPage] transacao.data_transacao:', transacao.data_transacao);
+        return (
+          <div key={transacao.id}>
+            <p>Data: {transacao.data_transacao}</p>
+            <p>Tipo: {transacao.tipo}</p>
+            <p>Valor: {transacao.valor}</p>
+            <p>Descrição: {transacao.descricao}</p>
+            <p>Categoria: {transacao.categoria}</p>
+            <p>Pessoa: {transacao.pessoa}</p>
+            <p>Status: {transacao.status}</p>
+            <p>Data de Criação: {transacao.data_criacao}</p>
+            <p>Data de Atualização: {transacao.data_atualizacao}</p>
+            <hr />
+          </div>
+        );
+      })}
     </div>
   );
 } 
