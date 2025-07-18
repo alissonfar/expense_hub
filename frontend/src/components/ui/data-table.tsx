@@ -28,11 +28,13 @@ import React from "react"
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  className?: string
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  className,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -59,7 +61,7 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div>
+    <div className={className}>
       <div className="flex items-center py-4">
         {/* TODO: Adicionar filtro global ou por colunas específicas aqui */}
       </div>

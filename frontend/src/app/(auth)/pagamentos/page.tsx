@@ -6,7 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Users, CalendarIcon, MoreHorizontal, DollarSign, ListChecks } from 'lucide-react';
+import { 
+  Plus, 
+  CalendarIcon, 
+  MoreHorizontal, 
+  DollarSign, 
+  ListChecks, 
+  Search,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Filter,
+  Download,
+  RefreshCw
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { pagamentosApi } from '@/lib/api';
@@ -154,24 +168,55 @@ export default function PagamentosPage() {
     return data || [];
   }, [data]);
 
+  // Estatísticas calculadas
+  const stats = useMemo(() => {
+    const total = pagamentos.length;
+    const pagos = pagamentos.filter(p => p.valor_total > 0).length;
+    const pendentes = total - pagos;
+    const valorTotal = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    const excedentes = pagamentos.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
+
+    return {
+      total,
+      pagos,
+      pendentes,
+      valorTotal,
+      excedentes
+    };
+  }, [pagamentos]);
+
   // Colunas da tabela
   const columns: ColumnDef<Pagamento, unknown>[] = [
     {
       id: 'pessoa',
       header: 'Pessoa',
-      cell: () => (
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-blue-500" />
-          <span>Placeholder for Pessoa</span>
+      cell: ({ row }: { row: Row<Pagamento> }) => (
+        <div className="flex items-center gap-3 group">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-lg">
+            {row.original.pessoa?.nome?.charAt(0) || 'U'}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+              {row.original.pessoa?.nome || 'Pessoa não identificada'}
+            </span>
+            <span className="text-xs text-gray-500">
+              {row.original.pessoa?.email || 'Email não disponível'}
+            </span>
+          </div>
         </div>
       ),
     },
     {
       id: 'valor',
       header: 'Valor',
-      cell: () => (
-        <div className="font-medium">
-          <span>Placeholder for Valor</span>
+      cell: ({ row }: { row: Row<Pagamento> }) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-lg text-gray-900">
+            R$ {row.original.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-xs text-gray-500">
+            {row.original.forma_pagamento || 'Não especificado'}
+          </span>
         </div>
       ),
     },
@@ -179,32 +224,62 @@ export default function PagamentosPage() {
       id: 'data',
       header: 'Data',
       cell: ({ row }: { row: Row<Pagamento> }) => (
-        <div className="flex items-center text-sm">
-          <CalendarIcon className="w-4 h-4 mr-2 text-gray-400" />
-          {row.original.data_pagamento ? new Date(row.original.data_pagamento).toLocaleDateString('pt-BR') : '-'}
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center">
+            <CalendarIcon className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-medium text-gray-900">
+              {row.original.data_pagamento ? new Date(row.original.data_pagamento).toLocaleDateString('pt-BR') : '-'}
+            </span>
+            <span className="text-xs text-gray-500">
+              {row.original.data_pagamento ? new Date(row.original.data_pagamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}
+            </span>
+          </div>
         </div>
       ),
     },
     {
       id: 'status',
       header: 'Status',
-      cell: () => (
-        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
-          Pago
-        </Badge>
-      ),
+      cell: ({ row }: { row: Row<Pagamento> }) => {
+        const isPago = row.original.valor_total > 0;
+        return (
+          <div className="flex items-center gap-2">
+            {isPago ? (
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 px-3 py-1 rounded-full shadow-sm">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Pago
+              </Badge>
+            ) : (
+              <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0 px-3 py-1 rounded-full shadow-sm">
+                <Clock className="w-3 h-3 mr-1" />
+                Pendente
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'transacoes',
       header: 'Transações',
       cell: ({ row }: { row: Row<Pagamento> }) => (
         <div className="flex flex-wrap gap-1">
-          {(row.original.transacoes || []).map((t: Transacao) => (
-            <Badge key={t.id} variant="outline" className="text-xs">
+          {(row.original.transacoes || []).slice(0, 2).map((t: Transacao) => (
+            <Badge 
+              key={t.id} 
+              className="bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 border-blue-200 px-2 py-1 rounded-md text-xs font-medium shadow-sm hover:shadow-md transition-shadow"
+            >
               <ListChecks className="w-3 h-3 mr-1" />
-              {t.descricao || `ID ${t.id}`}
+              {t.descricao || `Transação ${t.id}`}
             </Badge>
           ))}
+          {(row.original.transacoes || []).length > 2 && (
+            <Badge className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md text-xs">
+              +{(row.original.transacoes || []).length - 2} mais
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -217,14 +292,19 @@ export default function PagamentosPage() {
         return (
           <div className="flex gap-1 items-center">
             {excedente && (
-              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200" title="Pagamento gerou excedente e receita automática">
-                Excedente
+              <Badge className="bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border-yellow-200 px-2 py-1 rounded-md text-xs font-medium shadow-sm">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                R$ {row.original.valor_excedente?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </Badge>
             )}
             {receita && (
-              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200" title="Receita gerada pelo excedente">
+              <Badge className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border-blue-200 px-2 py-1 rounded-md text-xs font-medium shadow-sm">
+                <TrendingUp className="w-3 h-3 mr-1" />
                 Receita #{receita.id}
               </Badge>
+            )}
+            {!excedente && !receita && (
+              <span className="text-gray-400 text-xs">Nenhum</span>
             )}
           </div>
         );
@@ -234,7 +314,11 @@ export default function PagamentosPage() {
       id: 'acoes',
       header: '',
       cell: () => (
-        <Button variant="ghost" size="icon">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-600 transition-all duration-200 rounded-full"
+        >
           <MoreHorizontal className="w-4 h-4" />
         </Button>
       ),
@@ -242,49 +326,164 @@ export default function PagamentosPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Pagamentos</h1>
-        <Button variant="default" className="gap-2" onClick={() => router.push('/pagamentos/novo')}>
-          <Plus className="w-4 h-4" />
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      {/* Header com gradiente */}
+      <div className="flex items-center justify-between bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+            <DollarSign className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-blue-600 bg-clip-text text-transparent">
+              Pagamentos
+            </h1>
+            <p className="text-gray-600 mt-1">Gerencie todos os pagamentos do hub</p>
+          </div>
+        </div>
+        <Button 
+          onClick={() => router.push('/pagamentos/novo')}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+        >
+          <Plus className="w-5 h-5 mr-2" />
           Novo Pagamento
         </Button>
       </div>
 
-      {/* Filtros e busca */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="relative flex-1 max-w-sm">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar por pessoa..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+      {/* Cards de estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium">Total</p>
+                <p className="text-3xl font-bold">{stats.total}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <DollarSign className="w-6 h-6" />
+              </div>
             </div>
-            {/* Filtros futuros aqui */}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm font-medium">Pagos</p>
+                <p className="text-3xl font-bold">{stats.pagos}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-yellow-500 to-orange-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-100 text-sm font-medium">Pendentes</p>
+                <p className="text-3xl font-bold">{stats.pendentes}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <Clock className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium">Valor Total</p>
+                <p className="text-2xl font-bold">R$ {stats.valorTotal.toLocaleString('pt-BR')}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-red-500 to-pink-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 text-sm font-medium">Excedentes</p>
+                <p className="text-3xl font-bold">{stats.excedentes}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtros e busca com design moderno */}
+      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Input
+                  placeholder="Buscar por pessoa, valor ou data..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-12 pr-4 py-3 border-0 bg-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all duration-200"
+                />
+              </div>
+              <Button variant="outline" className="gap-2 px-4 py-3 rounded-xl border-gray-200 hover:bg-gray-50 transition-all duration-200">
+                <Filter className="w-4 h-4" />
+                Filtros
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
+                <Download className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Tabela de pagamentos */}
-      <Card>
-        <CardContent>
+      {/* Tabela de pagamentos com design moderno */}
+      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Carregando pagamentos...</div>
+            <div className="py-16 text-center">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 font-medium">Carregando pagamentos...</p>
+            </div>
           ) : pagamentos.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              Nenhum pagamento encontrado.<br />
-              Clique em <b>Novo Pagamento</b> para registrar o primeiro!
+            <div className="py-16 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <DollarSign className="w-12 h-12 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum pagamento encontrado</h3>
+              <p className="text-gray-600 mb-6">Comece registrando o primeiro pagamento do hub</p>
+              <Button 
+                onClick={() => router.push('/pagamentos/novo')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Criar Primeiro Pagamento
+              </Button>
             </div>
           ) : (
-            <>
-              {console.log('DataTable recebendo:', pagamentos)}
-              <DataTable columns={columns} data={pagamentos} />
-            </>
+            <div className="overflow-hidden">
+              <DataTable 
+                columns={columns} 
+                data={pagamentos}
+                className="[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-blue-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-blue-50/50 [&_tr]:hover:to-purple-50/50 [&_tr]:transition-all [&_tr]:duration-200"
+              />
+            </div>
           )}
         </CardContent>
       </Card>
