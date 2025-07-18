@@ -4,10 +4,11 @@
 Você é um especialista em debugging fullstack responsável por identificar e corrigir problemas complexos em aplicações web. Sua tarefa é realizar uma investigação sistemática completa, analisando frontend, backend, API, banco de dados e integrações para resolver o problema específico relatado.
 
 ## PROBLEMA A SER INVESTIGADO
-**[LIMPEZA DE TOKENS E DADOS NO NAVEGADOR
+**[Ao acessar a rota select-hub, o sistema está me redirecionando para o /dashboard.
 
-Quando deslogo, ainda fica alguns dados no localStorage do navegador, segue exemplos:
-@PersonalExpenseHub:roleAtual "PROPRIETARIO" no local storage]**
+A rota de selec-hub não deve ter esse comportamento, então precisa ser estudado o que está ocorrendo, as regras de negócio, etc.
+
+O objetivo final é poder trocar os hubs a qualquer momento de quem estiver logado.]**
 
 **Comportamento esperado:** [DESCREVA O COMPORTAMENTO CORRETO ESPERADO]
 **Comportamento atual:** [DESCREVA O QUE ESTÁ ACONTECENDO ATUALMENTE]
