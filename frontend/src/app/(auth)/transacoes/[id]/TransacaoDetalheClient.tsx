@@ -121,7 +121,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Valor devido: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_individual ?? 0))}</span>
+                        Valor devido: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_devido ?? 0))}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Valor pago: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(p.valor_pago ?? 0))}</span>
@@ -179,7 +179,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                     {(() => {
                       const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pessoa_id);
                       const nome = pagador?.pessoa?.nome || 'N/A';
-                      const valorDevido = Number(pagador?.valor_individual ?? 0);
+                      const valorDevido = Number(pagador?.valor_devido ?? 0);
                       const valorPago = Number(pg.valor_total ?? 0);
                       if (!pagador) return null;
                       if (valorPago >= valorDevido) {
