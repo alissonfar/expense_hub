@@ -102,6 +102,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
+    // Remover também roleAtual explicitamente
+    localStorage.removeItem('@PersonalExpenseHub:roleAtual');
+    // Limpar todos os caches locais
+    if (typeof window !== 'undefined' && window?.localStorage) {
+      if (typeof import('@/lib/api').then === 'function') {
+        import('@/lib/api').then(mod => {
+          if (mod.cacheUtils?.clear) mod.cacheUtils.clear();
+        });
+      }
+    }
   }, [STORAGE_KEYS]);
 
   // Atualizar tokens
