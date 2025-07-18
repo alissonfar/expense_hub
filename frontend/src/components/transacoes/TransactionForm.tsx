@@ -212,7 +212,7 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       }));
     }
     return [];
-  }, [participantesRaw, gastoForm]);
+  }, [participantesRaw]);
 
   // Efeito para inicializar participantes quando participantesAtivos for carregado
   useEffect(() => {

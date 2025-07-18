@@ -4,7 +4,29 @@
 Você é um especialista em debugging fullstack responsável por identificar e corrigir problemas complexos em aplicações web. Sua tarefa é realizar uma investigação sistemática completa, analisando frontend, backend, API, banco de dados e integrações para resolver o problema específico relatado.
 
 ## PROBLEMA A SER INVESTIGADO
-**[ESPAÇO PARA DESCREVER O PROBLEMA ESPECÍFICO]**
+**[webpack-hmr	101	websocket	main-app.js?v=1752835484773:182	0.0 kB	Pending
+c7b35073b0c4d99f.webpack.hot-update.json	200	fetch		0.4 kB	6 ms
+webpack.c7b35073b0c4d99f.hot-update.js	200	script		1.2 kB	4 ms
+transacoes	200	document	Other	6.1 kB	141 ms
+layout.css?v=1752835484773	200	stylesheet	transacoes:0	15.1 kB	10 ms
+webpack.js?v=1752835484773	200	script	transacoes:0	11.1 kB	8 ms
+main-app.js?v=1752835484773	200	script	transacoes:0	1,406 kB	293 ms
+app-pages-internals.js	200	script	transacoes:0	54.3 kB	27 ms
+layout.js	200	script	transacoes:0	442 kB	128 ms
+layout.js	200	script	transacoes:0	1,026 kB	218 ms
+page.js	200	script	transacoes:0	992 kB	219 ms
+Otherfavicon.ico	200	x-icon	Other	26.2 kB	36 ms
+_app-pages-browser_node_modules_tanstack_query-devtools_build_DevtoolsComponent_HH7B3BHX_js.js	200	script	webpack.js?v=1752835484773:255	253 kB	41 ms
+_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js	200	script	webpack.js?v=1752835484773:255	3.0 kB	9 ms
+dashboard?periodo=personalizado&incluir_graficos=f…=false&data_inicio=2025-07-01&data_fim=2025-07-31	204	preflight	Preflight
+0.0 kB	2 ms
+transacoes?page=1&limit=20	204	preflight	Preflight
+0.0 kB	3 ms
+dashboard?periodo=personalizado&incluir_graficos=f…=false&data_inicio=2025-07-01&data_fim=2025-07-31	200	xhr	C:\Users\Alisson\Documents\HUB\expense_hub\frontend\src\hooks\useDashboard.ts:72	1.1 kB	112 ms
+transacoes?page=1&limit=20	200	xhr	C:\Users\Alisson\Documents\HUB\expense_hub\frontend\src\hooks\useTransacoes.ts:39	1.8 kB	417 ms
+
+
+No frontend, a página de transações não está exibindo corretamente a lista de transações lançadas.]**
 
 **Comportamento esperado:** [DESCREVA O COMPORTAMENTO CORRETO ESPERADO]
 **Comportamento atual:** [DESCREVA O QUE ESTÁ ACONTECENDO ATUALMENTE]

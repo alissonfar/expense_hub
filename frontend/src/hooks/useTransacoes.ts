@@ -2,11 +2,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { 
   Transacao, 
-  PaginatedResponse, 
+  ApiResponse, 
   TransacaoFilters, 
   CreateTransacaoFormData, 
-  TransacaoParticipante 
+  TransacaoParticipante,
+  Tag
 } from '@/lib/types';
+
+// Tipo para refletir a estrutura real do backend
+export interface TransacoesListData {
+  transacoes: Transacao[];
+  paginacao: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+  estatisticas: {
+    total_transacoes: number;
+    valor_total: string;
+  };
+}
 
 // Query Keys
 export const transactionKeys = {
@@ -27,7 +43,7 @@ interface BackendTransacaoRaw extends Omit<Transacao, 'participantes'> {
 export function useTransacoes(filters: TransacaoFilters = {}) {
   return useQuery({
     queryKey: transactionKeys.list(filters),
-    queryFn: async (): Promise<PaginatedResponse<Transacao>> => {
+    queryFn: async (): Promise<ApiResponse<TransacoesListData>> => {
       const params = new URLSearchParams();
       
       Object.entries(filters).forEach(([key, value]) => {
@@ -46,9 +62,18 @@ export function useTransacoes(filters: TransacaoFilters = {}) {
           } else if (Array.isArray(t.transacao_participantes)) {
             participantes = t.transacao_participantes as TransacaoParticipante[];
           }
+          // Novo: mapear transacao_tags para tags
+          type TransacaoTagRaw = { tags: Tag };
+          let tags: Tag[] = [];
+          if (Array.isArray((t as unknown as { transacao_tags?: TransacaoTagRaw[] }).transacao_tags)) {
+            tags = ((t as unknown as { transacao_tags: TransacaoTagRaw[] }).transacao_tags!).map((tt) => tt.tags);
+          } else if (Array.isArray((t as { tags?: Tag[] }).tags)) {
+            tags = (t as { tags: Tag[] }).tags;
+          }
           return {
             ...t,
             participantes,
+            tags,
           };
         });
       }
@@ -196,7 +221,7 @@ export function useDeleteTransacao() {
 export function useTransacoesLixeira(filters: Omit<TransacaoFilters, 'ativo'> = {}) {
   return useQuery({
     queryKey: [...transactionKeys.lists(), { ...filters, ativo: false }],
-    queryFn: async (): Promise<PaginatedResponse<Transacao>> => {
+    queryFn: async (): Promise<Transacao[]> => {
       const params = new URLSearchParams();
       
       // Adicionar ativo: false
@@ -209,7 +234,7 @@ export function useTransacoesLixeira(filters: Omit<TransacaoFilters, 'ativo'> = 
       });
 
       const response = await api.get(`/transacoes?${params.toString()}`);
-      return response.data;
+      return response.data.data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutos
   });
@@ -219,9 +244,9 @@ export function useTransacoesLixeira(filters: Omit<TransacaoFilters, 'ativo'> = 
 export function useTransacoesParcelas(grupoParcela: string) {
   return useQuery({
     queryKey: [...transactionKeys.lists(), { grupo_parcela: grupoParcela }],
-    queryFn: async (): Promise<PaginatedResponse<Transacao>> => {
+    queryFn: async (): Promise<Transacao[]> => {
       const response = await api.get(`/transacoes?grupo_parcela=${grupoParcela}`);
-      return response.data;
+      return response.data.data;
     },
     enabled: !!grupoParcela,
     staleTime: 1000 * 60 * 5, // 5 minutos

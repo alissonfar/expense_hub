@@ -65,12 +65,17 @@ export default function TransacoesPage() {
   // Queries
   const { data: transacoesData } = useTransacoes(filters);
 
+  // DEBUG LOGS
+  console.log('DEBUG - filtros:', filters);
+  console.log('DEBUG - transacoesData:', transacoesData);
+
   // Mutations
   const deleteTransacao = useDeleteTransacao();
   const duplicateTransacao = useDuplicateTransacao();
 
   // Corrigir: acessar o array de transações corretamente
-  const transacoes = transacoesData?.data || [];
+  const transacoes = transacoesData?.data?.transacoes || [];
+  console.log('DEBUG - transacoes para DataTable:', transacoes);
 
   // Handlers
   const handleSearch = (value: string) => {
