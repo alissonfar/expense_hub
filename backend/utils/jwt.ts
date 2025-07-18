@@ -57,11 +57,12 @@ export const generateRefreshToken = (user: UserIdentifier): string => {
 /**
  * Verifica e decodifica um token de acesso JWT.
  * @param token O token a ser verificado.
+ * @param options Opções de verificação (ex: ignoreExpiration).
  * @returns O payload decodificado se o token for válido.
  */
-export const verifyAccessToken = (token: string): JWTPayload => {
+export const verifyAccessToken = (token: string, options?: { ignoreExpiration?: boolean }): JWTPayload => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET, options) as JWTPayload;
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { Loader2 } from 'lucide-react';
 
 export default function AuthenticatedLayout({
@@ -13,7 +14,7 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, hubAtual } = useAuth();
+  const { isAuthenticated, isLoading, hubAtual, isSwitchingHub } = useAuth();
 
   useEffect(() => {
     if (!isLoading) {
@@ -49,22 +50,30 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gradient-subtle">
-      {/* Sidebar */}
-      <Sidebar />
+    <>
+      {/* Overlay de loading durante troca de hub */}
+      <LoadingOverlay 
+        isVisible={isSwitchingHub} 
+        message="Trocando de Hub..." 
+      />
       
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <Header />
+      <div className="flex h-screen bg-gradient-subtle">
+        {/* Sidebar */}
+        <Sidebar />
         
-        {/* Page content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-subtle">
-          <div className="container mx-auto px-6 py-8 animate-in">
-            {children}
-          </div>
-        </main>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <Header />
+          
+          {/* Page content */}
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-subtle">
+            <div className="container mx-auto px-6 py-8 animate-in">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 } 

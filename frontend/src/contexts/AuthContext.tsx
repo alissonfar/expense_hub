@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { hubsApi } from '@/lib/api';
 import { UserIdentifier, Hub, HubInfo, LoginResponse, SelectHubResponse } from '@/lib/types';
@@ -18,6 +19,9 @@ interface AuthContextData {
   // Tokens
   accessToken: string | null;
   refreshToken: string | null;
+  
+  // Estado de troca de hub
+  isSwitchingHub: boolean; // NOVO: indica se está trocando de hub
   
   // Métodos de autenticação
   login: (email: string, senha: string) => Promise<LoginResponse>;
@@ -60,6 +64,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Tokens
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
+
+  // Estado de troca de hub
+  const [isSwitchingHub, setIsSwitchingHub] = useState(false);
+
+  // QueryClient para limpeza de cache
+  const queryClient = useQueryClient();
 
   // Chaves para localStorage
   const STORAGE_KEYS = useMemo(() => ({
@@ -160,6 +170,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de seleção de hub (2ª etapa)
   const selectHub = async (hubId: number): Promise<SelectHubResponse> => {
     try {
+      // Ativar bloqueio durante troca
+      setIsSwitchingHub(true);
+      
       // SEMPRE buscar o refreshToken diretamente do localStorage
       const refreshTokenLS = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
       const tokenToUse = refreshTokenLS;
@@ -200,6 +213,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       document.cookie = `@PersonalExpenseHub:accessToken=${data.accessToken}; path=/; max-age=3600; SameSite=Strict`;
       document.cookie = `@PersonalExpenseHub:hubAtual=${JSON.stringify(hubCompleto)}; path=/; max-age=2592000; SameSite=Strict`;
       setIsAuthenticated(true);
+      
+      // LIMPAR CACHE DO REACT QUERY APÓS TROCA DE HUB
+      console.log('%c[AuthContext][selectHub] LIMPANDO CACHE DO REACT QUERY', 'color: #ff5722; font-weight: bold;');
+      queryClient.clear(); // Limpar todo o cache
+      
       console.log('%c[AuthContext][selectHub] ESTADO FINAL após seleção', 'color: #1976d2; font-weight: bold;', {
         hubAtual: hubCompleto,
         roleAtual: data.hubContext.role,
@@ -214,6 +232,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         cookie: document.cookie
       });
       throw error;
+    } finally {
+      // Desativar bloqueio após conclusão (sucesso ou erro)
+      setIsSwitchingHub(false);
     }
   };
 
@@ -243,13 +264,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       document.cookie = '@PersonalExpenseHub:usuario=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       document.cookie = '@PersonalExpenseHub:hubAtual=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       delete api.defaults.headers.Authorization;
+      
+      // LIMPAR CACHE DO REACT QUERY NO LOGOUT
+      console.log('%c[AuthContext][logout] LIMPANDO CACHE DO REACT QUERY', 'color: #ff5722; font-weight: bold;');
+      queryClient.clear();
+      
       // Remover interceptor definitivamente
       if (responseInterceptorId.current !== null) {
         api.interceptors.response.eject(responseInterceptorId.current);
         responseInterceptorId.current = null;
       }
     }
-  }, [accessToken, clearStorage]);
+  }, [accessToken, clearStorage, queryClient]);
 
   // Função de refresh token
   const refreshAccessToken = useCallback(async (): Promise<string> => {
@@ -344,6 +370,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const novaLista = [...(prev || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' as Role }];
       return novaLista;
     });
+    
+    // Salvar hubs disponíveis atualizados no localStorage
+    saveToStorage(STORAGE_KEYS.HUBS_DISPONIVEIS, [...(hubsDisponiveis || []), { id: novoHub.id, nome: novoHub.nome, role: 'PROPRIETARIO' as Role }]);
+    
+    console.log('%c[AuthContext][createHub] Hub criado com sucesso', 'color: #388e3c; font-weight: bold;', novoHub);
     return novoHub;
   };
 
@@ -372,7 +403,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       api.interceptors.response.eject(responseInterceptorId.current);
     }
     responseInterceptorId.current = api.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Verificar se o backend enviou um novo token
+        const newToken = response.headers['x-new-access-token'];
+        const tokenRefreshed = response.headers['x-token-refreshed'];
+        
+        if (newToken && tokenRefreshed === 'true') {
+          console.log('%c[AuthContext][Interceptor] Novo token recebido automaticamente', 'color: #388e3c; font-weight: bold;');
+          updateTokens(newToken);
+        }
+        
+        return response;
+      },
       async (error) => {
         const originalRequest = error.config;
         // Se a requisição for para /auth/refresh e der 401, não tente mais nada!
@@ -406,7 +448,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         responseInterceptorId.current = null;
       }
     };
-  }, [logout, refreshAccessToken]);
+  }, [logout, refreshAccessToken, updateTokens]);
 
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
@@ -455,6 +497,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loadStoredData();
   }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USUARIO, STORAGE_KEYS.HUB_ATUAL, STORAGE_KEYS.HUBS_DISPONIVEIS, loadFromStorage]);
 
+  // Sincronização entre abas - ESCUTAR MUDANÇAS NO LOCALSTORAGE
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      // Só processar eventos de outras abas
+      if (event.key === null) {
+        // localStorage foi limpo (logout)
+        console.log('%c[AuthContext][Storage] Logout detectado em outra aba', 'color: #d32f2f; font-weight: bold;');
+        setIsAuthenticated(false);
+        setUsuario(null);
+        setHubAtual(null);
+        setHubsDisponiveis([]);
+        setRoleAtual(null);
+        setAccessToken(null);
+        setRefreshToken(null);
+        delete api.defaults.headers.Authorization;
+        return;
+      }
+
+      // Processar mudanças específicas
+      if (event.key === STORAGE_KEYS.ACCESS_TOKEN) {
+        console.log('%c[AuthContext][Storage] AccessToken atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        const newAccessToken = event.newValue;
+        if (newAccessToken) {
+          setAccessToken(newAccessToken);
+          api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
+        } else {
+          setAccessToken(null);
+          delete api.defaults.headers.Authorization;
+        }
+      }
+
+      if (event.key === STORAGE_KEYS.REFRESH_TOKEN) {
+        console.log('%c[AuthContext][Storage] RefreshToken atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        setRefreshToken(event.newValue);
+      }
+
+      if (event.key === STORAGE_KEYS.USUARIO) {
+        console.log('%c[AuthContext][Storage] Usuario atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        const newUsuario = event.newValue ? JSON.parse(event.newValue) : null;
+        setUsuario(newUsuario);
+      }
+
+      if (event.key === STORAGE_KEYS.HUB_ATUAL) {
+        console.log('%c[AuthContext][Storage] HubAtual atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        const newHubAtual = event.newValue ? JSON.parse(event.newValue) : null;
+        setHubAtual(newHubAtual);
+        setIsAuthenticated(Boolean(newHubAtual));
+      }
+
+      if (event.key === STORAGE_KEYS.HUBS_DISPONIVEIS) {
+        console.log('%c[AuthContext][Storage] HubsDisponiveis atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        const newHubsDisponiveis = event.newValue ? JSON.parse(event.newValue) : [];
+        setHubsDisponiveis(newHubsDisponiveis);
+      }
+
+      if (event.key === '@PersonalExpenseHub:roleAtual') {
+        console.log('%c[AuthContext][Storage] RoleAtual atualizado em outra aba', 'color: #1976d2; font-weight: bold;');
+        setRoleAtual(event.newValue);
+      }
+    };
+
+    // Adicionar listener para mudanças no localStorage
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, STORAGE_KEYS.USUARIO, STORAGE_KEYS.HUB_ATUAL, STORAGE_KEYS.HUBS_DISPONIVEIS]);
+
   // Sincronizar com cookies após carregar dados
   useEffect(() => {
     if (!isLoading) {
@@ -471,6 +583,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     roleAtual,
     accessToken,
     refreshToken,
+    isSwitchingHub, // adicionar ao contexto
     login,
     logout,
     selectHub,

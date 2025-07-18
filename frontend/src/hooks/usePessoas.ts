@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import type { PessoaHub } from '@/lib/types';
 
 // Query Keys
@@ -13,8 +14,10 @@ export const pessoaKeys = {
 
 // Hook para listar pessoas do hub atual
 export function usePessoas(filters: { ativo?: boolean } = {}) {
+  const { hubAtual } = useAuth();
+  
   return useQuery({
-    queryKey: pessoaKeys.list(filters),
+    queryKey: [...pessoaKeys.list(filters), hubAtual?.id],
     queryFn: async (): Promise<PessoaHub[]> => {
       const params = new URLSearchParams();
       if (filters.ativo !== undefined) {
@@ -23,6 +26,7 @@ export function usePessoas(filters: { ativo?: boolean } = {}) {
       const response = await api.get(`/pessoas?${params.toString()}`);
       return response.data.data;
     },
+    enabled: !!hubAtual,
     staleTime: 1000 * 60 * 5, // 5 minutos
   });
 }
@@ -99,8 +103,10 @@ export function useRemovePessoa() {
 
 // Hook simplificado para buscar apenas pessoas ativas (para formulários)
 export function usePessoasAtivas() {
+  const { hubAtual } = useAuth();
+  
   return useQuery({
-    queryKey: [...pessoaKeys.lists(), { ativo: true }],
+    queryKey: [...pessoaKeys.lists(), { ativo: true }, hubAtual?.id],
     queryFn: async (): Promise<Array<{ id: number; nome: string; email: string }>> => {
       const response = await api.get('/pessoas?ativo=true');
       const pessoas = response.data.data as PessoaHub[];
@@ -110,6 +116,7 @@ export function usePessoasAtivas() {
         email: pessoa.pessoa?.email || '',
       }));
     },
+    enabled: !!hubAtual,
     staleTime: 1000 * 60 * 5, // 5 minutos
     select: (data) => data.sort((a, b) => a.nome.localeCompare(b.nome)),
   });

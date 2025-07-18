@@ -18,11 +18,19 @@ export interface AuthContext {
   ehAdministrador: boolean; // Superusuário do sistema
 }
 
+// Informações do hub atual para uso em controllers
+export interface HubContext {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
 declare global {
   namespace Express {
     interface Request {
       prisma: PrismaClient;
       auth?: AuthContext; // Contexto de autenticação e autorização
+      hub?: HubContext; // Informações do hub atual (adicionado pelo validateHubContext)
     }
   }
 }

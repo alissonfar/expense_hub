@@ -115,6 +115,22 @@ export function useCurrentUser() {
   };
 }
 
+// Hook para verificar se as ações estão bloqueadas durante troca de hub
+export function useBlockedActions() {
+  const { isSwitchingHub, isLoading } = useAuth();
+  
+  return {
+    isBlocked: isSwitchingHub || isLoading,
+    isSwitchingHub,
+    isLoading,
+    // Função helper para desabilitar elementos
+    disabledProps: {
+      disabled: isSwitchingHub || isLoading,
+      className: isSwitchingHub || isLoading ? 'opacity-50 cursor-not-allowed' : ''
+    }
+  };
+}
+
 // Hook para páginas que requerem autenticação parcial (login feito, mas hub não selecionado)
 export function useRequirePartialAuth() {
   const auth = useAuth();

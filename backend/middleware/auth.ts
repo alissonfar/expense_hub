@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
 import { Role } from '../types';
+import { prisma } from '../utils/prisma';
 
 // =============================================
 // MIDDLEWARE DE AUTENTICAÇÃO E CONTEXTO
@@ -41,6 +42,140 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       message: errorMessage,
       timestamp: new Date().toISOString()
     });
+  }
+};
+
+/**
+ * Middleware para validar o contexto de hub em todas as operações.
+ * Verifica se o usuário tem acesso ao hub atual e se o hub está ativo.
+ * DEVE ser usado DEPOIS de `requireAuth`.
+ */
+export const validateHubContext = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.auth) {
+      res.status(401).json({
+        error: 'NaoAutenticado',
+        message: 'Este recurso requer autenticação prévia.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    const { pessoaId, hubId } = req.auth;
+
+    // Verificar se o hub existe e está ativo
+    const hub = await prisma.hub.findUnique({
+      where: { id: hubId },
+      select: { id: true, nome: true, ativo: true }
+    });
+
+    if (!hub) {
+      res.status(404).json({
+        error: 'HubNaoEncontrado',
+        message: 'Hub não encontrado.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    if (!hub.ativo) {
+      res.status(403).json({
+        error: 'HubInativo',
+        message: 'Este hub está inativo.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Verificar se o usuário ainda é membro ativo do hub
+    const membership = await prisma.membros_hub.findUnique({
+      where: {
+        hubId_pessoaId: {
+          hubId,
+          pessoaId,
+        },
+        ativo: true,
+      },
+      select: { role: true, dataAccessPolicy: true }
+    });
+
+    if (!membership) {
+      res.status(403).json({
+        error: 'AcessoNegado',
+        message: 'Você não tem mais acesso a este hub.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Atualizar o contexto com informações mais recentes do banco
+    req.auth = {
+      ...req.auth,
+      role: membership.role,
+      dataAccessPolicy: membership.dataAccessPolicy,
+    };
+
+    // Adicionar informações do hub ao request para uso posterior
+    req.hub = {
+      id: hub.id,
+      nome: hub.nome,
+      ativo: hub.ativo,
+    };
+
+    next();
+  } catch (error) {
+    console.error('[validateHubContext] Erro ao validar contexto de hub:', error);
+    res.status(500).json({
+      error: 'ErroInterno',
+      message: 'Erro ao validar contexto de hub.',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Middleware para refresh automático de tokens.
+ * Verifica se o token está próximo de expirar e gera um novo automaticamente.
+ * DEVE ser usado DEPOIS de `requireAuth` e ANTES de `validateHubContext`.
+ */
+export const autoRefreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.auth) {
+      next();
+      return;
+    }
+
+    const authHeader = req.headers.authorization;
+    const token = extractTokenFromHeader(authHeader);
+
+    if (!token) {
+      next();
+      return;
+    }
+
+    // Verificar se o token está próximo de expirar (menos de 5 minutos)
+    const decoded = verifyAccessToken(token, { ignoreExpiration: true });
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = decoded.exp - now;
+    const fiveMinutes = 5 * 60; // 5 minutos em segundos
+
+    if (timeUntilExpiry <= fiveMinutes && timeUntilExpiry > 0) {
+      // Token está próximo de expirar, gerar novo token
+      const { generateAccessToken } = await import('../utils/jwt');
+      const newToken = generateAccessToken(req.auth);
+      
+      // Adicionar o novo token ao response header
+      res.setHeader('X-New-Access-Token', newToken);
+      res.setHeader('X-Token-Refreshed', 'true');
+      
+      console.log('[autoRefreshToken] Token renovado automaticamente para usuário:', req.auth.pessoaId);
+    }
+
+    next();
+  } catch (error) {
+    console.error('[autoRefreshToken] Erro ao verificar refresh de token:', error);
+    // Em caso de erro, continuar sem refresh
+    next();
   }
 };
 

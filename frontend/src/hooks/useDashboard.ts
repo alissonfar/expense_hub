@@ -57,7 +57,7 @@ export interface DashboardData {
 }
 
 export function useDashboard(params: DashboardParams = {}) {
-  const { accessToken } = useAuth();
+  const { accessToken, hubAtual } = useAuth();
 
   const defaultParams: DashboardParams = {
     periodo: '30_dias',
@@ -67,7 +67,7 @@ export function useDashboard(params: DashboardParams = {}) {
   };
 
   return useQuery<DashboardData>({
-    queryKey: ['dashboard', defaultParams],
+    queryKey: ['dashboard', hubAtual?.id, defaultParams],
     queryFn: async () => {
       const response = await api.get('/relatorios/dashboard', {
         params: defaultParams,
@@ -98,7 +98,7 @@ export function useDashboard(params: DashboardParams = {}) {
         },
       };
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && !!hubAtual,
     staleTime: 1000 * 60 * 5, // 5 minutos
     refetchInterval: 1000 * 60 * 5, // Atualiza a cada 5 minutos
   });
@@ -119,10 +119,10 @@ export interface TransacaoRecente {
 }
 
 export function useTransacoesRecentes(limit = 5) {
-  const { accessToken } = useAuth();
+  const { accessToken, hubAtual } = useAuth();
 
   return useQuery<TransacaoRecente[]>({
-    queryKey: ['transacoes-recentes', limit],
+    queryKey: ['transacoes-recentes', hubAtual?.id, limit],
     queryFn: async () => {
       const response = await api.get('/transacoes', {
         params: {
@@ -163,7 +163,7 @@ export function useTransacoesRecentes(limit = 5) {
         };
       });
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && !!hubAtual,
     staleTime: 1000 * 60 * 2, // 2 minutos
   });
 } 

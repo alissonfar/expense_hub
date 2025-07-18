@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import type { 
   Transacao, 
   ApiResponse, 
@@ -41,8 +42,10 @@ interface BackendTransacaoRaw extends Omit<Transacao, 'participantes'> {
 
 // Hook para listar transações
 export function useTransacoes(filters: TransacaoFilters = {}) {
+  const { hubAtual } = useAuth();
+  
   return useQuery({
-    queryKey: transactionKeys.list(filters),
+    queryKey: [...transactionKeys.list(filters), hubAtual?.id],
     queryFn: async (): Promise<ApiResponse<TransacoesListData>> => {
       const params = new URLSearchParams();
       
@@ -79,6 +82,7 @@ export function useTransacoes(filters: TransacaoFilters = {}) {
       }
       return response.data;
     },
+    enabled: !!hubAtual,
     staleTime: 1000 * 60 * 5, // 5 minutos
     refetchOnWindowFocus: false,
   });
