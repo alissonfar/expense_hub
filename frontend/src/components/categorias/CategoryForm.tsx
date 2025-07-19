@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCreateTag } from '@/hooks/useTags';
+import { useCreateTag, useUpdateTag } from '@/hooks/useTags';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Tag, Palette, Smile } from 'lucide-react';
 
@@ -19,14 +19,33 @@ const categorySchema = z.object({
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
-export default function CategoryForm({ onSuccess, onCancel }: { onSuccess?: () => void; onCancel?: () => void }) {
+interface CategoryFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  defaultValues?: {
+    nome: string;
+    cor: string;
+    icone?: string;
+  };
+  modoEdicao?: boolean;
+  tagId?: number;
+}
+
+export default function CategoryForm({ 
+  onSuccess, 
+  onCancel, 
+  defaultValues,
+  modoEdicao = false,
+  tagId
+}: CategoryFormProps) {
   const { toast } = useToast();
   const createTag = useCreateTag();
+  const updateTag = useUpdateTag();
   const [showSuccess, setShowSuccess] = useState(false);
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
-    defaultValues: {
+    defaultValues: defaultValues || {
       nome: '',
       cor: '#6B7280',
       icone: '',
@@ -36,28 +55,35 @@ export default function CategoryForm({ onSuccess, onCancel }: { onSuccess?: () =
 
   const onSubmit = useCallback(async (values: CategoryFormValues) => {
     try {
-      await createTag.mutateAsync(values);
-      toast({ title: 'Categoria criada!', description: 'Sua categoria foi salva com sucesso.' });
+      if (modoEdicao && tagId) {
+        await updateTag.mutateAsync({ id: tagId, data: values });
+        toast({ title: 'Categoria atualizada!', description: 'Sua categoria foi atualizada com sucesso.' });
+      } else {
+        await createTag.mutateAsync(values);
+        toast({ title: 'Categoria criada!', description: 'Sua categoria foi salva com sucesso.' });
+      }
       setShowSuccess(true);
-      form.reset();
+      if (!modoEdicao) {
+        form.reset();
+      }
       onSuccess?.();
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       toast({
-        title: 'Erro ao criar categoria',
-        description: err?.response?.data?.message || err?.message || 'Não foi possível criar a categoria.',
+        title: modoEdicao ? 'Erro ao atualizar categoria' : 'Erro ao criar categoria',
+        description: err?.response?.data?.message || err?.message || `Não foi possível ${modoEdicao ? 'atualizar' : 'criar'} a categoria.`,
         variant: 'destructive',
       });
     }
-  }, [createTag, toast, form, onSuccess]);
+  }, [createTag, updateTag, toast, form, onSuccess, modoEdicao, tagId]);
 
   // Atalhos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (form.formState.isValid && !createTag.isPending) {
+        if (form.formState.isValid && !createTag.isPending && !updateTag.isPending) {
           form.handleSubmit(onSubmit)();
         }
       }
@@ -67,7 +93,7 @@ export default function CategoryForm({ onSuccess, onCancel }: { onSuccess?: () =
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [form, createTag.isPending, onSubmit, onCancel]);
+  }, [form, createTag.isPending, updateTag.isPending, onSubmit, onCancel]);
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-md mx-auto space-y-6">
@@ -75,7 +101,7 @@ export default function CategoryForm({ onSuccess, onCancel }: { onSuccess?: () =
         <CardHeader className="pb-3">
           <CardTitle className="text-xl flex items-center gap-2">
             <Tag className="h-5 w-5" />
-            Nova Categoria
+            {modoEdicao ? 'Editar Categoria' : 'Nova Categoria'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -119,14 +145,14 @@ export default function CategoryForm({ onSuccess, onCancel }: { onSuccess?: () =
                 <X className="h-4 w-4 mr-2" /> Cancelar
               </Button>
             )}
-            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTag.isPending}>
-              <Check className="h-4 w-4 mr-2" /> Salvar Categoria
+            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTag.isPending || updateTag.isPending}>
+              <Check className="h-4 w-4 mr-2" /> {modoEdicao ? 'Atualizar' : 'Salvar'} Categoria
               <kbd className="ml-2 px-1 py-0.5 bg-white/20 rounded text-xs">Ctrl+↵</kbd>
             </Button>
           </div>
           {showSuccess && (
             <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 flex items-center gap-2 mt-2">
-              <Check className="h-4 w-4" /> Categoria criada com sucesso!
+              <Check className="h-4 w-4" /> Categoria {modoEdicao ? 'atualizada' : 'criada'} com sucesso!
             </div>
           )}
         </CardContent>

@@ -13,6 +13,10 @@ import EditTransactionForm from '@/components/transacoes/EditTransactionForm';
 import { useTags } from '@/hooks/useTags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
+// Sistema de debug condicional (só em desenvolvimento)
+const isDevelopment = process.env.NODE_ENV === 'development';
+const debugLog = isDevelopment ? console.log : () => {};
+
 interface TransacaoDetalheClientProps {
   id: string;
 }
@@ -22,7 +26,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
   const router = useRouter();
   const { toast } = useToast();
   const { data: transacao, isLoading } = useTransacao(transacaoId);
-  console.log('DEBUG transacao detalhes:', transacao);
+  debugLog('DEBUG transacao detalhes:', transacao);
   const deleteMutation = useDeleteTransacao();
   const updateMutation = useUpdateTransacao();
   const [editOpen, setEditOpen] = useState(false);
@@ -44,7 +48,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
   }
 
   const valorDisplay = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    transacao.eh_parcelado ? transacao.valor_parcela : transacao.valor_total
+    transacao.eh_parcelado ? (transacao.valor_parcela ?? transacao.valor_total) : transacao.valor_total
   );
 
   return (

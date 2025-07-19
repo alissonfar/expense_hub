@@ -172,7 +172,7 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                           {new Intl.NumberFormat('pt-BR', {
                             style: 'currency',
                             currency: 'BRL'
-                          }).format(transacao.valor)}
+                          }).format(transacao.valor ?? 0)}
                         </p>
                       </div>
                     </div>
@@ -223,7 +223,7 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                       {new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL'
-                      }).format(transacao.valor)}
+                      }).format(transacao.valor ?? 0)}
                     </p>
                   </div>
                   <p className="font-medium text-gray-900 mb-2">

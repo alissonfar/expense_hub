@@ -1,6 +1,6 @@
 # 🔍 INVESTIGAÇÃO COMPLETA DE MÓDULO
 
-**MÓDULO ALVO**: [FRONTEND e Erros de build]
+**MÓDULO ALVO**: [Módulo de transações no frontend]
 
 **IMPORTANTE**: Utilize o **MCP Sequential Thinking** para executar esta tarefa. Processe cada fase da investigação de forma sequencial e estruturada, documentando seu raciocínio e descobertas em cada etapa.
 

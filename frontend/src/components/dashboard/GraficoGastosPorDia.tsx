@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   LineChart,
@@ -50,7 +51,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
           {new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
-          }).format(payload[0].value as number)}
+          }).format((payload[0].value as number) ?? 0)}
         </p>
       </div>
     );
@@ -58,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   return null;
 };
 
-export function GraficoGastosPorDia({
+export const GraficoGastosPorDia = React.memo(function GraficoGastosPorDia({
   data,
   loading = false,
   chartType = 'line',
@@ -145,7 +146,7 @@ export function GraficoGastosPorDia({
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(totalGasto)}
+                }).format(totalGasto ?? 0)}
               </p>
             </div>
           </div>
@@ -249,7 +250,7 @@ export function GraficoGastosPorDia({
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(mediaGasto)}
+                }).format(mediaGasto ?? 0)}
               </p>
             </div>
             <div className="text-center">
@@ -258,7 +259,7 @@ export function GraficoGastosPorDia({
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(maxGasto)}
+                }).format(maxGasto ?? 0)}
               </p>
             </div>
             <div className="text-center">
@@ -270,4 +271,4 @@ export function GraficoGastosPorDia({
       </Card>
     </motion.div>
   );
-} 
+}); 

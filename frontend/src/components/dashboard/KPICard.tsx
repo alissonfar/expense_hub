@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
@@ -21,7 +22,7 @@ interface KPICardProps {
   loading?: boolean;
 }
 
-export function KPICard({
+export const KPICard = React.memo(function KPICard({
   title,
   value,
   icon: Icon,
@@ -105,7 +106,7 @@ export function KPICard({
                   ? new Intl.NumberFormat('pt-BR', {
                       style: 'currency',
                       currency: 'BRL'
-                    }).format(value)
+                    }).format(value ?? 0)
                   : value !== undefined && value !== null
                     ? value
                     : '—'
@@ -143,4 +144,4 @@ export function KPICard({
       </Card>
     </motion.div>
   );
-} 
+}); 

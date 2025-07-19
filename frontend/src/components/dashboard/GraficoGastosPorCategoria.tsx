@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   PieChart,
@@ -43,7 +44,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Toolti
           {new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
-          }).format(data.value)}
+          }).format(data.value ?? 0)}
         </p>
         <p className="text-xs text-gray-500 mt-1">
           {((data.value / data.payload.total) * 100).toFixed(1)}% do total
@@ -56,7 +57,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Toolti
 
 
 
-export function GraficoGastosPorCategoria({
+export const GraficoGastosPorCategoria = React.memo(function GraficoGastosPorCategoria({
   data,
   loading = false,
   periodo = '30_dias',
@@ -135,7 +136,7 @@ export function GraficoGastosPorCategoria({
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(total)}
+                }).format(total ?? 0)}
               </p>
             </div>
           </div>
@@ -201,7 +202,7 @@ export function GraficoGastosPorCategoria({
                       {new Intl.NumberFormat('pt-BR', {
                         style: 'currency',
                         currency: 'BRL'
-                      }).format(categoria.valor)}
+                      }).format(categoria.valor ?? 0)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {((categoria.valor / total) * 100).toFixed(1)}%
@@ -215,4 +216,4 @@ export function GraficoGastosPorCategoria({
       </Card>
     </motion.div>
   );
-} 
+}); 

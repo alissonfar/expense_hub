@@ -1,6 +1,6 @@
 
 
-MÓDULO ALVO: TRANSAÇÕES NO FRONTEND
+MÓDULO ALVO: Cards de métrica das transações e pagamentos no frontend
 
 ## INSTRUÇÃO PRINCIPAL
 Você é um especialista em UI/UX e frontend responsável por refatorar visualmente um módulo específico. Sua missão é analisar, melhorar e documentar completamente a transformação visual, mantendo o padrão da aplicação mas elevando a qualidade estética e experiência do usuário.

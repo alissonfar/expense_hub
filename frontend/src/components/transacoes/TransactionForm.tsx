@@ -97,7 +97,7 @@ interface TransactionFormProps {
 }
 
 // Estrutura visual inicial baseada no design do formulário antigo
-export default function TransactionForm({ modoEdicao = false, defaultValues, onSubmitEdicao }: TransactionFormProps) {
+const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false, defaultValues, onSubmitEdicao }: TransactionFormProps) {
   const { usuario } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -1068,4 +1068,6 @@ export default function TransactionForm({ modoEdicao = false, defaultValues, onS
       </Card>
     </form>
   );
-}
+});
+
+export default TransactionForm;

@@ -132,8 +132,13 @@ export default function CategoriasPage() {
             onSuccess={() => { setEditTag(null); setShowForm(false); }}
             onCancel={() => setEditTag(null)}
             key={editTag.id}
-            // Valores iniciais para edição
-            // TODO: Implementar edição real (atualmente só criação)
+            defaultValues={{
+              nome: editTag.nome,
+              cor: editTag.cor,
+              icone: editTag.icone || '',
+            }}
+            modoEdicao={true}
+            tagId={editTag.id}
           />
         </div>
       )}

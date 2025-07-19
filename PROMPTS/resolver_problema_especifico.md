@@ -4,11 +4,25 @@
 Você é um especialista em debugging fullstack responsável por identificar e corrigir problemas complexos em aplicações web. Sua tarefa é realizar uma investigação sistemática completa, analisando frontend, backend, API, banco de dados e integrações para resolver o problema específico relatado.
 
 ## PROBLEMA A SER INVESTIGADO
-**[Ao acessar a rota select-hub, o sistema está me redirecionando para o /dashboard.
+**[Problemas para lançar transações parceladas, e erro Console Error
 
-A rota de selec-hub não deve ter esse comportamento, então precisa ser estudado o que está ocorrendo, as regras de negócio, etc.
+Error: Dados da transação inválidos
 
-O objetivo final é poder trocar os hubs a qualquer momento de quem estiver logado.]**
+src\hooks\useTransacoes.ts (158:17) @ useCreateTransacao.useMutation
+
+  156 |         
+  157 |         if (!isTransacao(response.data.data)) {
+> 158 |           throw new Error('Dados da transação inválidos');
+      |                 ^
+  159 |         }
+  160 |         
+  161 |         return response.data.data;
+
+Call Stack 1
+useCreateTransacao.useMutation
+src\hooks\useTransacoes.ts (158:17)
+
+Mesmo com a transação sendo salva, mesmo que incorretamente.]**
 
 **Comportamento esperado:** [DESCREVA O COMPORTAMENTO CORRETO ESPERADO]
 **Comportamento atual:** [DESCREVA O QUE ESTÁ ACONTECENDO ATUALMENTE]

@@ -14,7 +14,7 @@ export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {
@@ -68,15 +68,15 @@ export interface Transacao {
   valor_total: number;
   data_transacao: string;
   eh_parcelado: boolean;
-  parcela_atual: number;
-  total_parcelas: number;
-  valor_parcela: number;
+  parcela_atual?: number;
+  total_parcelas?: number;
+  valor_parcela?: number;
   grupo_parcela?: string;
   observacoes?: string;
-  status_pagamento: PaymentStatus;
-  proprietario_id: number;
-  criado_por: number;
-  hubId: number;
+  status_pagamento?: PaymentStatus;
+  proprietario_id?: number;
+  criado_por?: number;
+  hubId?: number;
   criado_em: string;
   atualizado_em: string;
   proprietario?: Pessoa;

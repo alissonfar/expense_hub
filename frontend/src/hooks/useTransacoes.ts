@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/hooks/use-toast';
+import { isTransacao, isTransacaoParcelada, isApiResponse, isApiError } from '@/lib/typeGuards';
 import type { 
   Transacao, 
   ApiResponse, 
@@ -47,44 +49,75 @@ export function useTransacoes(filters: TransacaoFilters = {}) {
   return useQuery({
     queryKey: [...transactionKeys.list(filters), hubAtual?.id],
     queryFn: async (): Promise<ApiResponse<TransacoesListData>> => {
-      const params = new URLSearchParams();
-      
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value));
-        }
-      });
-
-      const response = await api.get(`/transacoes?${params.toString()}`);
-      // Mapeamento: garantir que cada transação tenha participantes
-      if (response.data?.data?.transacoes) {
-        response.data.data.transacoes = response.data.data.transacoes.map((t: BackendTransacaoRaw) => {
-          let participantes: TransacaoParticipante[] = [];
-          if (Array.isArray(t.participantes)) {
-            participantes = t.participantes as TransacaoParticipante[];
-          } else if (Array.isArray(t.transacao_participantes)) {
-            participantes = t.transacao_participantes as TransacaoParticipante[];
+      try {
+        const params = new URLSearchParams();
+        
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            params.append(key, String(value));
           }
-          // Novo: mapear transacao_tags para tags
-          type TransacaoTagRaw = { tags: Tag };
-          let tags: Tag[] = [];
-          if (Array.isArray((t as unknown as { transacao_tags?: TransacaoTagRaw[] }).transacao_tags)) {
-            tags = ((t as unknown as { transacao_tags: TransacaoTagRaw[] }).transacao_tags!).map((tt) => tt.tags);
-          } else if (Array.isArray((t as { tags?: Tag[] }).tags)) {
-            tags = (t as { tags: Tag[] }).tags;
-          }
-          return {
-            ...t,
-            participantes,
-            tags,
-          };
         });
+
+        const response = await api.get(`/transacoes?${params.toString()}`);
+        
+        // Validação de resposta com type guards
+        if (!isApiResponse(response.data)) {
+          throw new Error('Resposta da API inválida');
+        }
+
+        // Mapeamento: garantir que cada transação tenha participantes
+        const responseData = response.data?.data as TransacoesListData;
+        if (responseData?.transacoes) {
+          responseData.transacoes = responseData.transacoes.map((t: BackendTransacaoRaw) => {
+            let participantes: TransacaoParticipante[] = [];
+            if (Array.isArray(t.participantes)) {
+              participantes = t.participantes as TransacaoParticipante[];
+            } else if (Array.isArray(t.transacao_participantes)) {
+              participantes = t.transacao_participantes as TransacaoParticipante[];
+            }
+            // Novo: mapear transacao_tags para tags
+            type TransacaoTagRaw = { tags: Tag };
+            let tags: Tag[] = [];
+            if (Array.isArray((t as unknown as { transacao_tags?: TransacaoTagRaw[] }).transacao_tags)) {
+              tags = ((t as unknown as { transacao_tags: TransacaoTagRaw[] }).transacao_tags!).map((tt) => tt.tags);
+            } else if (Array.isArray((t as { tags?: Tag[] }).tags)) {
+              tags = (t as { tags: Tag[] }).tags;
+            }
+            return {
+              ...t,
+              participantes,
+              tags,
+            };
+          });
+        }
+        
+        return response.data as ApiResponse<TransacoesListData>;
+      } catch (error) {
+        console.error('Erro ao buscar transações:', error);
+        if (isApiError(error)) {
+          toast({
+            title: "Erro",
+            description: error.error || "Erro ao carregar transações",
+            variant: "destructive",
+          });
+        }
+        throw error;
       }
-      return response.data;
     },
     enabled: !!hubAtual,
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 10, // 10 minutos (otimizado)
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: (failureCount, error) => {
+      // Não tentar novamente para erros 4xx (erro do usuário)
+      if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as { status: number }).status;
+        if (status >= 400 && status < 500) {
+          return false;
+        }
+      }
+      return failureCount < 3;
+    },
   });
 }
 
@@ -103,7 +136,7 @@ export function useTransacao(id: number) {
       };
     },
     enabled: !!id,
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 10, // 10 minutos (otimizado)
   });
 }
 
@@ -113,14 +146,96 @@ export function useCreateTransacao() {
 
   return useMutation({
     mutationFn: async (data: CreateTransacaoFormData): Promise<Transacao> => {
-      const response = await api.post('/transacoes', data);
-      return response.data.data;
+      try {
+        const response = await api.post('/transacoes', data);
+        
+        // Validação de resposta com type guards
+        if (!isApiResponse(response.data)) {
+          throw new Error('Resposta da API inválida');
+        }
+        
+        // Verificar se é transação parcelada ou transação individual
+        if (isTransacaoParcelada(response.data.data)) {
+          // Para transações parceladas, retornar a primeira transação
+          const transacao = response.data.data.transacoes[0];
+          // Converter strings para numbers se necessário
+          return {
+            ...transacao,
+            valor_total: typeof transacao.valor_total === 'string' ? parseFloat(transacao.valor_total) : transacao.valor_total,
+            valor_parcela: typeof transacao.valor_parcela === 'string' ? parseFloat(transacao.valor_parcela) : transacao.valor_parcela,
+            hubId: typeof transacao.hubId === 'string' ? parseInt(transacao.hubId) : transacao.hubId,
+            criado_por: typeof transacao.criado_por === 'string' ? parseInt(transacao.criado_por) : transacao.criado_por,
+          };
+        }
+        
+        if (!isTransacao(response.data.data)) {
+          console.error('Dados da transação inválidos:', response.data.data);
+          throw new Error('Dados da transação inválidos');
+        }
+        
+        // Converter strings para numbers se necessário
+        const transacao = response.data.data;
+        return {
+          ...transacao,
+          valor_total: typeof transacao.valor_total === 'string' ? parseFloat(transacao.valor_total) : transacao.valor_total,
+          valor_parcela: typeof transacao.valor_parcela === 'string' ? parseFloat(transacao.valor_parcela) : transacao.valor_parcela,
+          hubId: typeof transacao.hubId === 'string' ? parseInt(transacao.hubId) : transacao.hubId,
+          criado_por: typeof transacao.criado_por === 'string' ? parseInt(transacao.criado_por) : transacao.criado_por,
+        };
+      } catch (error) {
+        console.error('Erro ao criar transação:', error);
+        if (isApiError(error)) {
+          toast({
+            title: "Erro",
+            description: error.error || "Erro ao criar transação",
+            variant: "destructive",
+          });
+        }
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Invalidar todas as queries de transações
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       // Invalidar queries do dashboard para atualizar métricas
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      
+      // Para transações parceladas, invalidar também queries específicas do grupo
+      if (data.grupo_parcela) {
+        queryClient.invalidateQueries({ 
+          queryKey: [...transactionKeys.lists(), { grupo_parcela: data.grupo_parcela }] 
+        });
+      }
+      
+      // Adicionar a nova transação ao cache otimisticamente
+      queryClient.setQueryData(
+        transactionKeys.all,
+        (oldData: ApiResponse<TransacoesListData> | undefined) => {
+          if (oldData?.data?.transacoes) {
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                transacoes: [data, ...oldData.data.transacoes],
+              },
+            };
+          }
+          return oldData;
+        }
+      );
+      
+      toast({
+        title: "Sucesso",
+        description: "Transação criada com sucesso!",
+      });
+    },
+    onError: (error) => {
+      console.error('Erro na criação da transação:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao criar transação. Tente novamente.",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -240,7 +355,7 @@ export function useTransacoesLixeira(filters: Omit<TransacaoFilters, 'ativo'> = 
       const response = await api.get(`/transacoes?${params.toString()}`);
       return response.data.data;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 10, // 10 minutos (otimizado)
   });
 }
 
@@ -253,7 +368,7 @@ export function useTransacoesParcelas(grupoParcela: string) {
       return response.data.data;
     },
     enabled: !!grupoParcela,
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    staleTime: 1000 * 60 * 10, // 10 minutos (otimizado)
   });
 }
 
@@ -277,7 +392,7 @@ export function useDuplicateTransacao() {
         eh_parcelado: false, // Resetar parcelamento
         total_parcelas: 1,
         observacoes: original.observacoes,
-        proprietario_id: original.proprietario_id,
+        proprietario_id: original.proprietario_id ?? 0,
         tags: original.tags?.map(tag => tag.id) || [],
         participantes: original.participantes?.map(p => ({
           pessoa_id: p.pessoa_id,

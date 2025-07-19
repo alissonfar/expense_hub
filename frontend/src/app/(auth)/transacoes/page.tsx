@@ -10,6 +10,10 @@ import { useRequireHub, usePermissions } from '@/hooks/useAuth';
 import { useTransacoes, useDeleteTransacao, useDuplicateTransacao } from '@/hooks/useTransacoes';
 import { useRouter } from 'next/navigation';
 
+// Sistema de debug condicional (só em desenvolvimento)
+const isDevelopment = process.env.NODE_ENV === 'development';
+const debugLog = isDevelopment ? console.log : () => {};
+
 import type { TransacaoFilters, Transacao } from '@/lib/types';
 import { DataTable } from '@/components/ui/data-table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,7 +34,10 @@ import {
   DollarSign,
   Users,
   Tag,
-  Clock
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -65,9 +72,9 @@ export default function TransacoesPage() {
   // Queries
   const { data: transacoesData } = useTransacoes(filters);
 
-  // DEBUG LOGS
-  console.log('DEBUG - filtros:', filters);
-  console.log('DEBUG - transacoesData:', transacoesData);
+  // DEBUG LOGS (condicionais)
+  debugLog('DEBUG - filtros:', filters);
+  debugLog('DEBUG - transacoesData:', transacoesData);
 
   // Mutations
   const deleteTransacao = useDeleteTransacao();
@@ -75,7 +82,7 @@ export default function TransacoesPage() {
 
   // Corrigir: acessar o array de transações corretamente
   const transacoes = transacoesData?.data?.transacoes || [];
-  console.log('DEBUG - transacoes para DataTable:', transacoes);
+  debugLog('DEBUG - transacoes para DataTable:', transacoes);
 
   // Handlers
   const handleSearch = (value: string) => {
@@ -196,14 +203,14 @@ export default function TransacoesPage() {
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(valor)}
+              }).format(valor ?? 0)}
             </div>
             {transacao.eh_parcelado && (
               <div className="text-xs text-gray-500">
                 Total: {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
                   currency: 'BRL'
-                }).format(transacao.valor_total)}
+                }).format(transacao.valor_total ?? 0)}
               </div>
             )}
           </div>
@@ -233,7 +240,7 @@ export default function TransacoesPage() {
           PAGO_PARCIAL: { label: 'Parcial', color: 'bg-blue-100 text-blue-700 border-blue-200' },
           PAGO_TOTAL: { label: 'Pago', color: 'bg-green-100 text-green-700 border-green-200' },
         };
-        const config = statusConfig[transacao.status_pagamento];
+        const config = statusConfig[transacao.status_pagamento ?? 'PENDENTE'];
         
         return (
           <Badge variant="outline" className={config.color}>
@@ -337,19 +344,105 @@ export default function TransacoesPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Transações</h1>
-        <Button variant="default" className="gap-2" onClick={() => router.push('/transacoes/nova')}>
-          <Plus className="w-4 h-4" />
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      {/* Header com gradiente */}
+      <div className="flex items-center justify-between bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+            <DollarSign className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-green-600 bg-clip-text text-transparent">
+              Transações
+            </h1>
+            <p className="text-gray-600 mt-1">Gerencie todas as transações do hub</p>
+          </div>
+        </div>
+        <Button 
+          onClick={() => router.push('/transacoes/nova')}
+          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+        >
+          <Plus className="w-5 h-5 mr-2" />
           Nova Transação
         </Button>
       </div>
 
+      {/* Cards de estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm font-medium">Total</p>
+                <p className="text-3xl font-bold">{transacoes.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium">Receitas</p>
+                <p className="text-3xl font-bold">{transacoes.filter(t => t.tipo === 'RECEITA').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 text-sm font-medium">Gastos</p>
+                <p className="text-3xl font-bold">{transacoes.filter(t => t.tipo === 'GASTO').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-100 text-sm font-medium">Pendentes</p>
+                <p className="text-3xl font-bold">{transacoes.filter(t => t.status_pagamento === 'PENDENTE').length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <Clock className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium">Parceladas</p>
+                <p className="text-3xl font-bold">{transacoes.filter(t => t.eh_parcelado).length}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <CreditCard className="w-6 h-6" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters and Search */}
-      <Card>
-        <CardHeader>
+      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-green-50 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 flex-1">
               <div className="relative flex-1 max-w-sm">
@@ -358,13 +451,13 @@ export default function TransacoesPage() {
                   placeholder="Buscar transações..."
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border-0 bg-white rounded-xl shadow-sm"
                 />
               </div>
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className={showFilters ? 'bg-blue-50 border-blue-200' : ''}
+                className={`${showFilters ? 'bg-green-50 border-green-200 text-green-700' : ''} rounded-xl shadow-sm`}
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Filtros
@@ -449,11 +542,12 @@ export default function TransacoesPage() {
       </Card>
 
       {/* Data Table */}
-      <Card>
-        <CardContent>
-          <DataTable
-            columns={columns}
+      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
+        <CardContent className="p-0">
+          <DataTable 
+            columns={columns} 
             data={transacoes}
+            className="[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-green-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-green-50/50 [&_tr]:hover:to-emerald-50/50 [&_tr]:transition-all [&_tr]:duration-200"
           />
         </CardContent>
       </Card>
