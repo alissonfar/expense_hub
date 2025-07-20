@@ -33,6 +33,7 @@ import relatorioRoutes from './routes/relatorio';
 import configuracaoRoutes from './routes/configuracao';
 // Futuras rotas de Hub
 import hubRoutes from './routes/hub';
+import godRoutes from './routes/god';
 import { createHub } from './controllers/hubController';
 
 // Inicializa um PrismaClient global APENAS para operações não autenticadas (login, health check).
@@ -127,6 +128,9 @@ protectedApi.use('/pagamentos', pagamentoRoutes);
 protectedApi.use('/relatorios', relatorioRoutes);
 protectedApi.use('/configuracoes', configuracaoRoutes);
 // protectedApi.use('/hubs', hubRoutes); // Remover ou comentar para não sobrescrever a rota pública
+
+// Rotas do Modo Deus (requerem autenticação mas não contexto de Hub)
+app.use('/api/god', requireAuth, injectGlobalPrisma, godRoutes);
 
 app.use('/api', protectedApi);
 

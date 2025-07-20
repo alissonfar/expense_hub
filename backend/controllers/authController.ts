@@ -93,7 +93,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const user = await prisma.pessoas.findUnique({
       where: { email },
-      include: {
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        senha_hash: true,
+        ativo: true,
+        ehAdministrador: true,
+        is_god: true,
+        conviteAtivo: true,
         hubs: {
           where: { ativo: true },
           select: {
@@ -138,6 +146,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       nome: user.nome,
       email: user.email,
       ehAdministrador: user.ehAdministrador,
+      is_god: user.is_god || false,
     };
 
     const refreshToken = generateRefreshToken(userIdentifier);
@@ -219,6 +228,7 @@ export const selectHub = async (req: Request, res: Response): Promise<void> => {
       role: membership.role,
       dataAccessPolicy: membership.dataAccessPolicy,
       ehAdministrador: userIdentifier.ehAdministrador,
+      is_god: userIdentifier.is_god || false,
     };
     
     const hubContext = {

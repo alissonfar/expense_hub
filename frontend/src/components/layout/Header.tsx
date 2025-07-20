@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { LogOut, Settings, User, Building2, ChevronDown, Search, Plus } from 'lucide-react';
+import { LogOut, Settings, User, Building2, ChevronDown, Search, Plus, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -305,6 +305,12 @@ export function Header() {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Configurações</span>
               </DropdownMenuItem>
+              {usuario?.is_god && (
+                <DropdownMenuItem onClick={() => router.push('/god')}>
+                  <Zap className="mr-2 h-4 w-4" />
+                  <span>Modo Deus</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />

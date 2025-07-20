@@ -26,6 +26,7 @@ export const generateAccessToken = (context: AuthContext): string => {
     role: context.role,
     dataAccessPolicy: context.dataAccessPolicy,
     ehAdministrador: context.ehAdministrador,
+    is_god: context.is_god,
   };
 
   try {
@@ -44,7 +45,8 @@ export const generateAccessToken = (context: AuthContext): string => {
 export const generateRefreshToken = (user: UserIdentifier): string => {
   const payload = {
     pessoaId: user.pessoaId,
-    ehAdministrador: user.ehAdministrador
+    ehAdministrador: user.ehAdministrador,
+    is_god: user.is_god || false
   };
 
   try {
@@ -80,9 +82,9 @@ export const verifyAccessToken = (token: string, options?: { ignoreExpiration?: 
  * @param token O refresh token a ser verificado.
  * @returns O payload decodificado se o token for válido.
  */
-export const verifyRefreshToken = (token: string): { pessoaId: number; ehAdministrador: boolean } => {
+export const verifyRefreshToken = (token: string): { pessoaId: number; ehAdministrador: boolean; is_god: boolean } => {
   try {
-    const decoded = jwt.verify(token, REFRESH_SECRET) as { pessoaId: number, ehAdministrador: boolean };
+    const decoded = jwt.verify(token, REFRESH_SECRET) as { pessoaId: number, ehAdministrador: boolean, is_god: boolean };
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

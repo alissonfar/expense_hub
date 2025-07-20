@@ -51,6 +51,7 @@ model pessoas {
   telefone                                       String?                   @db.VarChar(20)
   senha_hash                                     String?                   @db.VarChar(255)
   ehAdministrador                                Boolean                   @default(false)
+  is_god                                         Boolean                   @default(false)
   ativo                                          Boolean                   @default(true)
   data_cadastro                                  DateTime                  @default(now()) @db.Timestamptz(6)
   atualizado_em                                  DateTime                  @updatedAt @db.Timestamptz(6)
@@ -68,6 +69,7 @@ model pessoas {
   @@index([ativo], map: "idx_pessoas_ativo")
   @@index([email], map: "idx_pessoas_email")
   @@index([ehAdministrador], map: "idx_pessoas_eh_administrador")
+  @@index([is_god], map: "idx_pessoas_is_god")
   @@index([conviteAtivo], map: "idx_pessoas_convite_ativo")
   @@index([conviteToken], map: "idx_pessoas_convite_token")
 }
@@ -261,4 +263,36 @@ enum Role {
 enum DataAccessPolicy {
   GLOBAL
   INDIVIDUAL
+}
+
+/// Tabela para logs do sistema (Modo Deus)
+model system_logs {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now()) @db.Timestamptz(6)
+  level       String   @db.VarChar(10) // 'INFO', 'WARN', 'ERROR', 'DEBUG'
+  category    String   @db.VarChar(50) // 'EMAIL', 'AUTH', 'DATABASE', 'API'
+  message     String   @db.Text
+  details     Json?    // Dados adicionais estruturados
+  user_id     Int?     @db.Integer
+  ip_address  String?  @db.VarChar(45)
+  user_agent  String?  @db.Text
+  hub_id      Int?     @db.Integer
+  
+  @@index([timestamp], map: "idx_system_logs_timestamp")
+  @@index([level], map: "idx_system_logs_level")
+  @@index([category], map: "idx_system_logs_category")
+  @@index([user_id], map: "idx_system_logs_user")
+  @@index([hub_id], map: "idx_system_logs_hub")
+}
+
+/// Tabela para métricas do sistema (Modo Deus)
+model system_metrics {
+  id           Int      @id @default(autoincrement())
+  timestamp    DateTime @default(now()) @db.Timestamptz(6)
+  metric_name  String   @db.VarChar(100)
+  metric_value Decimal  @db.Decimal(10, 2)
+  metadata     Json?
+  
+  @@index([timestamp], map: "idx_system_metrics_timestamp")
+  @@index([metric_name], map: "idx_system_metrics_name")
 }

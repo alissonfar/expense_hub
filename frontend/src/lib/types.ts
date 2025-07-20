@@ -150,6 +150,7 @@ export interface UserIdentifier {
   nome: string;
   email: string;
   ehAdministrador: boolean;
+  is_god?: boolean;
   telefone?: string;
   data_cadastro?: string;
 }

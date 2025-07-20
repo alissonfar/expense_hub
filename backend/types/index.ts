@@ -16,6 +16,7 @@ export interface AuthContext {
   role: Role;
   dataAccessPolicy: DataAccessPolicy | null; // Nulo se não for COLABORADOR
   ehAdministrador: boolean; // Superusuário do sistema
+  is_god: boolean; // Modo Deus - acesso irrestrito
 }
 
 // Informações do hub atual para uso em controllers
@@ -45,6 +46,7 @@ export interface UserIdentifier {
   nome: string;
   email: string;
   ehAdministrador: boolean;
+  is_god: boolean;
 }
 
 // Payload que será embarcado no JWT, representando o acesso a UM hub específico
