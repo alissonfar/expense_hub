@@ -68,16 +68,16 @@ export default function RegisterPage() {
       await registerUser(registerData);
       
       toast({
-        title: "Registro realizado com sucesso!",
-        description: "Faça o login para continuar.",
+        title: "Conta criada com sucesso!",
+        description: "Verifique seu email para ativar sua conta.",
       });
       
-      // Redirecionar para login
-      router.push('/login');
+      // Redirecionar para página de verificação pendente
+      router.push(`/verification-pending?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       toast({
         title: "Erro no registro",
-                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao criar conta. Tente novamente.",
+        description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao criar conta. Tente novamente.",
         variant: "destructive",
       });
     } finally {

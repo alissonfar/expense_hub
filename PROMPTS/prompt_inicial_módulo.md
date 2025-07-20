@@ -1,6 +1,6 @@
 # 🔍 INVESTIGAÇÃO COMPLETA DE MÓDULO
 
-**MÓDULO ALVO**: [Módulo de transações no frontend]
+**MÓDULO ALVO**: [Módulo de EMAILS - backend e frontend]
 
 **IMPORTANTE**: Utilize o **MCP Sequential Thinking** para executar esta tarefa. Processe cada fase da investigação de forma sequencial e estruturada, documentando seu raciocínio e descobertas em cada etapa.
 

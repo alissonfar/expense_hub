@@ -6,6 +6,24 @@ export interface EmailData {
   convidadorNome: string;
 }
 
+export interface WelcomeEmailData {
+  to: string;
+  nome: string;
+  nomeHub: string;
+}
+
+export interface PasswordResetEmailData {
+  to: string;
+  nome: string;
+  resetToken: string;
+}
+
+export interface EmailVerificationData {
+  to: string;
+  nome: string;
+  verificacaoToken: string;
+}
+
 export interface EmailResult {
   success: boolean;
   messageId?: string;

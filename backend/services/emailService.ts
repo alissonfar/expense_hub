@@ -199,6 +199,195 @@ export class EmailService {
   }
 
   /**
+   * Envia email de boas-vindas para novo usuário
+   */
+  async sendWelcomeEmail(data: { nome: string; nomeHub: string; to: string }): Promise<EmailResult> {
+    try {
+      await this.initialize();
+
+      // Validar dados básicos
+      if (!data.to || !data.nome || !data.nomeHub) {
+        return {
+          success: false,
+          error: 'Dados inválidos: email, nome e nomeHub são obrigatórios'
+        };
+      }
+
+      if (!EmailUtils.validateEmail(data.to)) {
+        return {
+          success: false,
+          error: 'Email inválido'
+        };
+      }
+
+      // Verificar limites
+      const limitsCheck = this.monitoring.checkLimits();
+      if (!limitsCheck.canSend) {
+        return {
+          success: false,
+          error: `Limite de emails atingido: ${limitsCheck.reason}`
+        };
+      }
+
+      // Gerar templates
+      const htmlContent = EmailTemplates.generateWelcomeHtml(data);
+      const textContent = EmailTemplates.generateWelcomeText(data);
+
+      // Configurar email
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Expense Hub'}" <${process.env.GMAIL_USER}>`,
+        to: data.to,
+        subject: `Bem-vindo ao Expense Hub!`,
+        html: htmlContent,
+        text: textContent
+      };
+
+      // Enviar email com retry
+      const result = await this.sendWithRetry(mailOptions);
+      
+      if (result.success) {
+        this.monitoring.incrementCount();
+        this.monitoring.logUsage();
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Erro ao enviar email de boas-vindas:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
+  }
+
+  /**
+   * Envia email de reset de senha
+   */
+  async sendPasswordResetEmail(data: { nome: string; resetToken: string; to: string }): Promise<EmailResult> {
+    try {
+      await this.initialize();
+
+      // Validar dados básicos
+      if (!data.to || !data.nome || !data.resetToken) {
+        return {
+          success: false,
+          error: 'Dados inválidos: email, nome e resetToken são obrigatórios'
+        };
+      }
+
+      if (!EmailUtils.validateEmail(data.to)) {
+        return {
+          success: false,
+          error: 'Email inválido'
+        };
+      }
+
+      // Verificar limites
+      const limitsCheck = this.monitoring.checkLimits();
+      if (!limitsCheck.canSend) {
+        return {
+          success: false,
+          error: `Limite de emails atingido: ${limitsCheck.reason}`
+        };
+      }
+
+      // Gerar templates
+      const htmlContent = EmailTemplates.generatePasswordResetHtml(data);
+      const textContent = EmailTemplates.generatePasswordResetText(data);
+
+      // Configurar email
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Expense Hub'}" <${process.env.GMAIL_USER}>`,
+        to: data.to,
+        subject: `Redefinição de Senha - Expense Hub`,
+        html: htmlContent,
+        text: textContent
+      };
+
+      // Enviar email com retry
+      const result = await this.sendWithRetry(mailOptions);
+      
+      if (result.success) {
+        this.monitoring.incrementCount();
+        this.monitoring.logUsage();
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Erro ao enviar email de reset de senha:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
+  }
+
+  /**
+   * Envia email de verificação de conta
+   */
+  async sendEmailVerification(data: { nome: string; verificacaoToken: string; to: string }): Promise<EmailResult> {
+    try {
+      await this.initialize();
+
+      // Validar dados básicos
+      if (!data.to || !data.nome || !data.verificacaoToken) {
+        return {
+          success: false,
+          error: 'Dados inválidos: email, nome e verificacaoToken são obrigatórios'
+        };
+      }
+
+      if (!EmailUtils.validateEmail(data.to)) {
+        return {
+          success: false,
+          error: 'Email inválido'
+        };
+      }
+
+      // Verificar limites
+      const limitsCheck = this.monitoring.checkLimits();
+      if (!limitsCheck.canSend) {
+        return {
+          success: false,
+          error: `Limite de emails atingido: ${limitsCheck.reason}`
+        };
+      }
+
+      // Gerar templates
+      const htmlContent = EmailTemplates.generateEmailVerificationHtml(data);
+      const textContent = EmailTemplates.generateEmailVerificationText(data);
+
+      // Configurar email
+      const mailOptions = {
+        from: `"${process.env.EMAIL_FROM_NAME || 'Expense Hub'}" <${process.env.GMAIL_USER}>`,
+        to: data.to,
+        subject: `Verifique seu email - Expense Hub`,
+        html: htmlContent,
+        text: textContent
+      };
+
+      // Enviar email com retry
+      const result = await this.sendWithRetry(mailOptions);
+      
+      if (result.success) {
+        this.monitoring.incrementCount();
+        this.monitoring.logUsage();
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Erro ao enviar email de verificação:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      };
+    }
+  }
+
+  /**
    * Envia email com lógica de retry
    */
   private async sendWithRetry(mailOptions: nodemailer.SendMailOptions): Promise<EmailResult> {

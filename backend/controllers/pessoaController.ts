@@ -368,7 +368,9 @@ export const ativarConvite = async (req: Request, res: Response): Promise<void> 
         conviteToken: null,
         conviteExpiraEm: null,
         conviteAtivo: false,
-        ativo: true
+        ativo: true,
+        emailVerificado: true, // ✅ Marcar como verificado ao ativar convite
+        emailVerificadoEm: new Date() // ✅ Registrar quando foi verificado
       }
     });
 

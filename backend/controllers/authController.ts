@@ -3,10 +3,12 @@ import { hashPassword, verifyPassword, validatePasswordStrength, isCommonPasswor
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { RegisterInput, LoginInput, UpdateProfileInput, ChangePasswordInput, SelectHubInput } from '../schemas/auth';
 import { UserIdentifier, AuthResponse, HubInfo } from '../types';
+import { getEmailService } from '../services/emailService';
+import crypto from 'crypto';
 
 // Prisma Client global usado SOMENTE para operações que não dependem de um Hub específico,
 // como login e busca de usuário. Para operações de negócio, SEMPRE use req.prisma.
-import { prisma } from '../utils/prisma'; 
+import { prisma } from '../utils/prisma';
 
 // =============================================
 // CONTROLLER DE AUTENTICAÇÃO MULTI-TENANT
@@ -38,6 +40,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const hashedPassword = await hashPassword(senha);
     
+    // Gerar token de verificação
+    const verificacaoToken = crypto.randomBytes(32).toString('hex');
+    const verificacaoTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+    
     // Usar uma transação Prisma para garantir que a criação do usuário, do hub e do membro seja atômica.
     const newUser = await prisma.$transaction(async (tx: any) => {
       const pessoa = await tx.pessoas.create({
@@ -47,6 +53,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
           senha_hash: hashedPassword,
           telefone: telefone || null,
           ehAdministrador: false, // O primeiro usuário não é admin do sistema por padrão
+          emailVerificado: false, // Conta criada como não verificada
+          verificacaoToken,
+          verificacaoTokenExpiry
         },
       });
 
@@ -63,13 +72,36 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         },
       });
 
-      return pessoa;
+      return { pessoa, hub };
     });
+
+    // Enviar email de verificação
+    try {
+      const emailService = getEmailService();
+      const emailResult = await emailService.sendEmailVerification({
+        to: newUser.pessoa.email,
+        nome: newUser.pessoa.nome,
+        verificacaoToken
+      });
+      
+      if (!emailResult.success) {
+        console.error('Erro ao enviar email de verificação:', emailResult.error);
+      } else {
+        console.log('Email de verificação enviado com sucesso');
+      }
+    } catch (emailError) {
+      console.error('Erro ao enviar email de verificação:', emailError);
+      // Não falhar o registro se o email falhar
+    }
 
     res.status(201).json({
       success: true,
-      message: 'Usuário e Hub criados com sucesso! Faça login para continuar.',
-      data: { id: newUser.id, email: newUser.email },
+      message: 'Conta criada com sucesso! Verifique seu email para ativar sua conta.',
+      data: { 
+        id: newUser.pessoa.id, 
+        email: newUser.pessoa.email,
+        emailVerificado: false
+      },
       timestamp: new Date().toISOString(),
     });
 
@@ -102,6 +134,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         ehAdministrador: true,
         is_god: true,
         conviteAtivo: true,
+        emailVerificado: true,
         hubs: {
           where: { ativo: true },
           select: {
@@ -119,6 +152,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     if (!user || !user.ativo) {
       res.status(401).json({ error: 'CredenciaisInvalidas', message: 'Email ou senha incorretos ou conta inativa.' });
+      return;
+    }
+
+    // Verificar se o email foi verificado
+    if (!user.emailVerificado) {
+      res.status(401).json({ 
+        error: 'EmailNaoVerificado', 
+        message: 'Sua conta ainda não foi verificada. Verifique seu email e clique no link de ativação.' 
+      });
       return;
     }
 
@@ -402,4 +444,296 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   // A invalidação de JWT do lado do servidor pode ser feita com uma blocklist em Redis/DB.
   // Para uma implementação stateless, o cliente simplesmente descarta o token.
   res.json({ success: true, message: 'Logout realizado. O token deve ser descartado no cliente.', timestamp: new Date().toISOString() });
+};
+
+/**
+ * Solicita reset de senha enviando email com token.
+ */
+export const requestPasswordReset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'EmailObrigatorio', message: 'Email é obrigatório.' });
+      return;
+    }
+
+    const user = await prisma.pessoas.findUnique({
+      where: { email },
+      select: { id: true, nome: true, email: true }
+    });
+
+    if (!user) {
+      // Por segurança, não revelar se o email existe ou não
+      res.json({ 
+        success: true, 
+        message: 'Se o email estiver cadastrado, você receberá um link para redefinir sua senha.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Gerar token único e seguro
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    // Salvar token no banco
+    await prisma.pessoas.update({
+      where: { id: user.id },
+      data: {
+        resetToken,
+        resetTokenExpiry
+      }
+    });
+
+    // Enviar email
+    try {
+      const emailService = getEmailService();
+      const emailResult = await emailService.sendPasswordResetEmail({
+        to: user.email,
+        nome: user.nome,
+        resetToken
+      });
+
+      if (emailResult.success) {
+        res.json({
+          success: true,
+          message: 'Email de redefinição de senha enviado com sucesso.',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        console.error('Erro ao enviar email:', emailResult.error);
+        res.status(500).json({
+          error: 'ErroEmail',
+          message: 'Não foi possível enviar o email de redefinição.'
+        });
+      }
+    } catch (emailError) {
+      console.error('Erro ao enviar email de reset:', emailError);
+      res.status(500).json({
+        error: 'ErroEmail',
+        message: 'Não foi possível enviar o email de redefinição.'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro ao solicitar reset de senha:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível processar a solicitação.' });
+  }
+};
+
+/**
+ * Redefine a senha usando o token enviado por email.
+ */
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!token || !novaSenha) {
+      res.status(400).json({ error: 'DadosObrigatorios', message: 'Token e nova senha são obrigatórios.' });
+      return;
+    }
+
+    // Validar força da senha
+    const passwordValidation = validatePasswordStrength(novaSenha);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({ error: 'SenhaInvalida', message: passwordValidation.errors.join(' ') });
+      return;
+    }
+
+    // Buscar usuário pelo token
+    const user = await prisma.pessoas.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: {
+          gt: new Date()
+        }
+      }
+    });
+
+    if (!user) {
+      res.status(400).json({ error: 'TokenInvalido', message: 'Token inválido ou expirado.' });
+      return;
+    }
+
+    // Hash da nova senha
+    const newHashedPassword = await hashPassword(novaSenha);
+
+    // Atualizar senha e limpar token
+    await prisma.pessoas.update({
+      where: { id: user.id },
+      data: {
+        senha_hash: newHashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Senha redefinida com sucesso!',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível redefinir a senha.' });
+  }
+};
+
+/**
+ * Verifica o email da conta usando o token enviado por email.
+ */
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      res.status(400).json({ error: 'TokenObrigatorio', message: 'Token é obrigatório.' });
+      return;
+    }
+
+    // Buscar usuário pelo token de verificação
+    const user = await prisma.pessoas.findFirst({
+      where: {
+        verificacaoToken: token,
+        verificacaoTokenExpiry: {
+          gt: new Date()
+        },
+        emailVerificado: false
+      }
+    });
+
+    if (!user) {
+      res.status(400).json({ error: 'TokenInvalido', message: 'Token inválido, expirado ou email já verificado.' });
+      return;
+    }
+
+    // Verificar email e limpar token
+    await prisma.pessoas.update({
+      where: { id: user.id },
+      data: {
+        emailVerificado: true,
+        emailVerificadoEm: new Date(),
+        verificacaoToken: null,
+        verificacaoTokenExpiry: null
+      }
+    });
+
+    // Enviar email de boas-vindas
+    try {
+      const emailService = getEmailService();
+      await emailService.sendWelcomeEmail({
+        to: user.email,
+        nome: user.nome,
+        nomeHub: 'Seu Hub' // Será atualizado quando implementarmos busca do hub
+      });
+    } catch (emailError) {
+      console.error('Erro ao enviar email de boas-vindas:', emailError);
+      // Não falhar a verificação se o email falhar
+    }
+
+    res.json({
+      success: true,
+      message: 'Email verificado com sucesso! Sua conta foi ativada.',
+      data: {
+        id: user.id,
+        email: user.email,
+        emailVerificado: true
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao verificar email:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível verificar o email.' });
+  }
+}; 
+
+/**
+ * Reenvia email de verificação para um usuário
+ */
+export const resendVerificationEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'EmailObrigatorio', message: 'Email é obrigatório.' });
+      return;
+    }
+
+    // Buscar usuário pelo email
+    const user = await prisma.pessoas.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      // Por segurança, não revelar se o email existe ou não
+      res.json({
+        success: true,
+        message: 'Se o email estiver cadastrado, você receberá um novo email de verificação.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Verificar se o email já foi verificado
+    if (user.emailVerificado) {
+      res.json({
+        success: true,
+        message: 'Este email já foi verificado. Você pode fazer login normalmente.',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Gerar novo token de verificação
+    const verificacaoToken = crypto.randomBytes(32).toString('hex');
+    const verificacaoTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+    // Atualizar token no banco
+    await prisma.pessoas.update({
+      where: { id: user.id },
+      data: {
+        verificacaoToken,
+        verificacaoTokenExpiry
+      }
+    });
+
+    // Enviar novo email de verificação
+    try {
+      const emailService = getEmailService();
+      const emailResult = await emailService.sendEmailVerification({
+        to: user.email,
+        nome: user.nome,
+        verificacaoToken
+      });
+      
+      if (!emailResult.success) {
+        console.error('Erro ao reenviar email de verificação:', emailResult.error);
+        res.status(500).json({ 
+          error: 'ErroEmail', 
+          message: 'Erro ao enviar email. Tente novamente em alguns minutos.' 
+        });
+        return;
+      }
+    } catch (emailError) {
+      console.error('Erro ao reenviar email de verificação:', emailError);
+      res.status(500).json({ 
+        error: 'ErroEmail', 
+        message: 'Erro ao enviar email. Tente novamente em alguns minutos.' 
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Email de verificação reenviado com sucesso!',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Erro ao reenviar email de verificação:', error);
+    res.status(500).json({ error: 'ErroInterno', message: 'Não foi possível reenviar o email.' });
+  }
 }; 

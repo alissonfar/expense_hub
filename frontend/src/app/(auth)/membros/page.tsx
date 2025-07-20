@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Users, Plus, MoreHorizontal, Info, Mail, Phone, UserCheck, ShieldCheck, Shield, Eye, Edit, Trash, RefreshCw, Copy } from 'lucide-react';
-import { usePessoas } from '@/hooks/usePessoas';
+import { usePessoas, useResendInvite } from '@/hooks/usePessoas';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,10 +22,28 @@ import { CellContext } from '@tanstack/react-table';
 export default function PessoasPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
   const { toast } = useToast();
+  const resendInvite = useResendInvite();
   const [showInvite, setShowInvite] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const getInviteLink = (token: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/ativar-convite?token=${token}`;
+
+  // Função para verificar se um membro pode ter convite reenviado
+  const canResendInvite = (pessoa: PessoaHub['pessoa']) => {
+    // Pode reenviar se: tem convite ativo, não foi ativado (não tem senha_hash), e tem email
+    // Como não temos senha_hash no frontend, vamos usar conviteAtivo e conviteToken
+    return pessoa?.conviteAtivo && pessoa?.conviteToken && pessoa?.email && !pessoa?.ativo;
+  };
+
+  // Função para reenviar convite
+  const handleResendInvite = async (email: string) => {
+    try {
+      await resendInvite.mutateAsync(email);
+    } catch (error) {
+      // Erro já tratado no hook
+      console.error('Erro ao reenviar convite:', error);
+    }
+  };
 
   // Colunas da tabela
   const columns = [
@@ -142,28 +160,40 @@ export default function PessoasPage() {
     {
       id: 'actions',
       header: '',
-      cell: () => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => {}}>
-              <Edit className="mr-2 h-4 w-4" /> Editar Papel
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {}}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Reenviar Convite
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {}} className="text-red-600">
-              <Trash className="mr-2 h-4 w-4" /> Remover
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: (cell: CellContext<PessoaHub, unknown>) => {
+        const pessoa = cell.row.original.pessoa;
+        const canResend = canResendInvite(pessoa);
+        const isResending = resendInvite.isPending;
+        
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Ações</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {}}>
+                <Edit className="mr-2 h-4 w-4" /> Editar Papel
+              </DropdownMenuItem>
+              {canResend && (
+                <DropdownMenuItem 
+                  onClick={() => handleResendInvite(pessoa!.email!)}
+                  disabled={isResending}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isResending ? 'animate-spin' : ''}`} />
+                  {isResending ? 'Reenviando...' : 'Reenviar Convite'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => {}} className="text-red-600">
+                <Trash className="mr-2 h-4 w-4" /> Remover
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 

@@ -46,6 +46,7 @@ export interface Pessoa {
   data_cadastro: string;
   atualizado_em: string;
   conviteToken?: string;
+  conviteAtivo?: boolean;
 }
 
 export interface PessoaHub {

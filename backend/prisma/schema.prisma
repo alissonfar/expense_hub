@@ -58,6 +58,12 @@ model pessoas {
   conviteAtivo                                   Boolean                   @default(false)
   conviteExpiraEm                                DateTime?                 @db.Timestamptz(6)
   conviteToken                                   String?                   @unique @db.VarChar(255)
+  resetToken                                     String?                   @unique @db.VarChar(255)
+  resetTokenExpiry                               DateTime?                 @db.Timestamptz(6)
+  emailVerificado                                Boolean                   @default(false)
+  emailVerificadoEm                              DateTime?                 @db.Timestamptz(6)
+  verificacaoToken                               String?                   @unique @db.VarChar(255)
+  verificacaoTokenExpiry                         DateTime?                 @db.Timestamptz(6)
   hubs                                           membros_hub[]
   pagamentos_pagamentos_pessoa_idTopessoas       pagamentos[]              @relation("pagamentos_pessoa_idTopessoas")
   pagamentos_pagamentos_registrado_porTopessoas  pagamentos[]              @relation("pagamentos_registrado_porTopessoas")
@@ -72,6 +78,9 @@ model pessoas {
   @@index([is_god], map: "idx_pessoas_is_god")
   @@index([conviteAtivo], map: "idx_pessoas_convite_ativo")
   @@index([conviteToken], map: "idx_pessoas_convite_token")
+  @@index([resetToken], map: "idx_pessoas_reset_token")
+  @@index([emailVerificado], map: "idx_pessoas_email_verificado")
+  @@index([verificacaoToken], map: "idx_pessoas_verificacao_token")
 }
 
 /// Transações modificadas para multi-tenancy

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { PessoaHub } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 // Query Keys
 export const pessoaKeys = {
@@ -97,6 +98,37 @@ export function useRemovePessoa() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pessoaKeys.all });
+    },
+  });
+}
+
+// Hook para reenviar convite
+export function useResendInvite() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const response = await api.post('/auth/reenviar-convite', { email });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Convite reenviado!',
+        description: data.message || 'O convite foi reenviado com sucesso.',
+      });
+      // Atualizar a lista de pessoas para refletir o novo token
+      queryClient.invalidateQueries({ queryKey: pessoaKeys.all });
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : 'Erro ao reenviar convite.';
+      toast({
+        title: 'Erro ao reenviar convite',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     },
   });
 }

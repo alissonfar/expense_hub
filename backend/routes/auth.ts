@@ -6,7 +6,11 @@ import {
   getProfile,
   updateProfile,
   changePassword,
-  logout
+  logout,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+  resendVerificationEmail
 } from '../controllers/authController';
 import {
   ativarConvite,
@@ -75,6 +79,42 @@ router.post('/select-hub',
 router.post('/ativar-convite',
   validateSchema(ativarConviteSchema),
   ativarConvite
+);
+
+/**
+ * POST /api/auth/request-password-reset
+ * Solicita reset de senha enviando email com token.
+ */
+router.post('/request-password-reset',
+  strictRateLimit,
+  requestPasswordReset
+);
+
+/**
+ * POST /api/auth/reset-password
+ * Redefine a senha usando o token enviado por email.
+ */
+router.post('/reset-password',
+  strictRateLimit,
+  resetPassword
+);
+
+/**
+ * POST /api/auth/verify-email
+ * Verifica o email da conta usando o token enviado por email.
+ */
+router.post('/verify-email',
+  strictRateLimit,
+  verifyEmail
+);
+
+/**
+ * POST /api/auth/resend-verification
+ * Reenvia email de verificação para um usuário.
+ */
+router.post('/resend-verification',
+  strictRateLimit,
+  resendVerificationEmail
 );
 
 // =============================================

@@ -50,12 +50,24 @@ export default function LoginPage() {
       router.push('/select-hub');
       
       // O redirecionamento será feito pelo AuthContext + middleware
-    } catch (error) {
-      toast({
-        title: "Erro no login",
-                  description: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Credenciais inválidas",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || "Credenciais inválidas";
+      const errorType = error?.response?.data?.error;
+      
+      // Tratamento específico para email não verificado
+      if (errorType === 'EmailNaoVerificado') {
+        toast({
+          title: "Email não verificado",
+          description: "Verifique seu email e clique no link de ativação antes de fazer login.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro no login",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -105,6 +117,15 @@ export default function LoginPage() {
                 {errors.senha && (
                   <p className="text-sm text-red-500">{errors.senha.message}</p>
                 )}
+              </div>
+
+              <div className="text-right">
+                <Link 
+                  href="/forgot-password" 
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  Esqueci minha senha
+                </Link>
               </div>
 
               <Button 
