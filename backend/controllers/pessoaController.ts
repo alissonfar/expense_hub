@@ -4,6 +4,7 @@ import { AtivarConviteInput, ReenviarConviteInput } from '../schemas/auth';
 import { prisma as globalPrisma } from '../utils/prisma';
 import { Prisma } from '@prisma/client';
 import { generateInviteToken, hashPassword, validatePasswordStrength } from '../utils/password';
+import { getEmailService } from '../services/emailService';
 
 // =============================================
 // CONTROLLER DE MEMBROS DO HUB
@@ -106,6 +107,17 @@ export const convidarMembro = async (req: Request, res: Response): Promise<void>
       return;
     }
     
+    // Buscar informações do Hub e do convidador
+    const [hub, convidador] = await Promise.all([
+      req.prisma.hub.findUnique({ where: { id: hubId }, select: { nome: true } }),
+      req.prisma.pessoas.findUnique({ where: { id: req.auth.pessoaId }, select: { nome: true } })
+    ]);
+
+    if (!hub) {
+      res.status(404).json({ error: 'HubNaoEncontrado', message: 'Hub não encontrado.' });
+      return;
+    }
+
     const novoMembro = await globalPrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Gerar token de convite seguro
       const conviteToken = generateInviteToken();
@@ -145,12 +157,38 @@ export const convidarMembro = async (req: Request, res: Response): Promise<void>
       });
     });
 
+    // ENVIAR EMAIL DE CONVITE
+    let emailResult: { success: boolean; error?: string } = { success: false, error: 'Sistema de email não configurado' };
+    try {
+      const emailService = getEmailService();
+      emailResult = await emailService.sendInviteEmail({
+        to: email,
+        nome: nome || 'Usuário',
+        hubNome: hub.nome,
+        conviteToken: novoMembro.pessoa.conviteToken!,
+        convidadorNome: convidador?.nome || 'Administrador'
+      });
+
+      if (emailResult.success) {
+        console.log(`✅ Email de convite enviado com sucesso para ${email}`);
+      } else {
+        console.error('❌ Falha no envio de email de convite:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Erro inesperado no envio de email:', emailError);
+      emailResult = { success: false, error: 'Erro interno no envio de email' };
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Membro convidado com sucesso para o Hub. Um convite foi enviado para o email.',
+      message: emailResult.success 
+        ? 'Membro convidado com sucesso para o Hub. Um convite foi enviado para o email.'
+        : 'Membro convidado com sucesso, mas houve um problema no envio do email. O convite pode ser reenviado posteriormente.',
       data: {
         ...novoMembro,
-        conviteToken: novoMembro.pessoa.conviteToken // Incluir token para testes
+        conviteToken: novoMembro.pessoa.conviteToken, // Incluir token para testes
+        emailSent: emailResult.success,
+        emailError: emailResult.error
       },
       timestamp: new Date().toISOString()
     });
@@ -358,6 +396,17 @@ export const reenviarConvite = async (req: Request, res: Response): Promise<void
     const { email }: ReenviarConviteInput = req.body;
     const { hubId } = req.auth;
 
+    // Buscar informações do Hub e do convidador
+    const [hub, convidador] = await Promise.all([
+      req.prisma.hub.findUnique({ where: { id: hubId }, select: { nome: true } }),
+      req.prisma.pessoas.findUnique({ where: { id: req.auth.pessoaId }, select: { nome: true } })
+    ]);
+
+    if (!hub) {
+      res.status(404).json({ error: 'HubNaoEncontrado', message: 'Hub não encontrado.' });
+      return;
+    }
+
     // Verificar se o usuário é membro do Hub
     const membro = await req.prisma.membros_hub.findFirst({
       where: { hubId, pessoa: { email } },
@@ -395,11 +444,37 @@ export const reenviarConvite = async (req: Request, res: Response): Promise<void
       }
     });
 
+    // ENVIAR EMAIL DE REENVIO
+    let emailResult: { success: boolean; error?: string } = { success: false, error: 'Sistema de email não configurado' };
+    try {
+      const emailService = getEmailService();
+      emailResult = await emailService.sendReinviteEmail({
+        to: email,
+        nome: membro.pessoa.nome || 'Usuário',
+        hubNome: hub.nome,
+        conviteToken: novoToken,
+        convidadorNome: convidador?.nome || 'Administrador'
+      });
+
+      if (emailResult.success) {
+        console.log(`✅ Email de reenvio enviado com sucesso para ${email}`);
+      } else {
+        console.error('❌ Falha no envio de email de reenvio:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Erro inesperado no envio de email de reenvio:', emailError);
+      emailResult = { success: false, error: 'Erro interno no envio de email' };
+    }
+
     res.json({
       success: true,
-      message: 'Convite reenviado com sucesso.',
+      message: emailResult.success 
+        ? 'Convite reenviado com sucesso.'
+        : 'Convite reenviado, mas houve um problema no envio do email. O convite pode ser reenviado novamente.',
       data: {
-        conviteToken: novoToken // Incluir token para testes
+        conviteToken: novoToken, // Incluir token para testes
+        emailSent: emailResult.success,
+        emailError: emailResult.error
       },
       timestamp: new Date().toISOString()
     });
