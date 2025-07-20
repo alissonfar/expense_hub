@@ -1,11 +1,12 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
-const config = {
-  darkMode: "class",
+export default {
+  darkMode: ["class"],
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   prefix: "",
   theme: {
@@ -51,21 +52,7 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Adicionar tons de azul específicos
-        blue: {
-          50: "hsl(var(--blue-50))",
-          100: "hsl(var(--blue-100))",
-          200: "hsl(var(--blue-200))",
-          300: "hsl(var(--blue-300))",
-          400: "hsl(var(--blue-400))",
-          500: "hsl(var(--blue-500))",
-          600: "hsl(var(--blue-600))",
-          700: "hsl(var(--blue-700))",
-          800: "hsl(var(--blue-800))",
-          900: "hsl(var(--blue-900))",
-          950: "hsl(var(--blue-950))",
-        },
-        // Novas cores contextuais
+        // Cores contextuais vibrantes
         success: {
           50: "hsl(var(--success-50))",
           100: "hsl(var(--success-100))",
@@ -105,11 +92,47 @@ const config = {
           900: "hsl(var(--neutral-900))",
           950: "hsl(var(--neutral-950))",
         },
+        // Nova cor para excedente (positivo)
+        excess: {
+          50: "hsl(var(--excess-50))",
+          100: "hsl(var(--excess-100))",
+          200: "hsl(var(--excess-200))",
+          300: "hsl(var(--excess-300))",
+          400: "hsl(var(--excess-400))",
+          500: "hsl(var(--excess-500))",
+          600: "hsl(var(--excess-600))",
+          700: "hsl(var(--excess-700))",
+          800: "hsl(var(--excess-800))",
+          900: "hsl(var(--excess-900))",
+          950: "hsl(var(--excess-950))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      backgroundImage: {
+        // Gradientes vibrantes
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-success': 'var(--gradient-success)',
+        'gradient-danger': 'var(--gradient-danger)',
+        'gradient-neutral': 'var(--gradient-neutral)',
+        'gradient-excess': 'var(--gradient-excess)',
+        // Glassmorphism vibrante
+        'gradient-glass-success': 'var(--gradient-glass-success)',
+        'gradient-glass-danger': 'var(--gradient-glass-danger)',
+        'gradient-glass-neutral': 'var(--gradient-glass-neutral)',
+        'gradient-glass-excess': 'var(--gradient-glass-excess)',
+        'gradient-glass-primary': 'var(--gradient-glass-primary)',
+      },
+      boxShadow: {
+        // Sombras mais pronunciadas
+        'success': 'var(--shadow-success)',
+        'danger': 'var(--shadow-danger)',
+        'neutral': 'var(--shadow-neutral)',
+        'excess': 'var(--shadow-excess)',
+        'primary': 'var(--shadow-primary)',
       },
       keyframes: {
         "accordion-down": {
@@ -120,48 +143,31 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        fadeIn: {
-          from: { opacity: "0", transform: "translateY(10px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+        "fade-in": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        slideIn: {
-          from: { transform: "translateX(-100%)" },
-          to: { transform: "translateX(0)" },
+        "slide-in": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { 
+            boxShadow: "0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor" 
+          },
+          "50%": { 
+            boxShadow: "0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor" 
+          },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        fadeIn: "fadeIn 0.3s ease-in-out",
-        slideIn: "slideIn 0.3s ease-out",
-      },
-      backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-primary': 'var(--gradient-primary)',
-        'gradient-subtle': 'var(--gradient-subtle)',
-        'gradient-glass': 'var(--gradient-glass)',
-        // Novos gradientes contextuais
-        'gradient-success': 'var(--gradient-success)',
-        'gradient-danger': 'var(--gradient-danger)',
-        'gradient-neutral': 'var(--gradient-neutral)',
-        'gradient-glass-success': 'var(--gradient-glass-success)',
-        'gradient-glass-danger': 'var(--gradient-glass-danger)',
-        'gradient-glass-neutral': 'var(--gradient-glass-neutral)',
-      },
-      boxShadow: {
-        'sm': 'var(--shadow-sm)',
-        'DEFAULT': 'var(--shadow)',
-        'md': 'var(--shadow-md)',
-        'lg': 'var(--shadow-lg)',
-        'xl': 'var(--shadow-xl)',
-        // Novas sombras contextuais
-        'success': 'var(--shadow-success)',
-        'danger': 'var(--shadow-danger)',
-        'neutral': 'var(--shadow-neutral)',
+        "fade-in": "fade-in 0.5s ease-out",
+        "slide-in": "slide-in 0.3s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
     },
   },
   plugins: [require("tailwindcss-animate")],
-} satisfies Config
-
-export default config 
+} satisfies Config; 

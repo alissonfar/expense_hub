@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { KPICard } from '@/components/dashboard/KPICard';
+import { calcularProgressoTemporal } from '@/lib/utils';
 import { 
   Plus, 
   CalendarIcon, 
@@ -28,6 +29,8 @@ import { pagamentosApi } from '@/lib/api';
 import type { Pagamento, Transacao } from '@/lib/types';
 import type { Row, ColumnDef } from '@tanstack/react-table';
 import { TransactionType, PaymentStatus, PaymentMethod } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
+import { usePessoas } from '@/hooks/usePessoas';
 
 type PagamentoBackend = {
   id: number;
@@ -172,17 +175,29 @@ export default function PagamentosPage() {
   // Estatísticas calculadas
   const stats = useMemo(() => {
     const total = pagamentos.length;
-    const pagos = pagamentos.filter(p => p.valor_total > 0).length;
-    const pendentes = total - pagos;
     const valorTotal = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    
+    const pagos = pagamentos.filter(p => p.valor_total > 0).length;
+    const valorPagos = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    
+    const comExcedente = pagamentos.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
+    const valorExcedente = pagamentos.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
+    
+    const valorTotalPagamentos = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    
     const excedentes = pagamentos.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
+    const valorTotalExcedentes = pagamentos.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
 
     return {
       total,
-      pagos,
-      pendentes,
       valorTotal,
-      excedentes
+      pagos,
+      valorPagos,
+      comExcedente,
+      valorExcedente,
+      valorTotalPagamentos,
+      excedentes,
+      valorTotalExcedentes
     };
   }, [pagamentos]);
 
@@ -354,32 +369,93 @@ export default function PagamentosPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <KPICard
           title="Total"
-          value={stats.total}
+          value={stats.valorTotal}
           type="balance"
+          secondaryValue={stats.total}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Total de Pagamentos",
+            description: "Valor total de todos os pagamentos registrados no sistema.",
+            details: [
+              "Soma de todos os valores",
+              "Base para análise de volume",
+              "Indica atividade financeira do hub"
+            ],
+            tip: "Monitore o crescimento do volume de pagamentos"
+          }}
         />
 
         <KPICard
           title="Pagos"
-          value={stats.pagos}
+          value={stats.valorPagos}
           type="revenue"
+          secondaryValue={stats.pagos}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Pagamentos Realizados",
+            description: "Valor total dos pagamentos que foram processados.",
+            details: [
+              "Valores já transferidos",
+              "Indica eficiência operacional",
+              "Base para receita confirmada"
+            ],
+            tip: "Alta taxa de pagamentos processados indica boa gestão"
+          }}
         />
 
         <KPICard
-          title="Pendentes"
-          value={stats.pendentes}
-          type="pending"
+          title="Com Excedente"
+          value={stats.valorExcedente}
+          type="excess"
+          secondaryValue={stats.comExcedente}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Pagamentos com Excedente",
+            description: "Valor total dos excedentes gerados pelos pagamentos.",
+            details: [
+              "Indica eficiência financeira",
+              "Pode ser reinvestido ou poupado",
+              "Base para otimização de recursos"
+            ],
+            tip: "Valores positivos são favoráveis para o hub"
+          }}
         />
 
         <KPICard
           title="Valor Total"
-          value={stats.valorTotal}
+          value={stats.valorTotalPagamentos}
           type="balance"
+          secondaryValue={stats.total}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Valor Total em Pagamentos",
+            description: "Soma de todos os valores dos pagamentos registrados.",
+            details: [
+              "Inclui todos os valores",
+              "Indica volume financeiro",
+              "Base para análise de receita"
+            ],
+            tip: "Compare com períodos anteriores para avaliar crescimento"
+          }}
         />
 
         <KPICard
           title="Excedentes"
-          value={stats.excedentes}
-          type="expense"
+          value={stats.valorTotalExcedentes}
+          type="excess"
+          secondaryValue={stats.excedentes}
+          loading={isLoading}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Valores Excedentes",
+            description: "Valor total dos excedentes que podem ser reinvestidos.",
+            details: [
+              "Indica eficiência financeira",
+              "Pode ser reinvestido ou poupado",
+              "Base para otimização de recursos"
+            ],
+            tip: "Valores positivos são favoráveis para o hub"
+          }}
         />
       </div>
 

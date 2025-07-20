@@ -28,6 +28,7 @@ import { TransacoesRecentes } from '@/components/dashboard/TransacoesRecentes';
 import { DateRange } from 'react-day-picker';
 import { useRouter } from 'next/navigation';
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist';
+import { calcularProgressoTemporal } from '@/lib/utils';
 
 const periodoOptions = [
   { value: '7_dias', label: 'Últimos 7 dias' },
@@ -170,39 +171,92 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {!isVisualizador && (
-          <KPICard
-            title="Receitas no Período"
-            value={dashboardData?.resumo.total_receitas ?? 0}
-            type="revenue"
-            change={dashboardData?.comparativo?.receitas_variacao}
-            loading={loadingDashboard}
-          />
-        )}
+        <KPICard
+          title="Receitas no Período"
+          value={dashboardData?.resumo.total_receitas ?? 0}
+          type="revenue"
+          change={dashboardData?.comparativo?.receitas_variacao}
+          subtitle="vs período anterior"
+          secondaryValue={dashboardData?.resumo.total_receitas_mes_atual ?? 0}
+          secondaryLabel="Este mês"
+          progress={calcularProgressoTemporal()}
+          loading={loadingDashboard}
+          tooltip={{
+            title: "Receitas do Período",
+            description: "Total de todas as entradas financeiras confirmadas no período selecionado.",
+            details: [
+              "Inclui vendas, serviços e outras receitas",
+              "Valores já processados e confirmados",
+              "Base para cálculo de lucratividade"
+            ],
+            tip: "Compare com períodos anteriores para avaliar crescimento"
+          }}
+        />
         
         <KPICard
           title="Despesas no Período"
           value={dashboardData?.resumo.total_gastos ?? 0}
           type="expense"
           change={dashboardData?.comparativo?.gastos_variacao}
+          subtitle="vs período anterior"
+          secondaryValue={dashboardData?.resumo.total_gastos_mes_atual ?? 0}
+          secondaryLabel="Este mês"
+          progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
+          tooltip={{
+            title: "Despesas do Período",
+            description: "Total de todos os gastos e despesas confirmados no período selecionado.",
+            details: [
+              "Inclui custos operacionais e despesas",
+              "Valores já processados e confirmados",
+              "Base para controle de custos"
+            ],
+            tip: "Monitore para manter equilíbrio financeiro"
+          }}
         />
         
         {!isVisualizador && (
           <KPICard
-            title="Saldo do Período"
-            value={dashboardData?.resumo.saldo_periodo ?? 0}
+            title="Saldo Atual"
+            value={dashboardData?.resumo.saldo_atual ?? 0}
             type="balance"
+            subtitle="Disponível"
+            secondaryValue={dashboardData?.resumo.saldo_anterior ?? 0}
+            secondaryLabel="Mês anterior"
+            progress={calcularProgressoTemporal()}
             loading={loadingDashboard}
+            tooltip={{
+              title: "Saldo Atual",
+              description: "Diferença entre receitas e despesas, indicando a situação financeira atual.",
+              details: [
+                "Resultado líquido das operações",
+                "Indica saúde financeira do hub",
+                "Base para tomada de decisões"
+              ],
+              tip: "Valores positivos indicam situação favorável"
+            }}
           />
         )}
         
         <KPICard
-          title="Pendências"
+          title="Transações Pendentes"
           value={dashboardData?.resumo.transacoes_pendentes ?? 0}
           type="pending"
-          subtitle={`${dashboardData?.resumo.pessoas_devedoras ?? 0} pessoas`}
+          subtitle="Aguardando aprovação"
+          secondaryValue={dashboardData?.resumo.transacoes_pendentes_valor ?? 0}
+          secondaryLabel="Valor pendente"
+          progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
+          tooltip={{
+            title: "Transações Pendentes",
+            description: "Transações que aguardam confirmação ou processamento.",
+            details: [
+              "Requerem atenção para aprovação",
+              "Podem afetar o saldo final",
+              "Importante revisar regularmente"
+            ],
+            tip: "Revisar pendências para evitar atrasos"
+          }}
         />
       </div>
 

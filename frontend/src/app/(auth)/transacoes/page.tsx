@@ -10,6 +10,7 @@ import { useRequireHub, usePermissions } from '@/hooks/useAuth';
 import { useTransacoes, useDeleteTransacao, useDuplicateTransacao } from '@/hooks/useTransacoes';
 import { useRouter } from 'next/navigation';
 import { KPICard } from '@/components/dashboard/KPICard';
+import { calcularProgressoTemporal } from '@/lib/utils';
 
 // Sistema de debug condicional (só em desenvolvimento)
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -65,6 +66,10 @@ export default function TransacoesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [mostrarTotaisGerais, setMostrarTotaisGerais] = useState(false);
+
+  // Toggle configurável: 'filtrado', 'geral', 'mesAtual'
+  const [modoCards, setModoCards] = useState<'filtrado' | 'geral' | 'mesAtual'>('filtrado');
 
   useRequireHub();
   const { canCreate, canEdit, canDelete } = usePermissions();
@@ -72,10 +77,9 @@ export default function TransacoesPage() {
 
   // Queries
   const { data: transacoesData } = useTransacoes(filters);
-
-  // DEBUG LOGS (condicionais)
-  debugLog('DEBUG - filtros:', filters);
-  debugLog('DEBUG - transacoesData:', transacoesData);
+  
+  // Query para buscar todos os dados (não filtrados) para totais gerais
+  const { data: todasTransacoesData } = useTransacoes({});
 
   // Mutations
   const deleteTransacao = useDeleteTransacao();
@@ -83,7 +87,84 @@ export default function TransacoesPage() {
 
   // Corrigir: acessar o array de transações corretamente
   const transacoes = transacoesData?.data?.transacoes || [];
-  debugLog('DEBUG - transacoes para DataTable:', transacoes);
+  const todasTransacoes = todasTransacoesData?.data?.transacoes || [];
+  
+  // Filtrar transações do mês atual
+  const now = new Date();
+  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const transacoesMesAtual = todasTransacoes.filter(t => {
+    const data = new Date(t.data_transacao);
+    return data >= inicioMes && data <= fimMes;
+  });
+
+  // Escolher dados baseado no modo selecionado
+  let dadosParaCalcular: typeof todasTransacoes = transacoes;
+  if (modoCards === 'geral') dadosParaCalcular = todasTransacoes;
+  if (modoCards === 'mesAtual') dadosParaCalcular = transacoesMesAtual;
+  
+  // DEBUG: Verificar dados reais
+  console.log('🔍 DEBUG - transacoesData completo:', transacoesData);
+  console.log('🔍 DEBUG - transacoes array:', transacoes);
+  console.log('🔍 DEBUG - todasTransacoes array:', todasTransacoes);
+  console.log('🔍 DEBUG - dadosParaCalcular array:', dadosParaCalcular);
+  console.log('🔍 DEBUG - mostrarTotaisGerais:', mostrarTotaisGerais);
+  console.log('🔍 DEBUG - Primeira transação:', dadosParaCalcular[0]);
+  console.log('🔍 DEBUG - valor_total da primeira transação:', dadosParaCalcular[0]?.valor_total, 'tipo:', typeof dadosParaCalcular[0]?.valor_total);
+  
+  if (dadosParaCalcular.length > 0) {
+    console.log('🔍 DEBUG - Todas as transações com valor_total:');
+    dadosParaCalcular.forEach((t, index) => {
+      console.log(`  Transação ${index}:`, {
+        id: t.id,
+        descricao: t.descricao,
+        valor_total: t.valor_total,
+        tipo_valor_total: typeof t.valor_total,
+        tipo: t.tipo,
+        status: t.status_pagamento
+      });
+    });
+  }
+
+  // Calcular estatísticas para os cards
+  const stats = {
+    // Valores monetários - com conversão de string para number
+    valorTotal: dadosParaCalcular.reduce((sum, t) => {
+      const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(t.valor_total || '0') || 0;
+      console.log(`🔍 DEBUG - Somando para Total: ${valor} (transação ${t.id})`);
+      return sum + valor;
+    }, 0),
+    valorReceitas: dadosParaCalcular.filter(t => t.tipo === 'RECEITA').reduce((sum, t) => {
+      const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(t.valor_total || '0') || 0;
+      console.log(`🔍 DEBUG - Somando para Receitas: ${valor} (transação ${t.id})`);
+      return sum + valor;
+    }, 0),
+    valorGastos: dadosParaCalcular.filter(t => t.tipo === 'GASTO').reduce((sum, t) => {
+      const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(t.valor_total || '0') || 0;
+      console.log(`🔍 DEBUG - Somando para Gastos: ${valor} (transação ${t.id})`);
+      return sum + valor;
+    }, 0),
+    valorPendentes: dadosParaCalcular.filter(t => t.status_pagamento === 'PENDENTE').reduce((sum, t) => {
+      const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(t.valor_total || '0') || 0;
+      console.log(`🔍 DEBUG - Somando para Pendentes: ${valor} (transação ${t.id})`);
+      return sum + valor;
+    }, 0),
+    valorParceladas: dadosParaCalcular.filter(t => t.eh_parcelado).reduce((sum, t) => {
+      const valor = typeof t.valor_total === 'number' ? t.valor_total : parseFloat(t.valor_total || '0') || 0;
+      console.log(`🔍 DEBUG - Somando para Parceladas: ${valor} (transação ${t.id})`);
+      return sum + valor;
+    }, 0),
+    
+    // Quantidades
+    total: dadosParaCalcular.length,
+    receitas: dadosParaCalcular.filter(t => t.tipo === 'RECEITA').length,
+    gastos: dadosParaCalcular.filter(t => t.tipo === 'GASTO').length,
+    pendentes: dadosParaCalcular.filter(t => t.status_pagamento === 'PENDENTE').length,
+    parceladas: dadosParaCalcular.filter(t => t.eh_parcelado).length,
+  };
+
+  // DEBUG: Verificar stats calculados
+  console.log('🔍 DEBUG - Stats calculados:', stats);
 
   // Handlers
   const handleSearch = (value: string) => {
@@ -368,36 +449,142 @@ export default function TransacoesPage() {
         </Button>
       </div>
 
-      {/* Cards de estatísticas */}
+      {/* Toggle para Configurar Cards */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-gray-700">
+            Configuração dos Cards:
+          </label>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'filtrado'}
+                onChange={() => setModoCards('filtrado')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Valores Filtrados</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'geral'}
+                onChange={() => setModoCards('geral')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Totais Gerais</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'mesAtual'}
+                onChange={() => setModoCards('mesAtual')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Mês Atual</span>
+            </label>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {modoCards === 'filtrado' && "Mostrando valores dos filtros aplicados"}
+          {modoCards === 'geral' && "Mostrando totais de todas as transações"}
+          {modoCards === 'mesAtual' && "Mostrando valores das transações do mês atual"}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <KPICard
           title="Total"
-          value={transacoes.length}
+          value={stats.valorTotal}
           type="balance"
+          secondaryValue={stats.total}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Total de Transações",
+            description: "Valor total de todas as transações registradas no sistema.",
+            details: [
+              "Inclui receitas e despesas",
+              "Base para análise de volume",
+              "Indica atividade financeira"
+            ],
+            tip: "Monitore o crescimento do volume de transações"
+          }}
         />
         
         <KPICard
           title="Receitas"
-          value={transacoes.filter(t => t.tipo === 'RECEITA').length}
+          value={stats.valorReceitas}
           type="revenue"
+          secondaryValue={stats.receitas}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Transações de Receita",
+            description: "Valor total das transações que representam entradas financeiras.",
+            details: [
+              "Inclui vendas, serviços e outras receitas",
+              "Valores que aumentam o saldo",
+              "Base para cálculo de lucros"
+            ],
+            tip: "Maior volume de receitas indica crescimento"
+          }}
         />
         
         <KPICard
           title="Gastos"
-          value={transacoes.filter(t => t.tipo === 'GASTO').length}
+          value={stats.valorGastos}
           type="expense"
+          secondaryValue={stats.gastos}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Transações de Gasto",
+            description: "Valor total das transações que representam saídas financeiras.",
+            details: [
+              "Inclui custos operacionais e despesas",
+              "Valores que diminuem o saldo",
+              "Base para controle de custos"
+            ],
+            tip: "Monitore gastos para manter equilíbrio"
+          }}
         />
         
         <KPICard
           title="Pendentes"
-          value={transacoes.filter(t => t.status_pagamento === 'PENDENTE').length}
+          value={stats.valorPendentes}
           type="pending"
+          secondaryValue={stats.pendentes}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Transações Pendentes",
+            description: "Valor total das transações que aguardam confirmação de pagamento.",
+            details: [
+              "Requerem atenção para aprovação",
+              "Podem afetar o saldo final",
+              "Importante revisar regularmente"
+            ],
+            tip: "Revisar pendências para evitar atrasos"
+          }}
         />
         
         <KPICard
           title="Parceladas"
-          value={transacoes.filter(t => t.eh_parcelado).length}
+          value={stats.valorParceladas}
           type="balance"
+          secondaryValue={stats.parceladas}
+          progress={calcularProgressoTemporal()}
+          tooltip={{
+            title: "Transações Parceladas",
+            description: "Valor total das transações que foram divididas em parcelas.",
+            details: [
+              "Facilita o controle de pagamentos",
+              "Melhora o fluxo de caixa",
+              "Base para planejamento financeiro"
+            ],
+            tip: "Parcelamento pode melhorar a gestão financeira"
+          }}
         />
       </div>
 
