@@ -26,7 +26,7 @@ interface TransactionParticipantsProps {
 export const TransactionParticipants = React.memo(function TransactionParticipants({ 
   form 
 }: TransactionParticipantsProps) {
-  const participantes = form.watch('participantes') || [];
+  const participantes = useMemo(() => form.watch('participantes') || [], [form]);
   const participantesMemo = useMemo(() => participantes, [participantes]);
 
   const addParticipante = useCallback(() => {

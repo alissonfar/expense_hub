@@ -232,7 +232,54 @@ export const createTransacaoSchema = z.object({
   path: ['data_vencimento']
 });
 
-export const updateTransacaoSchema = createTransacaoSchema.partial();
+export const updateTransacaoSchema = z.object({
+  tipo: z.enum(['GASTO', 'RECEITA'] as const).optional(),
+  descricao: z.string().min(3, 'Descrição obrigatória (mínimo 3 caracteres)').optional(),
+  local: z.string().optional().or(z.literal('')),
+  valor_total: valorSchema.optional(),
+  data_transacao: z
+    .string()
+    .min(1, 'Data é obrigatória')
+    .refine(date => !isNaN(Date.parse(date)), {
+      message: 'Data inválida'
+    })
+    .optional(),
+  data_vencimento: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento deve estar no formato YYYY-MM-DD')
+    .optional()
+    .or(z.literal('')),
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'] as const, {
+      message: 'Forma de pagamento inválida'
+    })
+    .optional(),
+  eh_parcelado: z.boolean().optional(),
+  total_parcelas: z
+    .number()
+    .min(1, 'Número de parcelas deve ser maior que 0')
+    .max(36, 'Máximo de 36 parcelas')
+    .optional(),
+  observacoes: z
+    .string()
+    .max(1000, 'Observações devem ter no máximo 1000 caracteres')
+    .optional()
+    .or(z.literal('')),
+  proprietario_id: z.number().positive('Proprietário deve ser selecionado').optional(),
+  tags: z
+    .array(z.number().positive())
+    .max(5, 'Máximo de 5 tags por transação')
+    .optional(),
+  participantes: z
+    .array(
+      z.object({
+        pessoa_id: z.number().positive(),
+        valor_individual: valorSchema
+      })
+    )
+    .max(10, 'Máximo de 10 participantes por transação')
+    .optional()
+});
 
 // Schemas de pagamentos
 export const createPagamentoIndividualSchema = z.object({

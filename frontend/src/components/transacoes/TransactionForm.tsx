@@ -674,7 +674,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                     {tipoTransacao === 'GASTO' && gastoForm.formState.errors.forma_pagamento && (
                       <p className="text-sm text-red-500">{gastoForm.formState.errors.forma_pagamento.message}</p>
                     )}
-                    {tipoTransacao === 'RECEITA' && receitaForm.formState.errors.forma_pagamento && (
+                    {tipoTransacao !== TipoTransacao.GASTO && receitaForm.formState.errors.forma_pagamento && (
                       <p className="text-sm text-red-500">{receitaForm.formState.errors.forma_pagamento.message}</p>
                     )}
                   </div>

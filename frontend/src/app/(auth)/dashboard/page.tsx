@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, AlertCircle, DollarSign } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -321,7 +321,7 @@ export default function DashboardPage() {
         <KPICard
           title="Transações Vencidas"
           value={dadosParaUsar?.resumo.transacoes_vencidas ?? 0}
-          type="alert"
+          type="expense"
           subtitle="Requer atenção urgente"
           progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
@@ -361,7 +361,7 @@ export default function DashboardPage() {
         <KPICard
           title="Próximos Vencimentos"
           value={dadosParaUsar?.resumo.proximos_vencimentos ?? 0}
-          type="warning"
+          type="pending"
           subtitle="Próximos 30 dias"
           progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
