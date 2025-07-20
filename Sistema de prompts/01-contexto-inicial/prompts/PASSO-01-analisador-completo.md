@@ -3,7 +3,7 @@
 **🎯 OBJETIVO**: Mapear completamente o contexto do projeto/módulo alvo para criar a base de conhecimento necessária para todas as ações posteriores.
 
 **📋 ENTRADA OBRIGATÓRIA**: 
-- Nome do projeto/módulo: `[MÓDULO DE TRANSAÇÕES]`
+- Nome do projeto/módulo: `[MÓDULO DE CONVIDAR NOVOS MEMBROS OU CADASTRAR PESSOAS]`
 - Tipo de análise: `[PROJETO_COMPLETO | MÓDULO_ESPECÍFICO | FUNCIONALIDADE]`
 
 ---

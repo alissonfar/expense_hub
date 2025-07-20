@@ -1,15 +1,13 @@
-# 📚 DOCUMENTAÇÃO FINAL: MÓDULO DE TRANSAÇÕES - EXPENSE HUB
+# DOCUMENTAÇÃO FINAL: MÓDULO DE CONVIDAR NOVOS MEMBROS OU CADASTRAR PESSOAS
 
-**Criado em**: 2025-01-27  
-**Baseado na análise**: `01-contexto-inicial/saidas/expense-hub/analise-completa.md`  
+**Data da Documentação**: 2025-01-27  
+**Baseado na Análise**: PASSO-01 - Análise Completa de Contexto  
 **Versão**: 1.0  
-**Próxima revisão**: 2025-02-27  
 **Responsável**: AI Assistant  
 
 ---
 
 ## 🏠 ÍNDICE RÁPIDO
-
 - [Resumo Executivo](#resumo-executivo)
 - [Mapa Técnico](#mapa-tecnico)
 - [Dependências e Integrações](#dependencias)
@@ -24,44 +22,39 @@
 ## 📋 RESUMO EXECUTIVO
 
 ### 🎯 Visão Geral
-**Nome**: Expense Hub - Módulo de Transações  
-**Tipo**: Fullstack (React/Next.js + Node.js/Express)  
-**Tecnologia Principal**: React 19 + Node.js + TypeScript  
-**Estado Atual**: Em Desenvolvimento Ativo  
-**Complexidade**: Alta (Sistema multi-tenant com parcelamento)  
-**Qualidade Geral**: Boa (Código bem estruturado, documentação presente)  
+**Nome**: Módulo de Convidar Novos Membros ou Cadastrar Pessoas  
+**Tipo**: Fullstack (React + Node.js + TypeScript)  
+**Tecnologia Principal**: React + Node.js + TypeScript + Prisma  
+**Estado Atual**: Maduro (funcionalidades principais implementadas)  
+**Complexidade**: Alta (multi-tenancy, RBAC, sistema de convites)  
+**Qualidade Geral**: Boa (bem estruturado, com validações e testes)  
 
 ### 🎪 O Que Faz
-O módulo de transações é o núcleo financeiro do Expense Hub, oferecendo um sistema completo de gestão de gastos e receitas compartilhadas. Permite criar transações com parcelamento flexível (até 36 parcelas), dividir valores entre múltiplos participantes (máximo 10), categorizar por tags e controlar acesso baseado em papéis (RBAC).
+O módulo de gestão de membros é o coração do sistema multi-tenant do Expense Hub, permitindo que proprietários e administradores convidem novos membros para seus Hubs, gerenciem papéis e controlem o acesso de cada pessoa. O sistema utiliza um mecanismo de convites por token com expiração de 24 horas, oferecendo segurança e flexibilidade.
 
-O sistema suporta multi-tenancy, isolando dados por Hub, e oferece funcionalidades avançadas como soft delete, filtros complexos e integração com pagamentos. Receitas são exclusivas do proprietário e automaticamente marcadas como pagas.
+O módulo implementa um sistema completo de RBAC (Role-Based Access Control) com quatro papéis distintos: PROPRIETARIO, ADMINISTRADOR, COLABORADOR e VISUALIZADOR. Cada papel tem permissões específicas e, para colaboradores, é possível definir políticas de acesso (GLOBAL ou INDIVIDUAL) que controlam quais dados cada pessoa pode visualizar e modificar.
 
 ### 📊 Métricas Rápidas
-- **Arquivos Analisados**: 25+ arquivos principais
-- **Dependências Mapeadas**: 15+ APIs e serviços
-- **Integrações Identificadas**: 5 módulos principais
-- **Testes Encontrados**: Parcial (1 arquivo de teste)
-- **Documentação Existente**: Boa (3 guias principais)
+- **Arquivos Analisados**: 15+ arquivos principais
+- **Dependências Mapeadas**: 8 APIs principais
+- **Integrações Identificadas**: 4 sistemas principais
+- **Testes Encontrados**: Sim (testes de integração)
+- **Documentação Existente**: Boa (documentação técnica completa)
 
 ### ⚡ Status Atual
 - ✅ **Pontos Fortes**: 
-  - Código bem estruturado com TypeScript
-  - Documentação técnica presente
-  - Arquitetura multi-tenant robusta
-  - Validação com Zod em ambos os lados
-  - Componentes modulares organizados
-
+  - Arquitetura multi-tenant bem implementada
+  - Sistema de convites seguro com tokens
+  - Validação robusta com Zod
+  - Controle de acesso baseado em roles
+  - Soft delete para preservação de dados
 - ⚠️ **Pontos de Atenção**: 
-  - Logs de debug em produção
-  - Conversões string/number inconsistentes
-  - Cobertura de testes insuficiente
-  - Queries não otimizadas para grandes volumes
-  - Funcionalidades de configuração pendentes
-
+  - Funcionalidade de editar papel não implementada na UI
+  - Reenvio de convite não implementado na UI
+  - Sistema de emails não implementado
+  - Algumas validações de negócio podem precisar de refinamento
 - 🚫 **Problemas Críticos**: 
-  - Falta de testes automatizados
-  - Logs de debug expostos em produção
-  - Validação de tipos inconsistente
+  - Funcionalidades de gestão de membros incompletas na interface
 
 ---
 
@@ -70,58 +63,52 @@ O sistema suporta multi-tenancy, isolando dados por Hub, e oferece funcionalidad
 ### 🏗️ Arquitetura Geral
 ```
 📁 Estrutura de Pastas:
-expense_hub/
-├── frontend/src/
-│   ├── app/(auth)/transacoes/
-│   │   ├── page.tsx (Listagem principal)
-│   │   ├── nova/page.tsx (Criação)
-│   │   └── [id]/ (Detalhes e edição)
-│   ├── components/transacoes/
-│   │   ├── TransactionForm.tsx (Formulário principal)
-│   │   ├── EditTransactionForm.tsx (Edição)
-│   │   └── TransactionForm/ (Componentes modulares)
-│   └── hooks/useTransacoes.ts (Lógica de negócio)
-└── backend/
-    ├── controllers/transacaoController.ts
-    ├── schemas/transacao.ts
-    ├── routes/transacao.ts
-    └── prisma/schema.prisma (Modelo de dados)
+backend/
+├── controllers/pessoaController.ts (411 linhas)
+├── schemas/pessoa.ts (89 linhas)
+├── routes/pessoa.ts (129 linhas)
+├── middleware/auth.ts (339 linhas)
+└── prisma/schema.prisma (tabelas pessoas, membros_hub)
+
+frontend/
+├── src/app/(auth)/membros/page.tsx (240 linhas)
+├── src/components/pessoas/InvitePessoaForm.tsx (151 linhas)
+├── src/hooks/usePessoas.ts (123 linhas)
+├── src/app/ativar-convite/page.tsx (164 linhas)
+└── src/lib/types.ts (tipos Pessoa, PessoaHub, Convite)
 
 🔗 Fluxo de Dados:
-Frontend → API REST → Controller → Prisma → PostgreSQL
-         ← JSON Response ← Zod Validation ← JWT Auth
+Convite → Token → Ativação → Senha → Acesso ao Hub
+Gestão → Listar → Editar → Remover (soft delete)
 
 🔌 Pontos de Integração:
-- Pagamentos: Status e processamento
-- Pessoas: Participantes das transações
-- Tags: Categorização
-- Relatórios: Dados para métricas
-- Dashboard: Transações recentes
+- Sistema de autenticação (JWT)
+- Sistema de hubs (multi-tenancy)
+- Sistema de transações (participantes)
+- Sistema de pagamentos (pessoas)
 ```
 
 ### 🧩 Componentes Principais
 | Componente | Localização | Função | Estado |
 |------------|-------------|--------|--------|
-| TransactionForm | `frontend/src/components/transacoes/` | Formulário principal de criação/edição | ✅ OK |
-| useTransacoes | `frontend/src/hooks/useTransacoes.ts` | Lógica de negócio e cache | ✅ OK |
-| transacaoController | `backend/controllers/transacaoController.ts` | Controlador principal da API | ✅ OK |
-| transacaoSchema | `backend/schemas/transacao.ts` | Validação de dados | ✅ OK |
-| transacaoRoutes | `backend/routes/transacao.ts` | Endpoints da API | ✅ OK |
-| TransacoesPage | `frontend/src/app/(auth)/transacoes/page.tsx` | Listagem principal | ⚠️ Debug logs |
+| pessoaController | backend/controllers/ | CRUD de membros | ✅ OK |
+| InvitePessoaForm | frontend/components/ | Formulário de convite | ✅ OK |
+| usePessoas | frontend/hooks/ | Lógica de negócio | ✅ OK |
+| página membros | frontend/app/membros/ | Interface principal | ⚠️ Atenção |
+| ativar-convite | frontend/app/ativar-convite/ | Ativação de convite | ✅ OK |
+| auth middleware | backend/middleware/ | Controle de acesso | ✅ OK |
 
 ### 🛠️ Tecnologias Utilizadas
 | Categoria | Tecnologia | Versão | Uso |
 |-----------|------------|--------|-----|
+| Framework Backend | Express.js | 4.21.1 | Principal |
 | Framework Frontend | Next.js | 15.3.5 | Principal |
-| Framework Backend | Express | 4.21.1 | Principal |
-| Linguagem | TypeScript | 5.8.3 | Principal |
-| Banco de Dados | PostgreSQL | - | Principal |
-| ORM | Prisma | 6.10.1 | Principal |
-| Validação | Zod | 3.25.74 | Principal |
-| Cache | TanStack Query | 5.81.5 | Principal |
-| UI | Radix UI | - | Específico |
-| Styling | Tailwind CSS | 3.4.17 | Específico |
-| Autenticação | JWT | 8.5.1 | Específico |
+| ORM | Prisma | 6.12.0 | Principal |
+| Validação | Zod | 3.25.67 | Principal |
+| Autenticação | JWT | 8.5.1 | Principal |
+| UI Components | Radix UI | - | Secundário |
+| Estado | TanStack Query | 5.81.5 | Secundário |
+| Formulários | React Hook Form | 7.60.0 | Secundário |
 
 ---
 
@@ -130,34 +117,26 @@ Frontend → API REST → Controller → Prisma → PostgreSQL
 ### 📥 DEPENDÊNCIAS DE ENTRADA (O que consome)
 | Tipo | Fonte | Descrição | Criticidade |
 |------|-------|-----------|-------------|
-| API | `/api/pessoas` | Participantes das transações | Alta |
-| API | `/api/tags` | Categorização das transações | Média |
-| API | `/api/pagamentos` | Status de pagamento | Alta |
-| API | `/api/hub` | Contexto multi-tenant | Crítica |
-| Serviço | Prisma Client | Cliente de banco de dados | Crítica |
-| Serviço | JWT Auth | Autenticação e autorização | Crítica |
-| Biblioteca | date-fns | Manipulação de datas | Baixa |
-| Biblioteca | react-hook-form | Formulários | Média |
-| Biblioteca | TanStack Query | Cache e sincronização | Alta |
+| API | `/api/auth/ativar-convite` | Ativação de convites | Alta |
+| API | `/api/auth/reenviar-convite` | Reenvio de convites | Média |
+| Serviço | Prisma Client | Operações de banco | Crítica |
+| Serviço | JWT Utils | Autenticação | Crítica |
+| Biblioteca | bcrypt | Hash de senhas | Crítica |
+| Biblioteca | Zod | Validação de dados | Alta |
 
 ### 📤 DEPENDÊNCIAS DE SAÍDA (O que oferece)
 | Tipo | Destino | Descrição | Impacto |
 |------|---------|-----------|---------|
-| Endpoint | Frontend | `GET /api/transacoes` (listagem) | Alto |
-| Endpoint | Frontend | `POST /api/transacoes` (criar gasto) | Alto |
-| Endpoint | Frontend | `POST /api/transacoes/receita` (criar receita) | Alto |
-| Endpoint | Frontend | `GET /api/transacoes/:id` (detalhes) | Médio |
-| Endpoint | Frontend | `PUT /api/transacoes/:id` (editar) | Médio |
-| Endpoint | Frontend | `DELETE /api/transacoes/:id` (excluir) | Médio |
-| Componente | Dashboard | TransacoesRecentes | Médio |
-| Hook | Frontend | useTransacoes (listagem) | Alto |
-| Hook | Frontend | useCreateTransacao (criação) | Alto |
-| Hook | Frontend | useUpdateTransacao (atualização) | Médio |
+| Endpoint | `/api/pessoas` | CRUD de membros | Alto |
+| Componente | Sistema de transações | Participantes | Alto |
+| Componente | Sistema de pagamentos | Pessoas | Alto |
+| Hook | usePessoas | Listagem de membros | Médio |
+| Hook | useInvitePessoa | Convite de membros | Médio |
 
 ### 🌐 INTEGRAÇÕES EXTERNAS
 - **APIs Externas**: Nenhuma identificada
 - **Serviços Cloud**: Nenhum identificado
-- **Bancos de Dados**: PostgreSQL (local/cloud)
+- **Bancos de Dados**: PostgreSQL via Prisma
 - **Sistemas Legados**: Nenhum identificado
 
 ---
@@ -165,177 +144,130 @@ Frontend → API REST → Controller → Prisma → PostgreSQL
 ## ⚙️ FUNCIONALIDADES MAPEADAS
 
 ### 🎯 Funcionalidade Principal
-**Nome**: Sistema de Gestão de Transações Financeiras  
-**Descrição**: Sistema completo para criar, gerenciar e rastrear transações financeiras (gastos e receitas) com suporte a parcelamento, divisão de valores entre participantes e categorização por tags.  
-**Fluxo**: Validação → Criação → Participantes → Tags → Cache → UI  
-**Entradas**: Dados de transação, participantes, tags, configurações  
-**Saídas**: Transações criadas, status atualizados, métricas calculadas  
+**Nome**: Gestão Completa de Membros em Hubs Multi-tenant  
+**Descrição**: Sistema completo para convidar, gerenciar e controlar o acesso de membros em Hubs, com suporte a diferentes papéis e políticas de acesso.  
+**Fluxo**: Convite → Token → Ativação → Senha → Acesso → Gestão  
+**Entradas**: Email, nome, papel, política de acesso  
+**Saídas**: Membro ativo no Hub com permissões definidas  
 
 ### 🔧 Subfuncionalidades
 | Funcionalidade | Descrição | Localização | Estado |
 |----------------|-----------|-------------|--------|
-| Gestão de Gastos | Criação com parcelamento e participantes | `TransactionForm.tsx` | ✅ Funcionando |
-| Gestão de Receitas | Criação exclusiva do proprietário | `TransactionForm.tsx` | ✅ Funcionando |
-| Parcelamento | Criação automática de múltiplas transações | `transacaoController.ts` | ✅ Funcionando |
-| Participantes | Divisão de valores entre membros | `TransactionParticipants.tsx` | ✅ Funcionando |
-| Tags | Categorização das transações | `TransactionTags.tsx` | ✅ Funcionando |
-| Filtros | Busca e filtragem avançada | `TransacoesPage.tsx` | ✅ Funcionando |
-| Soft Delete | Exclusão lógica preservando histórico | `transacaoController.ts` | ✅ Funcionando |
-| Validação | Schemas Zod para validação | `transacao.ts` | ✅ Funcionando |
+| Convidar Membro | Cria convite e envia token | pessoaController.convidarMembro | ✅ Funcionando |
+| Ativar Convite | Ativa convite com senha | authController.ativarConvite | ✅ Funcionando |
+| Reenviar Convite | Reenvia convite expirado | pessoaController.reenviarConvite | ✅ Funcionando |
+| Listar Membros | Lista membros do Hub | pessoaController.listMembros | ✅ Funcionando |
+| Editar Papel | Atualiza papel do membro | pessoaController.updateMembro | ⚠️ Parcial |
+| Remover Membro | Soft delete do membro | pessoaController.removerMembro | ✅ Funcionando |
+| Formulário Convite | Interface para convidar | InvitePessoaForm | ✅ Funcionando |
+| Página Membros | Interface principal | membros/page.tsx | ⚠️ Incompleta |
 
 ### 📊 Casos de Uso Identificados
-1. **Criar Gasto Compartilhado**
-   - **Ator**: Proprietário/Administrador/Colaborador
-   - **Cenário**: Criar gasto com múltiplos participantes
-   - **Resultado**: Transação criada com parcelamento opcional
+1. **Convidar Novo Membro**
+   - **Ator**: Proprietário ou Administrador
+   - **Cenário**: Acessa página de membros → Clica "Convidar" → Preenche formulário
+   - **Resultado**: Membro recebe convite por email com token de ativação
 
-2. **Registrar Receita**
-   - **Ator**: Apenas Proprietário
-   - **Cenário**: Registrar receita pessoal
-   - **Resultado**: Receita criada e automaticamente paga
+2. **Ativar Convite**
+   - **Ator**: Pessoa convidada
+   - **Cenário**: Acessa link de convite → Define senha → Ativa conta
+   - **Resultado**: Conta ativada e acesso ao Hub concedido
 
-3. **Parcelar Compra**
-   - **Ator**: Proprietário/Administrador/Colaborador
-   - **Cenário**: Dividir compra em múltiplas parcelas
-   - **Resultado**: Múltiplas transações agrupadas por UUID
-
-4. **Filtrar Transações**
-   - **Ator**: Qualquer usuário autorizado
-   - **Cenário**: Buscar transações por critérios
-   - **Resultado**: Lista filtrada de transações
-
-5. **Editar Transação**
-   - **Ator**: Proprietário/Administrador/Colaborador
-   - **Cenário**: Modificar dados não financeiros
-   - **Resultado**: Transação atualizada
+3. **Gerenciar Membros**
+   - **Ator**: Proprietário ou Administrador
+   - **Cenário**: Lista membros → Edita papéis → Remove membros
+   - **Resultado**: Controle total sobre membros do Hub
 
 ---
 
 ## 🧪 QUALIDADE E TESTES
 
 ### 📏 Padrões de Qualidade
-- **Linting**: ESLint configurado ✅
-- **Formatação**: Prettier configurado ✅
-- **Comentários**: Média (alguns arquivos bem documentados)
-- **Documentação de Código**: Boa (JSDoc em funções principais)
+- **Linting**: ESLint configurado - ✅ Configurado
+- **Formatação**: Prettier configurado - ✅ Configurado
+- **Comentários**: Boa cobertura - ✅ Boa
+- **Documentação de Código**: Nível alto - ✅ Alto
 
 ### 📝 Documentação Existente
-- **README**: Existe - Boa qualidade
-- **API Docs**: Existe - Atualizada (`/api/transacoes/info`)
-- **Comentários no Código**: Suficientes em funções críticas
-- **Documentação Técnica**: Nível alto de detalhamento
+- **README**: Existe - ✅ Boa qualidade
+- **API Docs**: Existe - ✅ Atualizada
+- **Comentários no Código**: Suficientes - ✅ Suficientes
+- **Documentação Técnica**: Alto nível - ✅ Alto
 
-### 🧪 Cobertura de Testes
-- **Testes Unitários**: 1 arquivo básico (`page.test.tsx`)
-- **Testes de Integração**: Scripts manuais em `backend/scripts/`
-- **Testes E2E**: Não identificados
-- **Cobertura Geral**: Baixa (prioridade alta)
-
-### 🔍 Análise de Código
-- **TypeScript**: Uso consistente de tipos
-- **Estrutura**: Componentes modulares bem organizados
-- **Performance**: Queries não otimizadas para grandes volumes
-- **Segurança**: JWT implementado corretamente
+### 🧪 Testes
+- **Cobertura**: Média (testes de integração)
+- **Tipos**: Testes de integração em `backend/scripts/`
+- **Scripts**: `test42end.js` com 6 endpoints testados
+- **Necessidade**: Expandir testes unitários
 
 ---
 
 ## ⚠️ RISCOS E ALERTAS
 
 ### 🚨 PROBLEMAS CRÍTICOS
-1. **Logs de Debug em Produção**
-   - **Descrição**: Múltiplos `console.log` em arquivos de produção
-   - **Impacto**: Vazamento de informações sensíveis, performance degradada
-   - **Localização**: `frontend/src/app/(auth)/transacoes/page.tsx`
+1. **Funcionalidades Incompletas na UI**
+   - **Descrição**: Editar papel e reenviar convite não implementados
+   - **Impacto**: Usuários não conseguem gerenciar membros completamente
+   - **Localização**: `frontend/src/app/(auth)/membros/page.tsx`
    - **Prioridade**: Alta
 
-2. **Falta de Testes Automatizados**
-   - **Descrição**: Cobertura de testes insuficiente
-   - **Impacto**: Risco de regressões, dificuldade de manutenção
-   - **Localização**: Todo o módulo
+2. **Sistema de Emails Não Implementado**
+   - **Descrição**: Convites são gerados mas não enviados por email
+   - **Impacto**: Usuários não recebem convites automaticamente
+   - **Localização**: Backend (função de envio de email)
    - **Prioridade**: Alta
-
-3. **Conversões de Tipos Inconsistentes**
-   - **Descrição**: Conversões string/number não padronizadas
-   - **Impacto**: Bugs sutis, comportamento inesperado
-   - **Localização**: `useTransacoes.ts`, `page.tsx`
-   - **Prioridade**: Média
 
 ### ⚡ PONTOS DE ATENÇÃO
-- **Código Complexo**: Lógica de parcelamento em `transacaoController.ts`
-- **Dependências Frágeis**: Prisma Client e JWT são críticos
-- **Performance**: Queries sem paginação para grandes volumes
-- **Segurança**: Validação de entrada depende de Zod schemas
+- **Código Complexo**: Lógica de multi-tenancy e RBAC requer atenção especial
+- **Dependências Frágeis**: Tokens de convite podem expirar
+- **Performance**: Queries podem ser otimizadas para grandes volumes
+- **Segurança**: Validação de senhas e tokens precisa ser robusta
 
 ### 🔧 DÉBITO TÉCNICO
-- **TODOs**: 
-  - ErrorBoundary logging (ErrorBoundary.tsx)
-  - Configurações pendentes (configuracaoController.ts)
-- **FIXMEs**: Nenhum encontrado
-- **Code Smells**: 
-  - Logs de debug em produção
-  - Conversões de tipos inconsistentes
-  - Queries não otimizadas
-- **Refatoração Necessária**: 
-  - Limpeza de logs de debug
-  - Padronização de conversões de tipos
-  - Otimização de queries
+- **TODOs**: Implementar funcionalidades faltantes na UI
+- **FIXMEs**: Sistema de emails pendente
+- **Code Smells**: Alguns logs de debug em produção
+- **Refatoração Necessária**: Melhorar organização de componentes
 
 ---
 
 ## 🚀 GUIA PARA PRÓXIMOS PASSOS
 
 ### ✅ PONTOS SEGUROS PARA MODIFICAÇÃO
-1. **Componentes de UI (`TransactionForm/`)**
-   - **Por que é seguro**: Componentes modulares bem isolados
-   - **Tipo de mudança recomendada**: Melhorias de UX/UI
+1. **Componentes de UI (InvitePessoaForm)**
+   - **Por que é seguro**: Componente isolado com validações
+   - **Tipo de mudança recomendada**: Melhorias de UX
    - **Impacto esperado**: Baixo
 
-2. **Hooks de Frontend (`useTransacoes.ts`)**
+2. **Hooks do Frontend (usePessoas)**
    - **Por que é seguro**: Lógica bem encapsulada
-   - **Tipo de mudança recomendada**: Otimizações de performance
-   - **Impacto esperado**: Médio
-
-3. **Schemas de Validação (`transacao.ts`)**
-   - **Por que é seguro**: Validação independente
-   - **Tipo de mudança recomendada**: Adicionar novas validações
+   - **Tipo de mudança recomendada**: Otimizações
    - **Impacto esperado**: Baixo
 
-4. **Documentação (`docs/`)**
-   - **Por que é seguro**: Não afeta código de produção
-   - **Tipo de mudança recomendada**: Atualizações e melhorias
-   - **Impacto esperado**: Nenhum
+3. **Validações (Schemas Zod)**
+   - **Por que é seguro**: Validações independentes
+   - **Tipo de mudança recomendada**: Refinamentos
+   - **Impacto esperado**: Baixo
 
 ### 🧪 ESTRATÉGIAS DE VALIDAÇÃO
-- **Testes Obrigatórios**: 
-  - Testes unitários para lógica de negócio
-  - Testes de integração para fluxos completos
-  - Validação de tipos TypeScript
-- **Pontos de Verificação**: 
-  - Funcionamento de parcelamento
-  - Validação de participantes
-  - Isolamento multi-tenant
-- **Rollback**: 
-  - Versionamento de banco com Prisma migrations
-  - Git para código
-  - Backup de dados críticos
-- **Monitoramento**: 
-  - Logs de erro em produção
-  - Métricas de performance
-  - Status de endpoints
+- **Testes Obrigatórios**: Testes de integração para fluxos de convite
+- **Pontos de Verificação**: Validação de tokens e senhas
+- **Rollback**: Backup de dados antes de mudanças críticas
+- **Monitoramento**: Logs de convites e ativações
 
 ### 📋 PREPARAÇÃO PARA PASSO-03
 **Contexto Disponível**: Esta documentação serve como base completa  
 **Tipos de Ação Suportados**:
-- ✅ Correção de Bugs (dados suficientes)
-- ✅ Refatoração (mapa completo)
-- ✅ Nova Feature (arquitetura mapeada)
-- ✅ Otimização (gargalos identificados)
+- ✅ Correção de Bugs (funcionalidades incompletas identificadas)
+- ✅ Refatoração (componentes bem mapeados)
+- ✅ Nova Feature (sistema de emails)
+- ✅ Otimização (queries e performance)
 
 ### 🎯 RECOMENDAÇÕES DE SEQUÊNCIA
-1. **Primeiro**: Limpar logs de debug (baixo risco, alto impacto)
-2. **Segundo**: Implementar testes automatizados (médio risco, alto impacto)
-3. **Terceiro**: Padronizar conversões de tipos (médio risco, médio impacto)
-4. **Por último**: Otimizar queries de performance (alto risco, alto impacto)
+1. **Primeiro**: Implementar funcionalidades faltantes na UI (editar papel, reenviar convite)
+2. **Segundo**: Implementar sistema de envio de emails
+3. **Terceiro**: Melhorar testes e documentação
+4. **Por último**: Otimizações de performance e UX
 
 ---
 
@@ -343,134 +275,97 @@ Frontend → API REST → Controller → Prisma → PostgreSQL
 
 ### 📁 MAPEAMENTO COMPLETO DE ARQUIVOS
 ```
-Frontend:
-├── app/(auth)/transacoes/
-│   ├── page.tsx (Listagem principal - 714 linhas)
-│   ├── nova/page.tsx (Criação)
-│   └── [id]/
-│       ├── page.tsx (Detalhes)
-│       └── TransacaoDetalheClient.tsx (Cliente de detalhes)
-├── components/transacoes/
-│   ├── TransactionForm.tsx (Formulário principal - 1073 linhas)
-│   ├── EditTransactionForm.tsx (Edição - 115 linhas)
-│   └── TransactionForm/
-│       ├── index.tsx (Export)
-│       ├── TransactionBasicInfo.tsx (Info básica - 94 linhas)
-│       ├── TransactionParticipants.tsx (Participantes - 114 linhas)
-│       ├── TransactionTags.tsx (Tags - 131 linhas)
-│       ├── TransactionSummary.tsx (Resumo - 127 linhas)
-│       └── TransactionActions.tsx (Ações - 53 linhas)
-├── hooks/useTransacoes.ts (Lógica de negócio - 432 linhas)
-├── lib/types.ts (Tipos TypeScript - 406 linhas)
-├── lib/api.ts (Cliente API)
-└── lib/validations.ts (Validações Zod)
-
 Backend:
-├── controllers/transacaoController.ts (Controlador - 585 linhas)
-├── schemas/transacao.ts (Schemas Zod - 352 linhas)
-├── routes/transacao.ts (Rotas - 265 linhas)
-├── prisma/schema.prisma (Modelo de dados - 253 linhas)
-└── env.example (Variáveis de ambiente)
+├── controllers/
+│   ├── pessoaController.ts (411 linhas) - CRUD de membros
+│   └── authController.ts (395 linhas) - Autenticação e convites
+├── schemas/
+│   ├── pessoa.ts (89 linhas) - Validações de membros
+│   └── auth.ts - Validações de autenticação
+├── routes/
+│   ├── pessoa.ts (129 linhas) - Rotas de membros
+│   └── auth.ts - Rotas de autenticação
+├── middleware/
+│   └── auth.ts (339 linhas) - Controle de acesso
+├── prisma/
+│   └── schema.prisma - Modelos pessoas e membros_hub
+└── types/
+    └── index.ts - Tipos TypeScript
 
-Documentação:
-├── docs/2025-07-06_crud_transacoes.md (Guia completo - 334 linhas)
-├── docs/API.md (Documentação da API)
-├── docs/2025-01-20_plano_melhorias_transacoes.md (Melhorias)
-└── docs/multi-tenancy/ (Documentação multi-tenant)
-
-Testes:
-├── frontend/src/app/select-hub/page.test.tsx (Teste básico)
-└── backend/scripts/ (Scripts de teste manual)
+Frontend:
+├── app/(auth)/membros/
+│   └── page.tsx (240 linhas) - Página principal
+├── app/ativar-convite/
+│   └── page.tsx (164 linhas) - Ativação de convite
+├── components/pessoas/
+│   └── InvitePessoaForm.tsx (151 linhas) - Formulário de convite
+├── hooks/
+│   └── usePessoas.ts (123 linhas) - Lógica de negócio
+└── lib/
+    └── types.ts - Tipos TypeScript
 ```
 
 ### 🔍 COMANDOS UTILIZADOS NA ANÁLISE
 ```bash
 # Mapeamento inicial
 list_dir .
-read_file frontend/package.json
-read_file backend/package.json
+list_dir backend
+list_dir frontend/src
 
-# Busca por referências
-grep_search "transacao" *.ts,*.tsx,*.js,*.json
-grep_search "transaction" *.ts,*.tsx,*.js,*.json
+# Busca por arquivos relacionados
+grep_search "pessoa" *.ts,*.tsx,*.js,*.jsx
+grep_search "membro" *.ts,*.tsx,*.js,*.jsx
+grep_search "convite" *.ts,*.tsx,*.js,*.jsx
 
-# Análise estrutural
-list_dir frontend/src/app/(auth)/transacoes
-list_dir frontend/src/components/transacoes
-list_dir backend/controllers
-list_dir backend/schemas
-list_dir backend/routes
+# Análise de arquivos principais
+read_file backend/controllers/pessoaController.ts 1-200
+read_file backend/schemas/pessoa.ts 1-89
+read_file backend/routes/pessoa.ts 1-129
+read_file frontend/src/app/(auth)/membros/page.tsx 1-200
+read_file frontend/src/components/pessoas/InvitePessoaForm.tsx 1-151
+read_file frontend/src/hooks/usePessoas.ts 1-123
+read_file backend/prisma/schema.prisma 1-200
+read_file frontend/src/lib/types.ts 1-200
+read_file backend/controllers/authController.ts 1-200
+read_file backend/middleware/auth.ts 1-200
 
-# Análise de schemas e tipos
-read_file backend/schemas/transacao.ts
-read_file frontend/src/lib/types.ts
-
-# Análise de hooks e APIs
-read_file frontend/src/hooks/useTransacoes.ts
-read_file backend/routes/transacao.ts
-
-# Análise de banco de dados
-read_file backend/prisma/schema.prisma
-
-# Análise de documentação
-grep_search "transacao" *.md
-read_file docs/2025-07-06_crud_transacoes.md
-
-# Análise de testes
-grep_search "test" *.test.*,*.spec.*
-list_dir backend/scripts
-
-# Análise de integrações
-grep_search "pagamento" *.ts,*.tsx
-
-# Análise de configurações
-read_file backend/env.example
-
-# Análise de problemas
-grep_search "TODO|FIXME|BUG|HACK" *.ts,*.tsx,*.js
-
-# Análise de UI
-read_file frontend/src/app/(auth)/transacoes/page.tsx
+# Busca por testes e documentação
+grep_search "test.*pessoa|test.*membro|test.*convite" *.js,*.ts,*.md
+grep_search "pessoa|membro|convite" *.md
 ```
 
 ### 🏷️ GLOSSÁRIO TÉCNICO
 | Termo | Definição | Contexto no Projeto |
 |-------|-----------|-------------------|
-| **Transação** | Registro financeiro (gasto ou receita) | Entidade principal do módulo |
-| **Parcelamento** | Divisão de gasto em múltiplas transações | Funcionalidade para compras grandes |
-| **Participante** | Pessoa que participa de uma transação | Divisão de valores entre membros |
-| **Hub** | Workspace/tenant do sistema | Isolamento multi-tenant |
-| **Soft Delete** | Exclusão lógica (ativo=false) | Preservação de histórico |
-| **RBAC** | Role-Based Access Control | Controle de acesso por papéis |
-| **Zod** | Biblioteca de validação TypeScript | Validação de dados |
-| **Prisma** | ORM para TypeScript/Node.js | Acesso ao banco de dados |
-| **TanStack Query** | Biblioteca de cache e sincronização | Gerenciamento de estado |
-| **Multi-tenant** | Arquitetura para múltiplos clientes | Isolamento de dados por Hub |
+| Hub | Workspace/tenant isolado | Unidade básica de isolamento |
+| Pessoa | Usuário do sistema | Entidade que pode pertencer a múltiplos Hubs |
+| Membro | Pessoa em um Hub específico | Relação pessoa-hub com papel |
+| Role | Papel/permissão no Hub | PROPRIETARIO, ADMINISTRADOR, COLABORADOR, VISUALIZADOR |
+| Convite | Token para ativação | Mecanismo de entrada de novos membros |
+| RBAC | Role-Based Access Control | Controle de acesso baseado em papéis |
+| Multi-tenant | Múltiplos tenants isolados | Arquitetura de isolamento por Hub |
+| Soft Delete | Exclusão lógica | Preservação de dados históricos |
 
 ### 🔗 REFERÊNCIAS EXTERNAS
 - **Documentação Oficial**: 
-  - [Next.js](https://nextjs.org/docs)
-  - [React](https://react.dev/)
-  - [Prisma](https://www.prisma.io/docs)
-  - [Zod](https://zod.dev/)
-  - [TanStack Query](https://tanstack.com/query/latest)
+  - [Prisma Docs](https://www.prisma.io/docs)
+  - [Next.js Docs](https://nextjs.org/docs)
+  - [React Query Docs](https://tanstack.com/query/latest)
 - **Recursos Importantes**: 
-  - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-  - [Tailwind CSS](https://tailwindcss.com/docs)
-  - [Radix UI](https://www.radix-ui.com/)
+  - [Zod Documentation](https://zod.dev/)
+  - [JWT.io](https://jwt.io/)
 - **Ferramentas**: 
-  - [ESLint](https://eslint.org/)
-  - [Prettier](https://prettier.io/)
-  - [PostgreSQL](https://www.postgresql.org/docs/)
+  - [Prisma Studio](https://www.prisma.io/studio)
+  - [PostgreSQL](https://www.postgresql.org/)
 
 ---
 
 ## 📋 METADADOS DA DOCUMENTAÇÃO
 
 - **Criado em**: 2025-01-27
-- **Baseado na análise**: `01-contexto-inicial/saidas/expense-hub/analise-completa.md`
+- **Baseado na análise**: PASSO-01 - Análise Completa de Contexto
 - **Versão**: 1.0
-- **Próxima revisão**: 2025-02-27
+- **Próxima revisão**: Após implementação de funcionalidades faltantes
 - **Responsável**: AI Assistant
 
 ---
@@ -487,4 +382,4 @@ read_file frontend/src/app/(auth)/transacoes/page.tsx
 
 ---
 
-**📖 RESULTADO**: Uma documentação completa que serve como fonte única de verdade sobre o módulo de transações para todas as ações futuras! 
+**📖 RESULTADO**: Uma documentação completa que serve como fonte única de verdade sobre o módulo de gestão de membros para todas as ações futuras! 
