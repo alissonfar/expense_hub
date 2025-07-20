@@ -29,8 +29,6 @@ import { pagamentosApi } from '@/lib/api';
 import type { Pagamento, Transacao } from '@/lib/types';
 import type { Row, ColumnDef } from '@tanstack/react-table';
 import { TransactionType, PaymentStatus, PaymentMethod } from '@/lib/types';
-import { useAuth } from '@/hooks/useAuth';
-import { usePessoas } from '@/hooks/usePessoas';
 
 type PagamentoBackend = {
   id: number;
@@ -86,6 +84,9 @@ function isDataPagamentosObject(data: unknown): data is { data: { pagamentos: Pa
 export default function PagamentosPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Toggle configurável: 'filtrado', 'geral', 'mesAtual'
+  const [modoCards, setModoCards] = useState<'filtrado' | 'geral' | 'mesAtual'>('filtrado');
 
   // Buscar pagamentos reais
   const { data, isLoading } = useQuery({
@@ -167,26 +168,122 @@ export default function PagamentosPage() {
     },
     staleTime: 1000 * 60 * 2,
   });
+  
+  // Buscar todos os pagamentos (não filtrados) para totais gerais
+  const { data: todosPagamentosData } = useQuery({
+    queryKey: ['pagamentos-todos'],
+    queryFn: async () => {
+      const res = await pagamentosApi.list({ limit: 1000 }); // Buscar todas as transações
+      let raw: PagamentosApiResponse;
+      if (isArrayPagamentoBackend(res.data)) {
+        raw = res.data;
+      } else if (isDataArrayPagamentoBackend(res.data)) {
+        raw = res.data as { data: PagamentoBackend[] };
+      } else if (isDataPagamentosObject(res.data)) {
+        raw = res.data as { data: { pagamentos: PagamentoBackend[] } };
+      } else {
+        raw = [];
+      }
+      const pagamentosRaw = Array.isArray(raw)
+        ? raw
+        : Array.isArray((raw as { data?: unknown }).data)
+          ? (raw as { data: PagamentoBackend[] }).data
+          : (raw as { data?: { pagamentos?: PagamentoBackend[] } }).data?.pagamentos || [];
+      const mapped = pagamentosRaw.map((p: PagamentoBackend) => ({
+        id: p.id,
+        pessoa_id: p.pessoa_id,
+        valor_total: p.valor_total,
+        valor_excedente: p.valor_excedente,
+        data_pagamento: p.data_pagamento,
+        forma_pagamento: p.forma_pagamento as PaymentMethod,
+        observacoes: p.observacoes,
+        processar_excedente: p.processar_excedente,
+        registrado_por: p.registrado_por,
+        hubId: p.hubId,
+        criado_em: p.criado_em,
+        pessoa: p.pessoas_pagamentos_pessoa_idTopessoas
+          ? {
+              id: p.pessoas_pagamentos_pessoa_idTopessoas.id,
+              nome: p.pessoas_pagamentos_pessoa_idTopessoas.nome,
+              email: p.pessoas_pagamentos_pessoa_idTopessoas.email,
+              telefone: undefined,
+              ehAdministrador: false,
+              ativo: true,
+              data_cadastro: '',
+              atualizado_em: '',
+              conviteToken: undefined
+            }
+          : undefined,
+        transacoes: (p.pagamento_transacoes || []).map(pt => ({
+          id: pt.transacoes?.id ?? pt.transacao_id,
+          tipo: (pt.transacoes?.tipo ?? 'GASTO') as TransactionType,
+          descricao: pt.transacoes?.descricao ?? '',
+          local: undefined,
+          valor_total: pt.transacoes?.valor_total ?? 0,
+          data_transacao: pt.transacoes?.data_transacao ?? '',
+          eh_parcelado: false,
+          parcela_atual: 0,
+          total_parcelas: 0,
+          valor_parcela: 0,
+          grupo_parcela: undefined,
+          observacoes: undefined,
+          status_pagamento: (pt.transacoes?.status_pagamento ?? 'PENDENTE') as PaymentStatus,
+          proprietario_id: 0,
+          criado_por: 0,
+          hubId: 0,
+          criado_em: '',
+          atualizado_em: '',
+          proprietario: undefined,
+          criador: undefined,
+          tags: undefined,
+          participantes: undefined,
+          pagamentos: undefined
+        })),
+        receita_excedente: p.receita_excedente,
+      }));
+      return mapped;
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+  
   const pagamentos = useMemo(() => {
     console.log('Pagamentos no useMemo:', data);
     return data || [];
   }, [data]);
+  
+  const todosPagamentos = useMemo(() => {
+    return todosPagamentosData || [];
+  }, [todosPagamentosData]);
+  
+  // Filtrar pagamentos do mês atual
+  const now = new Date();
+  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const pagamentosMesAtual = todosPagamentos.filter(p => {
+    const data = new Date(p.data_pagamento);
+    return data >= inicioMes && data <= fimMes;
+  });
+  
+  // Escolher dados baseado no modo selecionado
+  let dadosParaCalcular: typeof todosPagamentos = pagamentos;
+  if (modoCards === 'geral') dadosParaCalcular = todosPagamentos;
+  if (modoCards === 'mesAtual') dadosParaCalcular = pagamentosMesAtual;
 
   // Estatísticas calculadas
   const stats = useMemo(() => {
-    const total = pagamentos.length;
-    const valorTotal = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    const total = dadosParaCalcular.length;
+    const valorTotal = dadosParaCalcular.reduce((sum, p) => sum + p.valor_total, 0);
     
-    const pagos = pagamentos.filter(p => p.valor_total > 0).length;
-    const valorPagos = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    const pagos = dadosParaCalcular.filter(p => p.valor_total > 0).length;
+    const valorPagos = dadosParaCalcular.reduce((sum, p) => sum + p.valor_total, 0);
     
-    const comExcedente = pagamentos.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
-    const valorExcedente = pagamentos.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
+    const comExcedente = dadosParaCalcular.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
+    const valorExcedente = dadosParaCalcular.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
     
-    const valorTotalPagamentos = pagamentos.reduce((sum, p) => sum + p.valor_total, 0);
+    const valorTotalPagamentos = dadosParaCalcular.reduce((sum, p) => sum + p.valor_total, 0);
     
-    const excedentes = pagamentos.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
-    const valorTotalExcedentes = pagamentos.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
+    const excedentes = dadosParaCalcular.filter(p => p.valor_excedente && p.valor_excedente > 0).length;
+    const valorTotalExcedentes = dadosParaCalcular.reduce((sum, p) => sum + (p.valor_excedente || 0), 0);
 
     return {
       total,
@@ -199,7 +296,7 @@ export default function PagamentosPage() {
       excedentes,
       valorTotalExcedentes
     };
-  }, [pagamentos]);
+  }, [dadosParaCalcular]);
 
   // Colunas da tabela
   const columns: ColumnDef<Pagamento, unknown>[] = [
@@ -363,6 +460,52 @@ export default function PagamentosPage() {
           <Plus className="w-5 h-5 mr-2" />
           Novo Pagamento
         </Button>
+      </div>
+
+      {/* Toggle para Configurar Cards */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-gray-700">
+            Configuração dos Cards:
+          </label>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'filtrado'}
+                onChange={() => setModoCards('filtrado')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Valores Filtrados</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'geral'}
+                onChange={() => setModoCards('geral')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Totais Gerais</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'mesAtual'}
+                onChange={() => setModoCards('mesAtual')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Mês Atual</span>
+            </label>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {modoCards === 'filtrado' && "Mostrando valores dos filtros aplicados"}
+          {modoCards === 'geral' && "Mostrando totais de todos os pagamentos"}
+          {modoCards === 'mesAtual' && "Mostrando valores dos pagamentos do mês atual"}
+        </div>
       </div>
 
       {/* Cards de estatísticas */}

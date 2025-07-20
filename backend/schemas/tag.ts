@@ -88,7 +88,7 @@ export const tagQuerySchema = z.object({
     .string()
     .regex(/^\d+$/, 'Limite deve ser um número válido')
     .transform(limit => parseInt(limit, 10))
-    .refine(limit => limit > 0 && limit <= 100, 'Limite deve ser entre 1 e 100')
+    .refine(limit => limit > 0 && limit <= 1000, 'Limite deve ser entre 1 e 1000')
     .optional()
 });
 

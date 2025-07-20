@@ -18,7 +18,7 @@ export const listMembros = async (req: Request, res: Response): Promise<void> =>
       res.status(401).json({ error: 'NaoAutenticado', message: 'Autenticação necessária.' });
       return;
     }
-    const { page = 1, limit = 20, ativo, role } = req.query as unknown as ListMembrosQueryInput;
+    const { page = 1, limit = 1000, ativo, role } = req.query as unknown as ListMembrosQueryInput;
     const { hubId } = req.auth;
 
     // FORÇAR FILTRO PADRÃO: Sempre mostrar membros ativos e convites pendentes

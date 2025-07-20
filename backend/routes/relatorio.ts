@@ -143,7 +143,7 @@ router.get('/info', (req, res) => {
           eh_parcelado: 'boolean (opcional) - Apenas parceladas',
           grupo_parcela: 'UUID (opcional) - Grupo específico de parcelas',
           page: 'number (padrão: 1) - Página',
-          limit: 'number (padrão: 20, máx: 100) - Itens por página',
+          limit: 'number (padrão: 20, máx: 1000) - Itens por página',
           ordenar_por: 'data_transacao|valor_total|descricao|criado_em (padrão: data_transacao)',
           ordem: 'asc|desc (padrão: desc)',
           agrupar_por: 'mes|tag|pessoa|tipo|nenhum (padrão: nenhum)',

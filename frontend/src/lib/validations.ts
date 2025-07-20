@@ -295,7 +295,7 @@ export const transacaoFiltersSchema = z.object({
   valor_max: z.number().positive().optional(),
   search: z.string().optional(),
   page: z.number().positive().default(1),
-  limit: z.number().positive().max(100).default(10)
+  limit: z.number().positive().max(1000).default(10)
 });
 
 export const pagamentoFiltersSchema = z.object({
@@ -315,7 +315,7 @@ export const pagamentoFiltersSchema = z.object({
   tem_excedente: z.boolean().optional(),
   search: z.string().optional(),
   page: z.number().positive().default(1),
-  limit: z.number().positive().max(100).default(10)
+  limit: z.number().positive().max(1000).default(10)
 });
 
 // Tipos derivados dos schemas

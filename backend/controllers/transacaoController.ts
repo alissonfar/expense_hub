@@ -32,7 +32,7 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       eh_parcelado,
       grupo_parcela,
       page = 1,
-      limit = 20
+      limit = 1000
     }: TransacaoQueryInput = req.query;
 
     const where: Prisma.transacoesWhereInput = {

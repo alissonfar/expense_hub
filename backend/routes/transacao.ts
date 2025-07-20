@@ -57,7 +57,7 @@ router.get('/info', (req, res) => {
           eh_parcelado: 'boolean',
           grupo_parcela: 'uuid',
           page: 'number (padrão: 1)',
-          limit: 'number (padrão: 20, máx: 100)'
+          limit: 'number (padrão: 20, máx: 1000)'
         }
       },
       'POST /': {

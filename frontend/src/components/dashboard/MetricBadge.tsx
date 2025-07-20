@@ -33,6 +33,9 @@ export const MetricBadge = React.memo(function MetricBadge({
 
   const TrendIcon = getTrendIcon();
 
+  // Se não há ícone de tendência, não renderiza o badge
+  if (!TrendIcon) return null;
+
   const getBadgeStyles = () => {
     if (change > 0) {
       return {

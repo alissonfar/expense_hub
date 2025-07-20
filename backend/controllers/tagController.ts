@@ -11,7 +11,7 @@ import { CreateTagInput, UpdateTagInput, TagQueryInput } from '../schemas/tag';
  */
 export const listTags = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { ativo, criado_por, page = 1, limit = 20 }: TagQueryInput = req.query;
+    const { ativo, criado_por, page = 1, limit = 1000 }: TagQueryInput = req.query;
 
     // Construir filtros
     const where: any = {};

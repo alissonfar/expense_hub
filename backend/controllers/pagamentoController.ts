@@ -43,7 +43,7 @@ export const listPagamentos = async (req: Request, res: Response): Promise<void>
       valor_min,
       valor_max,
       page = 1,
-      limit = 20,
+      limit = 1000,
       sort_by = 'data_pagamento',
       sort_order = 'desc'
     } = queryParams;

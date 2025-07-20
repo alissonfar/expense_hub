@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, TrendingUp, TrendingDown, DollarSign, AlertCircle } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,9 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const onboardingShownRef = useRef(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Toggle configurável: 'filtrado', 'geral', 'mesAtual'
+  const [modoCards, setModoCards] = useState<'filtrado' | 'geral' | 'mesAtual'>('filtrado');
 
   // Buscar dados do dashboard
   const { data: dashboardData, isLoading: loadingDashboard } = useDashboard({
@@ -52,9 +55,26 @@ export default function DashboardPage() {
     data_inicio: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
     data_fim: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
   });
+  
+  // Buscar dados do dashboard para totais gerais (sem filtros de período)
+  const { data: dashboardDataGeral } = useDashboard({ 
+    periodo: '1_ano' // Usar um período longo para dados gerais
+  });
+  
+  // Buscar dados do dashboard para mês atual
+  const { data: dashboardDataMesAtual } = useDashboard({
+    periodo: 'personalizado',
+    data_inicio: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
+    data_fim: format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd')
+  });
 
   // Buscar transações recentes
   const { data: transacoesRecentes, isLoading: loadingTransacoes } = useTransacoesRecentes(5);
+  
+  // Escolher dados baseado no modo selecionado
+  let dadosParaUsar = dashboardData;
+  if (modoCards === 'geral') dadosParaUsar = dashboardDataGeral;
+  if (modoCards === 'mesAtual') dadosParaUsar = dashboardDataMesAtual;
 
   
 
@@ -169,16 +189,60 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Toggle para Configurar Cards */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-gray-700">
+            Configuração dos Cards:
+          </label>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'filtrado'}
+                onChange={() => setModoCards('filtrado')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Valores Filtrados</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'geral'}
+                onChange={() => setModoCards('geral')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Totais Gerais</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="cardMode"
+                checked={modoCards === 'mesAtual'}
+                onChange={() => setModoCards('mesAtual')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-600">Mês Atual</span>
+            </label>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">
+          {modoCards === 'filtrado' && "Mostrando valores dos filtros aplicados"}
+          {modoCards === 'geral' && "Mostrando totais de todas as transações"}
+          {modoCards === 'mesAtual' && "Mostrando valores das transações do mês atual"}
+        </div>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Receitas no Período"
-          value={dashboardData?.resumo.total_receitas ?? 0}
+          value={dadosParaUsar?.resumo.total_receitas ?? 0}
           type="revenue"
-          change={dashboardData?.comparativo?.receitas_variacao}
+          change={dadosParaUsar?.comparativo?.receitas_variacao}
           subtitle="vs período anterior"
-          secondaryValue={dashboardData?.resumo.total_receitas_mes_atual ?? 0}
-          secondaryLabel="Este mês"
           progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
           tooltip={{
@@ -195,12 +259,10 @@ export default function DashboardPage() {
         
         <KPICard
           title="Despesas no Período"
-          value={dashboardData?.resumo.total_gastos ?? 0}
+          value={dadosParaUsar?.resumo.total_gastos ?? 0}
           type="expense"
-          change={dashboardData?.comparativo?.gastos_variacao}
+          change={dadosParaUsar?.comparativo?.gastos_variacao}
           subtitle="vs período anterior"
-          secondaryValue={dashboardData?.resumo.total_gastos_mes_atual ?? 0}
-          secondaryLabel="Este mês"
           progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
           tooltip={{
@@ -217,17 +279,15 @@ export default function DashboardPage() {
         
         {!isVisualizador && (
           <KPICard
-            title="Saldo Atual"
-            value={dashboardData?.resumo.saldo_atual ?? 0}
+            title="Saldo do Período"
+            value={dadosParaUsar?.resumo.saldo_periodo ?? 0}
             type="balance"
-            subtitle="Disponível"
-            secondaryValue={dashboardData?.resumo.saldo_anterior ?? 0}
-            secondaryLabel="Mês anterior"
+            subtitle="Resultado líquido"
             progress={calcularProgressoTemporal()}
             loading={loadingDashboard}
             tooltip={{
-              title: "Saldo Atual",
-              description: "Diferença entre receitas e despesas, indicando a situação financeira atual.",
+              title: "Saldo do Período",
+              description: "Diferença entre receitas e despesas, indicando a situação financeira do período.",
               details: [
                 "Resultado líquido das operações",
                 "Indica saúde financeira do hub",
@@ -240,11 +300,9 @@ export default function DashboardPage() {
         
         <KPICard
           title="Transações Pendentes"
-          value={dashboardData?.resumo.transacoes_pendentes ?? 0}
+          value={dadosParaUsar?.resumo.transacoes_pendentes ?? 0}
           type="pending"
           subtitle="Aguardando aprovação"
-          secondaryValue={dashboardData?.resumo.transacoes_pendentes_valor ?? 0}
-          secondaryLabel="Valor pendente"
           progress={calcularProgressoTemporal()}
           loading={loadingDashboard}
           tooltip={{

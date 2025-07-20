@@ -271,7 +271,7 @@ export const pagamentoQuerySchema = z.object({
       if (typeof val === 'number') return val;
       return parseInt(val);
     })
-    .refine(val => val >= 1 && val <= 100, 'Limite deve estar entre 1 e 100')
+    .refine(val => val >= 1 && val <= 1000, 'Limite deve estar entre 1 e 1000')
     .default('20'),
   
   // Ordenação

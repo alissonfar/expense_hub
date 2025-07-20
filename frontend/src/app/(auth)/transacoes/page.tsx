@@ -12,10 +12,6 @@ import { useRouter } from 'next/navigation';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { calcularProgressoTemporal } from '@/lib/utils';
 
-// Sistema de debug condicional (só em desenvolvimento)
-const isDevelopment = process.env.NODE_ENV === 'development';
-const debugLog = isDevelopment ? console.log : () => {};
-
 import type { TransacaoFilters, Transacao } from '@/lib/types';
 import { DataTable } from '@/components/ui/data-table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -27,19 +23,16 @@ import {
   Plus, 
   Search, 
   Filter, 
+  CalendarIcon, 
   MoreHorizontal, 
-  Edit, 
-  Trash, 
-  Copy, 
-  Eye,
-  CalendarIcon,
-  DollarSign,
-  Users,
-  Tag,
+  DollarSign, 
   Clock,
-  TrendingUp,
-  AlertCircle,
-  CreditCard
+  Edit,
+  Trash2,
+  Copy,
+  Eye,
+  Users,
+  Tag
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -61,12 +54,11 @@ export default function TransacoesPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<TransacaoFilters>({
     page: 1,
-    limit: 20,
+    limit: 1000, // Aumentado para mostrar todas as transações
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [mostrarTotaisGerais, setMostrarTotaisGerais] = useState(false);
 
   // Toggle configurável: 'filtrado', 'geral', 'mesAtual'
   const [modoCards, setModoCards] = useState<'filtrado' | 'geral' | 'mesAtual'>('filtrado');
@@ -79,7 +71,10 @@ export default function TransacoesPage() {
   const { data: transacoesData } = useTransacoes(filters);
   
   // Query para buscar todos os dados (não filtrados) para totais gerais
-  const { data: todasTransacoesData } = useTransacoes({});
+  // Usar limite alto (1000) para garantir que todas as transações sejam buscadas
+  const { data: todasTransacoesData } = useTransacoes({ 
+    limit: 1000 // Buscar todas as transações para cálculos corretos
+  });
 
   // Mutations
   const deleteTransacao = useDeleteTransacao();
@@ -106,12 +101,27 @@ export default function TransacoesPage() {
   // DEBUG: Verificar dados reais
   console.log('🔍 DEBUG - transacoesData completo:', transacoesData);
   console.log('🔍 DEBUG - transacoes array:', transacoes);
+  console.log('🔍 DEBUG - todasTransacoesData completo:', todasTransacoesData);
   console.log('🔍 DEBUG - todasTransacoes array:', todasTransacoes);
-  console.log('🔍 DEBUG - dadosParaCalcular array:', dadosParaCalcular);
-  console.log('🔍 DEBUG - mostrarTotaisGerais:', mostrarTotaisGerais);
-  console.log('🔍 DEBUG - Primeira transação:', dadosParaCalcular[0]);
-  console.log('🔍 DEBUG - valor_total da primeira transação:', dadosParaCalcular[0]?.valor_total, 'tipo:', typeof dadosParaCalcular[0]?.valor_total);
+  console.log('🔍 DEBUG - dadosParaCalcular (modo atual):', dadosParaCalcular);
+  console.log('🔍 DEBUG - Quantidade de transações por modo:');
+  console.log('  - Filtrado:', transacoes.length);
+  console.log('  - Geral:', todasTransacoes.length);
+  console.log('  - Mês Atual:', transacoesMesAtual.length);
   
+  // DEBUG: Verificar se há parcelas
+  const parcelas = todasTransacoes.filter(t => t.eh_parcelado);
+  console.log('🔍 DEBUG - Parcelas encontradas:', parcelas.length);
+  if (parcelas.length > 0) {
+    console.log('🔍 DEBUG - Primeira parcela:', parcelas[0]);
+    console.log('🔍 DEBUG - Grupo da primeira parcela:', parcelas[0].grupo_parcela);
+  }
+  
+  // DEBUG: Verificar grupos de parcelas únicos
+  const gruposParcelas = [...new Set(todasTransacoes.filter(t => t.grupo_parcela).map(t => t.grupo_parcela))];
+  console.log('🔍 DEBUG - Grupos de parcelas únicos:', gruposParcelas.length);
+  console.log('🔍 DEBUG - Grupos:', gruposParcelas);
+
   if (dadosParaCalcular.length > 0) {
     console.log('🔍 DEBUG - Todas as transações com valor_total:');
     dadosParaCalcular.forEach((t, index) => {
@@ -414,7 +424,7 @@ export default function TransacoesPage() {
                   onClick={() => handleDelete(transacao.id)}
                   className="text-red-600"
                 >
-                  <Trash className="mr-2 h-4 w-4" />
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Excluir
                 </DropdownMenuItem>
               )}
@@ -677,7 +687,7 @@ export default function TransacoesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setFilters({ page: 1, limit: 20 });
+                  setFilters({ page: 1, limit: 1000 });
                   setSearchTerm('');
                   setDateRange(undefined);
                 }}

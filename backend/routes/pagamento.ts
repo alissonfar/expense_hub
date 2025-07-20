@@ -90,7 +90,7 @@ router.get('/info', (req, res) => {
           valor_min: 'number (opcional) - Valor mínimo do pagamento',
           valor_max: 'number (opcional) - Valor máximo do pagamento',
           page: 'number (opcional) - Página (padrão: 1)',
-          limit: 'number (opcional) - Itens por página (padrão: 20, máx: 100)',
+          limit: 'number (opcional) - Itens por página (padrão: 20, máx: 1000)',
           sort_by: 'data_pagamento|valor_total|criado_em (opcional, padrão: data_pagamento)',
           sort_order: 'asc|desc (opcional, padrão: desc)'
         },

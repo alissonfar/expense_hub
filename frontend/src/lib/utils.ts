@@ -10,12 +10,10 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Porcentagem do mês que já decorreu (0-100)
  */
 export function calcularProgressoTemporal(): number {
-  const hoje = new Date();
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  const now = new Date();
+  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const diaAtual = now.getDate();
+  const totalDiasMes = fimMes.getDate();
   
-  const diasDecorridos = hoje.getDate();
-  const diasNoMes = fimMes.getDate();
-  
-  return Math.min(Math.round((diasDecorridos / diasNoMes) * 100), 100);
+  return Math.round((diaAtual / totalDiasMes) * 100);
 }

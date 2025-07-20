@@ -855,7 +855,7 @@ export const getTransacoes = async (req: Request, res: Response): Promise<void> 
       eh_parcelado,
       grupo_parcela,
       page = 1,
-      limit = 20,
+      limit = 1000,
       ordenar_por,
       ordem,
       agrupar_por,
