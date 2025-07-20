@@ -62,6 +62,55 @@
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     
     --radius: 0.5rem;
+
+    /* === Novas cores contextuais === */
+    --success-50: 142 76% 97%;
+    --success-100: 141 84% 93%;
+    --success-200: 141 79% 85%;
+    --success-300: 142 77% 73%;
+    --success-400: 142 69% 58%;
+    --success-500: 142 76% 36%;
+    --success-600: 142 72% 29%;
+    --success-700: 142 69% 24%;
+    --success-800: 143 64% 24%;
+    --success-900: 144 61% 20%;
+    --success-950: 145 80% 11%;
+
+    --danger-50: 0 84% 97%;
+    --danger-100: 0 93% 94%;
+    --danger-200: 0 96% 89%;
+    --danger-300: 0 93% 82%;
+    --danger-400: 0 90% 71%;
+    --danger-500: 0 84% 60%;
+    --danger-600: 0 72% 51%;
+    --danger-700: 0 74% 42%;
+    --danger-800: 0 70% 35%;
+    --danger-900: 0 62% 30%;
+    --danger-950: 0 74% 20%;
+
+    --neutral-50: 220 14% 96%;
+    --neutral-100: 220 13% 91%;
+    --neutral-200: 220 9% 80%;
+    --neutral-300: 216 12% 84%;
+    --neutral-400: 218 11% 65%;
+    --neutral-500: 220 9% 46%;
+    --neutral-600: 215 16% 47%;
+    --neutral-700: 217 19% 27%;
+    --neutral-800: 215 28% 17%;
+    --neutral-900: 221 39% 11%;
+    --neutral-950: 229 84% 5%;
+
+    /* === Novos gradientes contextuais === */
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 72% 29%) 100%);
+    --gradient-danger: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 51%) 100%);
+    --gradient-neutral: linear-gradient(135deg, hsl(220 9% 46%) 0%, hsl(215 16% 47%) 100%);
+    --gradient-glass-success: linear-gradient(135deg, hsla(142, 76%, 36%, 0.1) 0%, hsla(142, 72%, 29%, 0.05) 100%);
+    --gradient-glass-danger: linear-gradient(135deg, hsla(0, 84%, 60%, 0.1) 0%, hsla(0, 72%, 51%, 0.05) 100%);
+    --gradient-glass-neutral: linear-gradient(135deg, hsla(220, 9%, 46%, 0.1) 0%, hsla(215, 16%, 47%, 0.05) 100%);
+    /* === Novas sombras contextuais === */
+    --shadow-success: 0 4px 14px 0 rgba(34, 197, 94, 0.15);
+    --shadow-danger: 0 4px 14px 0 rgba(239, 68, 68, 0.15);
+    --shadow-neutral: 0 4px 14px 0 rgba(107, 114, 128, 0.15);
   }
   
   .dark {

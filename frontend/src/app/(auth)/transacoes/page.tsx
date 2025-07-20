@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRequireHub, usePermissions } from '@/hooks/useAuth';
 import { useTransacoes, useDeleteTransacao, useDuplicateTransacao } from '@/hooks/useTransacoes';
 import { useRouter } from 'next/navigation';
+import { KPICard } from '@/components/dashboard/KPICard';
 
 // Sistema de debug condicional (só em desenvolvimento)
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -369,75 +370,35 @@ export default function TransacoesPage() {
 
       {/* Cards de estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Total</p>
-                <p className="text-3xl font-bold">{transacoes.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Total"
+          value={transacoes.length}
+          type="balance"
+        />
         
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Receitas</p>
-                <p className="text-3xl font-bold">{transacoes.filter(t => t.tipo === 'RECEITA').length}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Receitas"
+          value={transacoes.filter(t => t.tipo === 'RECEITA').length}
+          type="revenue"
+        />
         
-        <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-100 text-sm font-medium">Gastos</p>
-                <p className="text-3xl font-bold">{transacoes.filter(t => t.tipo === 'GASTO').length}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Gastos"
+          value={transacoes.filter(t => t.tipo === 'GASTO').length}
+          type="expense"
+        />
         
-        <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-100 text-sm font-medium">Pendentes</p>
-                <p className="text-3xl font-bold">{transacoes.filter(t => t.status_pagamento === 'PENDENTE').length}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <Clock className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Pendentes"
+          value={transacoes.filter(t => t.status_pagamento === 'PENDENTE').length}
+          type="pending"
+        />
         
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">Parceladas</p>
-                <p className="text-3xl font-bold">{transacoes.filter(t => t.eh_parcelado).length}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <CreditCard className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Parceladas"
+          value={transacoes.filter(t => t.eh_parcelado).length}
+          type="balance"
+        />
       </div>
 
       {/* Filters and Search */}

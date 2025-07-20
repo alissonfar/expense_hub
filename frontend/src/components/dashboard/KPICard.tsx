@@ -2,62 +2,88 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus,
-  LucideIcon
-} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MetricIcon } from './MetricIcon';
+import { MetricBadge } from './MetricBadge';
 import { cn } from '@/lib/utils';
 
 interface KPICardProps {
   title: string;
   value: string | number;
-  icon: LucideIcon;
+  type: 'revenue' | 'expense' | 'balance' | 'pending';
   change?: number;
   changeLabel?: string;
   subtitle?: string;
-  valueColor?: 'default' | 'success' | 'danger';
   loading?: boolean;
+  interactive?: boolean;
 }
 
 export const KPICard = React.memo(function KPICard({
   title,
   value,
-  icon: Icon,
+  type,
   change,
   changeLabel,
   subtitle,
-  valueColor = 'default',
   loading = false,
+  interactive = true,
 }: KPICardProps) {
-  const getTrendIcon = () => {
-    if (!change) return null;
-    if (change > 0) return TrendingUp;
-    if (change < 0) return TrendingDown;
-    return Minus;
+  const getCardStyles = () => {
+    switch (type) {
+      case 'revenue':
+        return {
+          border: 'border-success-200',
+          bg: 'bg-gradient-glass-success',
+          shadow: 'shadow-success',
+          hoverShadow: 'hover:shadow-success/50',
+        };
+      case 'expense':
+        return {
+          border: 'border-danger-200',
+          bg: 'bg-gradient-glass-danger',
+          shadow: 'shadow-danger',
+          hoverShadow: 'hover:shadow-danger/50',
+        };
+      case 'balance':
+        return {
+          border: 'border-blue-200',
+          bg: 'bg-gradient-primary/5',
+          shadow: 'shadow-lg',
+          hoverShadow: 'hover:shadow-xl',
+        };
+      case 'pending':
+        return {
+          border: 'border-neutral-200',
+          bg: 'bg-gradient-glass-neutral',
+          shadow: 'shadow-neutral',
+          hoverShadow: 'hover:shadow-neutral/50',
+        };
+    }
   };
 
-  const TrendIcon = getTrendIcon();
-
-  const valueColorClasses = {
-    default: 'text-gray-900',
-    success: 'text-green-600',
-    danger: 'text-red-600',
+  const getValueColor = () => {
+    switch (type) {
+      case 'revenue':
+        return 'text-success-700';
+      case 'expense':
+        return 'text-danger-700';
+      case 'balance':
+        return 'text-blue-700';
+      case 'pending':
+        return 'text-neutral-700';
+    }
   };
 
-  const changeColorClasses = change
-    ? change > 0
-      ? 'text-green-600 bg-green-50'
-      : change < 0
-      ? 'text-red-600 bg-red-50'
-      : 'text-gray-600 bg-gray-50'
-    : '';
+  const styles = getCardStyles();
 
   if (loading) {
     return (
-      <Card className="relative overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      <Card className={cn(
+        "relative overflow-hidden transition-all duration-300",
+        styles.border,
+        styles.bg,
+        styles.shadow
+      )}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
           <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse" />
@@ -70,78 +96,92 @@ export const KPICard = React.memo(function KPICard({
     );
   }
 
+  const cardContent = (
+    <Card className={cn(
+      "relative overflow-hidden transition-all duration-300",
+      styles.border,
+      styles.bg,
+      styles.shadow,
+      interactive && styles.hoverShadow,
+      interactive && "hover:-translate-y-1"
+    )}
+    role="region"
+    aria-label={`Métrica: ${title}`}
+    tabIndex={0}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        <MetricIcon type={type} size="md" animated={interactive} />
+      </CardHeader>
+      
+      <CardContent>
+        <div className="flex items-baseline justify-between">
+          <div className="flex-1">
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 200,
+                damping: 15
+              }}
+              className={cn(
+                "text-3xl font-bold tracking-tight",
+                getValueColor()
+              )}
+            >
+              {typeof value === 'number' && !isNaN(value)
+                ? new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(value ?? 0)
+                : value !== undefined && value !== null
+                  ? value
+                  : '—'
+              }
+            </motion.div>
+            
+            {subtitle && (
+              <motion.p
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-xs text-muted-foreground mt-1"
+              >
+                {subtitle}
+              </motion.p>
+            )}
+          </div>
+          
+          <MetricBadge 
+            change={change}
+            changeLabel={changeLabel}
+            animated={interactive}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (!interactive) {
+    return cardContent;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ 
+        duration: 0.4,
+        type: "spring",
+        stiffness: 100,
+        damping: 15
+      }}
       whileHover={{ y: -2 }}
     >
-      <Card className="relative overflow-hidden hover:shadow-lg transition-all duration-300 border-blue-100">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 to-transparent" />
-        
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {title}
-          </CardTitle>
-          <div className="p-2.5 rounded-lg bg-gradient-primary/10">
-            <Icon className="h-5 w-5 text-blue-600" />
-          </div>
-        </CardHeader>
-        
-        <CardContent className="relative">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <motion.div
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-                className={cn(
-                  "text-2xl font-bold",
-                  valueColorClasses[valueColor]
-                )}
-              >
-                {typeof value === 'number' && !isNaN(value)
-                  ? new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL'
-                    }).format(value ?? 0)
-                  : value !== undefined && value !== null
-                    ? value
-                    : '—'
-                }
-              </motion.div>
-              
-              {subtitle && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {subtitle}
-                </p>
-              )}
-            </div>
-            
-            {change !== undefined && TrendIcon && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                  changeColorClasses
-                )}
-              >
-                <TrendIcon className="h-3 w-3" />
-                <span>{Math.abs(change).toFixed(1)}%</span>
-                {changeLabel && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    {changeLabel}
-                  </span>
-                )}
-              </motion.div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {cardContent}
     </motion.div>
   );
 }); 

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Users, CheckSquare, Divide, ListChecks, AlertCircle, Info, Loader2, Calculator, CreditCard, DollarSign } from 'lucide-react';
 import { usePessoas } from '@/hooks/usePessoas';
+import { KPICard } from '@/components/dashboard/KPICard';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -478,22 +479,30 @@ export default function NovoPagamentoPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{estatisticas.totalPendencias}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
-              </div>
-              <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{estatisticas.pendenciasQuitadas}</div>
-                <div className="text-sm text-green-700 dark:text-green-300">Quitadas</div>
-              </div>
-              <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{estatisticas.pendenciasParciais}</div>
-                <div className="text-sm text-yellow-700 dark:text-yellow-300">Parciais</div>
-              </div>
-              <div className="text-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{estatisticas.pendenciasPendentes}</div>
-                <div className="text-sm text-red-700 dark:text-red-300">Pendentes</div>
-              </div>
+              <KPICard
+                title="Total"
+                value={estatisticas.totalPendencias}
+                type="balance"
+                interactive={false}
+              />
+              <KPICard
+                title="Quitadas"
+                value={estatisticas.pendenciasQuitadas}
+                type="revenue"
+                interactive={false}
+              />
+              <KPICard
+                title="Parciais"
+                value={estatisticas.pendenciasParciais}
+                type="pending"
+                interactive={false}
+              />
+              <KPICard
+                title="Pendentes"
+                value={estatisticas.pendenciasPendentes}
+                type="expense"
+                interactive={false}
+              />
             </div>
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
               <div className="flex items-center justify-between">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
+import { KPICard } from '@/components/dashboard/KPICard';
 import { 
   Plus, 
   CalendarIcon, 
@@ -351,75 +352,35 @@ export default function PagamentosPage() {
 
       {/* Cards de estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total</p>
-                <p className="text-3xl font-bold">{stats.total}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Total"
+          value={stats.total}
+          type="balance"
+        />
 
-        <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Pagos</p>
-                <p className="text-3xl font-bold">{stats.pagos}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Pagos"
+          value={stats.pagos}
+          type="revenue"
+        />
 
-        <Card className="bg-gradient-to-br from-yellow-500 to-orange-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-100 text-sm font-medium">Pendentes</p>
-                <p className="text-3xl font-bold">{stats.pendentes}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <Clock className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Pendentes"
+          value={stats.pendentes}
+          type="pending"
+        />
 
-        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">Valor Total</p>
-                <p className="text-2xl font-bold">R$ {stats.valorTotal.toLocaleString('pt-BR')}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Valor Total"
+          value={stats.valorTotal}
+          type="balance"
+        />
 
-        <Card className="bg-gradient-to-br from-red-500 to-pink-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-100 text-sm font-medium">Excedentes</p>
-                <p className="text-3xl font-bold">{stats.excedentes}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard
+          title="Excedentes"
+          value={stats.excedentes}
+          type="expense"
+        />
       </div>
 
       {/* Filtros e busca com design moderno */}
