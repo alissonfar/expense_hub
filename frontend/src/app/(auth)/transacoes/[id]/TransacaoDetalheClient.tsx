@@ -85,6 +85,43 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
             <span className="text-sm text-muted-foreground">Data:</span>
             <div className="font-medium">{new Date(transacao.data_transacao).toLocaleDateString('pt-BR')}</div>
           </div>
+          
+          {/* ✅ NOVO: Data de Vencimento (apenas para gastos) */}
+          {transacao.tipo === 'GASTO' && transacao.data_vencimento && (
+            <div>
+              <span className="text-sm text-muted-foreground">Data de Vencimento:</span>
+              <div className="font-medium flex items-center gap-2">
+                {new Date(transacao.data_vencimento).toLocaleDateString('pt-BR')}
+                {(() => {
+                  const hoje = new Date();
+                  const vencimento = new Date(transacao.data_vencimento);
+                  const diasAteVencimento = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  if (diasAteVencimento < 0) {
+                    return <Badge variant="destructive">Vencida</Badge>;
+                  } else if (diasAteVencimento === 0) {
+                    return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Vence hoje</Badge>;
+                  } else if (diasAteVencimento <= 7) {
+                    return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Vence em {diasAteVencimento} dias</Badge>;
+                  }
+                  return null;
+                })()}
+              </div>
+            </div>
+          )}
+          
+          {/* ✅ NOVO: Forma de Pagamento */}
+          {transacao.forma_pagamento && (
+            <div>
+              <span className="text-sm text-muted-foreground">Forma de Pagamento:</span>
+              <div className="font-medium">
+                <Badge variant="secondary">
+                  {transacao.forma_pagamento}
+                </Badge>
+              </div>
+            </div>
+          )}
+          
           <div>
             <span className="text-sm text-muted-foreground">Status Pagamento:</span>
             <Badge variant="secondary">{transacao.status_pagamento}</Badge>
@@ -266,11 +303,15 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
             defaultValues={{
               descricao: transacao.descricao,
               local: transacao.local,
+              data_vencimento: transacao.data_vencimento || '', // ✅ NOVO
+              forma_pagamento: transacao.forma_pagamento, // ✅ NOVO
               observacoes: transacao.observacoes,
               tags: (transacao.tags || []).map(tag => String(tag.id)),
             }}
             availableTags={tagsData.map(tag => ({ id: String(tag.id), nome: tag.nome, cor: tag.cor }))}
             loadingTags={loadingTags}
+            tipoTransacao={transacao.tipo} // ✅ NOVO: Passar tipo da transação
+            dataTransacao={transacao.data_transacao} // ✅ NOVO: Passar data da transação para validação
             onSubmit={async (payload) => {
               try {
                 await updateMutation.mutateAsync({

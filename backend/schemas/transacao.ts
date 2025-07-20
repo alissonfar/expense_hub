@@ -28,6 +28,31 @@ const validarDataTransacao = (date: string): boolean => {
 };
 
 /**
+ * Função para validar data de vencimento
+ * - Deve ser >= data_transacao
+ * - Pode ser futura (diferente da data_transacao)
+ * - Deve estar entre 2000-2050
+ */
+const validarDataVencimento = (dataVencimento: string, dataTransacao: string): boolean => {
+  const vencimento = new Date(dataVencimento);
+  const transacao = new Date(dataTransacao);
+  
+  // Verificar se a data é válida
+  if (isNaN(vencimento.getTime())) {
+    return false;
+  }
+  
+  // Verificar se está dentro de uma faixa razoável (2000-2050)
+  const year = vencimento.getFullYear();
+  if (year < 2000 || year > 2050) {
+    return false;
+  }
+  
+  // Verificar se é >= data_transacao
+  return vencimento >= transacao;
+};
+
+/**
  * Schema para participante na transação (GASTOS)
  */
 export const participanteSchema = z.object({
@@ -112,7 +137,19 @@ export const createGastoSchema = z.object({
     .array(z.number().int().positive())
     .max(5, 'Máximo de 5 tags por transação')
     .optional()
-    .default([])
+    .default([]),
+  
+  // Novos campos
+  data_vencimento: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento deve estar no formato YYYY-MM-DD')
+    .optional()
+    .describe('Data de vencimento da transação (opcional)'),
+  
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'])
+    .optional()
+    .describe('Forma de pagamento preferencial (opcional)')
 })
 .refine(
   (data) => {
@@ -124,6 +161,19 @@ export const createGastoSchema = z.object({
   {
     message: 'A soma dos valores dos participantes deve ser igual ao valor total (tolerância de 1 centavo)',
     path: ['participantes']
+  }
+)
+.refine(
+  (data) => {
+    // Validar data de vencimento se fornecida
+    if (data.data_vencimento) {
+      return validarDataVencimento(data.data_vencimento, data.data_transacao);
+    }
+    return true;
+  },
+  {
+    message: 'Data de vencimento deve ser maior ou igual à data da transação',
+    path: ['data_vencimento']
   }
 );
 
@@ -171,7 +221,13 @@ export const createReceitaSchema = z.object({
     .array(z.number().int().positive())
     .max(5, 'Máximo de 5 tags por transação')
     .optional()
-    .default([])
+    .default([]),
+  
+  // Novos campos (apenas forma_pagamento, receitas não têm vencimento)
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'])
+    .optional()
+    .describe('Forma de pagamento da receita (opcional)')
 });
 
 /**
@@ -202,7 +258,19 @@ export const updateGastoSchema = z.object({
   tags: z
     .array(z.number().int().positive())
     .max(5, 'Máximo de 5 tags por transação')
+    .optional(),
+  
+  // Novos campos
+  data_vencimento: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento deve estar no formato YYYY-MM-DD')
     .optional()
+    .describe('Data de vencimento da transação (opcional)'),
+  
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'])
+    .optional()
+    .describe('Forma de pagamento preferencial (opcional)')
 });
 
 /**
@@ -249,7 +317,13 @@ export const updateReceitaSchema = z.object({
   tags: z
     .array(z.number().int().positive())
     .max(5, 'Máximo de 5 tags por transação')
+    .optional(),
+  
+  // Novos campos (apenas forma_pagamento, receitas não têm vencimento)
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'])
     .optional()
+    .describe('Forma de pagamento da receita (opcional)')
 }).refine(
   (data) => Object.keys(data).length > 0,
   'Pelo menos um campo deve ser fornecido para atualização'
@@ -324,6 +398,25 @@ export const transacaoQuerySchema = z.object({
     .regex(/^\d+$/, 'Limite deve ser um número válido')
     .transform(limit => parseInt(limit, 10))
     .refine(limit => limit > 0 && limit <= 1000, 'Limite deve ser entre 1 e 1000')
+    .optional(),
+  
+  // Novos filtros
+  data_vencimento_inicio: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento início deve estar no formato YYYY-MM-DD')
+    .optional(),
+  
+  data_vencimento_fim: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento fim deve estar no formato YYYY-MM-DD')
+    .optional(),
+  
+  forma_pagamento: z
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'])
+    .optional(),
+  
+  vencimento_status: z
+    .enum(['VENCIDA', 'VENCE_HOJE', 'VENCE_SEMANA', 'VENCE_MES', 'NAO_VENCE'])
     .optional()
 })
 .refine(
@@ -336,6 +429,18 @@ export const transacaoQuerySchema = z.object({
   {
     message: 'Data início deve ser anterior ou igual à data fim',
     path: ['data_inicio']
+  }
+)
+.refine(
+  (data) => {
+    if (data.data_vencimento_inicio && data.data_vencimento_fim) {
+      return new Date(data.data_vencimento_inicio) <= new Date(data.data_vencimento_fim);
+    }
+    return true;
+  },
+  {
+    message: 'Data de vencimento início deve ser anterior ou igual à data de vencimento fim',
+    path: ['data_vencimento_inicio']
   }
 );
 

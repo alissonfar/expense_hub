@@ -38,6 +38,16 @@ const transactionSchema = z.object({
   local: z.string().optional(),
   valor_total: z.preprocess((v) => Number(v) || 0, z.number().positive('O valor deve ser maior que zero.')),
   data_transacao: z.string().min(1, 'Data obrigatória.'),
+  data_vencimento: z // ✅ NOVO: Data de vencimento (opcional)
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento deve estar no formato YYYY-MM-DD')
+    .optional()
+    .or(z.literal('')),
+  forma_pagamento: z // ✅ NOVO: Forma de pagamento (opcional)
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'], {
+      message: 'Forma de pagamento inválida'
+    })
+    .optional(),
   eh_parcelado: z.boolean().optional(),
   total_parcelas: z.number().min(1).max(36).optional(),
   observacoes: z.string().max(1000, 'Máximo 1000 caracteres.').optional(),
@@ -54,6 +64,17 @@ const transactionSchema = z.object({
 }, {
   message: 'A soma dos valores dos participantes deve ser igual ao valor total',
   path: ['participantes'],
+}).refine((data) => {
+  // ✅ NOVO: Validação específica para gastos - data de vencimento >= data da transação
+  if (data.data_vencimento && data.data_vencimento !== '') {
+    const dataTransacao = new Date(data.data_transacao);
+    const dataVencimento = new Date(data.data_vencimento);
+    return dataVencimento >= dataTransacao;
+  }
+  return true;
+}, {
+  message: 'Data de vencimento deve ser maior ou igual à data da transação',
+  path: ['data_vencimento']
 });
 
 // NOVOS SCHEMAS
@@ -62,6 +83,11 @@ const receitaSchema = z.object({
   local: z.string().optional(),
   valor_recebido: z.preprocess((v) => Number(v) || 0, z.number().positive('O valor deve ser maior que zero.')),
   data_transacao: z.string().min(1, 'Data obrigatória.'),
+  forma_pagamento: z // ✅ NOVO: Forma de pagamento para receitas
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'], {
+      message: 'Forma de pagamento inválida'
+    })
+    .optional(),
   observacoes: z.string().max(1000, 'Máximo 1000 caracteres.').optional(),
   tags: z.array(z.string()).max(5, 'Máximo de 5 tags por transação').optional(),
 });
@@ -120,6 +146,8 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       local: '',
       valor_total: 0,
       data_transacao: '',
+      data_vencimento: '', // ✅ NOVO
+      forma_pagamento: undefined, // ✅ NOVO
       eh_parcelado: false,
       total_parcelas: 1,
       observacoes: '',
@@ -137,6 +165,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       local: '',
       valor_recebido: 0,
       data_transacao: '',
+      forma_pagamento: undefined, // ✅ NOVO
       observacoes: '',
       tags: [],
     },
@@ -592,6 +621,62 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                     </label>
                     <Input id="data" type="date" {...gastoForm.register('data_transacao')} disabled={modoEdicao} />
                     {gastoForm.formState.errors.data_transacao && <p className="text-sm text-red-500">{gastoForm.formState.errors.data_transacao.message}</p>}
+                  </div>
+                  
+                  {/* ✅ NOVO: Data de Vencimento (apenas para gastos) */}
+                  {tipoTransacao === 'GASTO' && (
+                    <div className="space-y-2">
+                      <label htmlFor="data_vencimento" className="flex items-center gap-2 font-medium">
+                        <Calendar className="h-4 w-4" />
+                        Data de Vencimento
+                      </label>
+                      <Input 
+                        id="data_vencimento" 
+                        type="date" 
+                        {...gastoForm.register('data_vencimento')}
+                        min={gastoForm.watch('data_transacao')}
+                        disabled={modoEdicao}
+                      />
+                      {gastoForm.formState.errors.data_vencimento && (
+                        <p className="text-sm text-red-500">{gastoForm.formState.errors.data_vencimento.message}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* ✅ NOVO: Forma de Pagamento */}
+                  <div className="space-y-2">
+                    <label htmlFor="forma_pagamento" className="flex items-center gap-2 font-medium">
+                      <CreditCard className="h-4 w-4" />
+                      Forma de Pagamento
+                    </label>
+                    <Select
+                      value={tipoTransacao === 'GASTO' ? gastoForm.watch('forma_pagamento') || '' : receitaForm.watch('forma_pagamento') || ''}
+                      onValueChange={(value) => {
+                        if (tipoTransacao === 'GASTO') {
+                          gastoForm.setValue('forma_pagamento', value as 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS');
+                        } else {
+                          receitaForm.setValue('forma_pagamento', value as 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS');
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a forma de pagamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PIX">PIX</SelectItem>
+                        <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                        <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+                        <SelectItem value="DEBITO">Débito</SelectItem>
+                        <SelectItem value="CREDITO">Crédito</SelectItem>
+                        <SelectItem value="OUTROS">Outros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {tipoTransacao === 'GASTO' && gastoForm.formState.errors.forma_pagamento && (
+                      <p className="text-sm text-red-500">{gastoForm.formState.errors.forma_pagamento.message}</p>
+                    )}
+                    {tipoTransacao === 'RECEITA' && receitaForm.formState.errors.forma_pagamento && (
+                      <p className="text-sm text-red-500">{receitaForm.formState.errors.forma_pagamento.message}</p>
+                    )}
                   </div>
                   {/* Parcelamento */}
                   <div className="space-y-4 md:col-span-2">

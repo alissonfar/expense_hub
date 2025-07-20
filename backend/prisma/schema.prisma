@@ -10,13 +10,13 @@ datasource db {
 
 /// Modelo central que representa cada workspace/tenant
 model Hub {
-  id           Int          @id @default(autoincrement())
-  nome         String       @unique @db.VarChar(100)
-  ativo        Boolean      @default(true)
-  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
-  codigoAcesso String?      @unique @db.VarChar(20)
-  membros       membros_hub[]
+  id           Int           @id @default(autoincrement())
+  nome         String        @unique @db.VarChar(100)
+  ativo        Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
+  codigoAcesso String?       @unique @db.VarChar(20)
+  membros      membros_hub[]
   pagamentos   pagamentos[]
   tags         tags[]
   transacoes   transacoes[]
@@ -94,6 +94,8 @@ model transacoes {
   criado_por                                  Int
   atualizado_em                               DateTime                  @updatedAt @db.Timestamptz(6)
   hubId                                       Int
+  data_vencimento                             DateTime?                 @db.Date
+  forma_pagamento                             String?                   @db.VarChar(15)
   pagamento_transacoes                        pagamento_transacoes[]
   pagamentos_excedente                        pagamentos[]              @relation("PagamentoReceita")
   transacao_participantes                     transacao_participantes[]
@@ -106,11 +108,21 @@ model transacoes {
   @@index([hubId], map: "idx_transacoes_hub")
   @@index([criado_por], map: "idx_transacoes_criado_por")
   @@index([data_transacao], map: "idx_transacoes_data")
+  @@index([data_vencimento], map: "idx_transacoes_data_vencimento")
+  @@index([forma_pagamento], map: "idx_transacoes_forma_pagamento")
   @@index([grupo_parcela], map: "idx_transacoes_grupo_parcela")
   @@index([proprietario_id], map: "idx_transacoes_proprietario")
   @@index([status_pagamento], map: "idx_transacoes_status")
   @@index([tipo], map: "idx_transacoes_tipo")
   @@index([hubId, ativo], map: "idx_transacoes_hub_ativo")
+  @@index([hubId, data_vencimento], map: "idx_transacoes_hub_vencimento")
+  @@index([hubId, forma_pagamento], map: "idx_transacoes_hub_forma")
+  @@index([data_vencimento, status_pagamento], map: "idx_transacoes_vencimento_status")
+  @@index([hubId, tipo, data_vencimento], map: "idx_transacoes_hub_tipo_vencimento")
+  @@index([hubId, forma_pagamento, status_pagamento], map: "idx_transacoes_hub_forma_status")
+  @@index([hubId, tipo, forma_pagamento], map: "idx_transacoes_hub_tipo_forma")
+  @@index([data_vencimento, tipo], map: "idx_transacoes_vencimento_tipo")
+  @@index([forma_pagamento, tipo], map: "idx_transacoes_forma_tipo")
 }
 
 /// Tags modificadas para multi-tenancy

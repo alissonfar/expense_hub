@@ -9,7 +9,8 @@ import type {
   TransacaoFilters, 
   CreateTransacaoFormData, 
   TransacaoParticipante,
-  Tag
+  Tag,
+  PaymentMethod
 } from '@/lib/types';
 
 // Tipo para refletir a estrutura real do backend
@@ -147,6 +148,20 @@ export function useCreateTransacao() {
   return useMutation({
     mutationFn: async (data: CreateTransacaoFormData): Promise<Transacao> => {
       try {
+        // ✅ NOVO: Validação específica para gastos
+        if (data.tipo === 'GASTO' && data.data_vencimento) {
+          const dataTransacao = new Date(data.data_transacao);
+          const dataVencimento = new Date(data.data_vencimento);
+          if (dataVencimento < dataTransacao) {
+            throw new Error('Data de vencimento deve ser maior ou igual à data da transação');
+          }
+        }
+        
+        // ✅ NOVO: Receitas não devem ter data de vencimento
+        if (data.tipo === 'RECEITA' && data.data_vencimento) {
+          throw new Error('Receitas não podem ter data de vencimento');
+        }
+        
         const response = await api.post('/transacoes', data);
         
         // Validação de resposta com type guards
@@ -250,9 +265,10 @@ export function useCreateReceita() {
       local?: string;
       valor_recebido: number;
       data_transacao: string;
+      forma_pagamento?: PaymentMethod; // ✅ NOVO: Forma de pagamento para receitas
       observacoes?: string;
       tags?: number[];
-    }): Promise<Transacao> => {
+          }): Promise<Transacao> => {
       const response = await api.post('/transacoes/receita', data);
       return response.data.data;
     },
@@ -276,6 +292,8 @@ export function useUpdateTransacao() {
       data: {
         descricao?: string;
         local?: string;
+        data_vencimento?: string; // ✅ NOVO: Data de vencimento (apenas gastos)
+        forma_pagamento?: PaymentMethod; // ✅ NOVO: Forma de pagamento
         observacoes?: string;
         tags?: number[];
       };
@@ -306,6 +324,7 @@ export function useUpdateReceita() {
         local?: string;
         valor_recebido?: number;
         data_transacao?: string;
+        forma_pagamento?: PaymentMethod; // ✅ NOVO: Forma de pagamento para receitas
         observacoes?: string;
         tags?: number[];
       };
@@ -389,6 +408,8 @@ export function useDuplicateTransacao() {
         local: original.local,
         valor_total: original.valor_total,
         data_transacao: new Date().toISOString().split('T')[0], // Data de hoje
+        data_vencimento: original.data_vencimento, // ✅ NOVO: Preservar data de vencimento
+        forma_pagamento: original.forma_pagamento, // ✅ NOVO: Preservar forma de pagamento
         eh_parcelado: false, // Resetar parcelamento
         total_parcelas: 1,
         observacoes: original.observacoes,

@@ -11,7 +11,8 @@ import {
   ArrowDownRight,
   Calendar,
   ArrowRight,
-
+  CreditCard,
+  AlertCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -147,6 +148,37 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                               <Calendar className="h-3 w-3" />
                               {dataFormatada}
                             </span>
+                            
+                            {/* ✅ NOVO: Vencimento (apenas para gastos) */}
+                            {transacao.tipo === 'GASTO' && transacao.data_vencimento && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <AlertCircle className="h-3 w-3" />
+                                {(() => {
+                                  const hoje = new Date();
+                                  const vencimento = new Date(transacao.data_vencimento);
+                                  const diasAteVencimento = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+                                  
+                                  if (diasAteVencimento < 0) {
+                                    return <span className="text-red-600 font-medium">Vencida</span>;
+                                  } else if (diasAteVencimento === 0) {
+                                    return <span className="text-orange-600 font-medium">Vence hoje</span>;
+                                  } else if (diasAteVencimento <= 7) {
+                                    return <span className="text-yellow-600 font-medium">Vence em {diasAteVencimento}d</span>;
+                                  } else {
+                                    return format(vencimento, 'dd/MM', { locale: ptBR });
+                                  }
+                                })()}
+                              </span>
+                            )}
+                            
+                            {/* ✅ NOVO: Forma de pagamento */}
+                            {transacao.forma_pagamento && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <CreditCard className="h-3 w-3" />
+                                {transacao.forma_pagamento}
+                              </span>
+                            )}
+                            
                             {transacao.tag && (
                               <Badge 
                                 variant="secondary" 
@@ -234,6 +266,37 @@ export function TransacoesRecentes({ transacoes, loading = false }: TransacoesRe
                       <Calendar className="h-3 w-3" />
                       {dataFormatada}
                     </span>
+                    
+                    {/* ✅ NOVO: Vencimento (apenas para gastos) */}
+                    {transacao.tipo === 'GASTO' && transacao.data_vencimento && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <AlertCircle className="h-3 w-3" />
+                        {(() => {
+                          const hoje = new Date();
+                          const vencimento = new Date(transacao.data_vencimento);
+                          const diasAteVencimento = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+                          
+                          if (diasAteVencimento < 0) {
+                            return <span className="text-red-600 font-medium">Vencida</span>;
+                          } else if (diasAteVencimento === 0) {
+                            return <span className="text-orange-600 font-medium">Vence hoje</span>;
+                          } else if (diasAteVencimento <= 7) {
+                            return <span className="text-yellow-600 font-medium">Vence em {diasAteVencimento}d</span>;
+                          } else {
+                            return format(vencimento, 'dd/MM', { locale: ptBR });
+                          }
+                        })()}
+                      </span>
+                    )}
+                    
+                    {/* ✅ NOVO: Forma de pagamento */}
+                    {transacao.forma_pagamento && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <CreditCard className="h-3 w-3" />
+                        {transacao.forma_pagamento}
+                      </span>
+                    )}
+                    
                     {transacao.tag && (
                       <Badge 
                         variant="secondary" 

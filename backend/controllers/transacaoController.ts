@@ -32,7 +32,11 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
       eh_parcelado,
       grupo_parcela,
       page = 1,
-      limit = 1000
+      limit = 1000,
+      data_vencimento_inicio,
+      data_vencimento_fim,
+      forma_pagamento,
+      vencimento_status
     }: TransacaoQueryInput = req.query;
 
     const where: Prisma.transacoesWhereInput = {
@@ -47,6 +51,45 @@ export const listTransacoes = async (req: Request, res: Response): Promise<void>
     if (grupo_parcela) where.grupo_parcela = grupo_parcela;
     if (pessoa_id) where.transacao_participantes = { some: { pessoa_id } };
     if (tag_id) where.transacao_tags = { some: { tag_id } };
+
+    // NOVOS FILTROS
+    if (data_vencimento_inicio) {
+      where.data_vencimento = { ...where.data_vencimento as object, gte: new Date(data_vencimento_inicio) };
+    }
+    if (data_vencimento_fim) {
+      where.data_vencimento = { ...where.data_vencimento as object, lte: new Date(data_vencimento_fim) };
+    }
+    if (forma_pagamento) {
+      where.forma_pagamento = forma_pagamento;
+    }
+    if (vencimento_status) {
+      const hoje = new Date();
+      const fimSemana = new Date();
+      fimSemana.setDate(hoje.getDate() + 7);
+      const fimMes = new Date();
+      fimMes.setMonth(hoje.getMonth() + 1);
+
+      switch (vencimento_status) {
+        case 'VENCIDA':
+          where.data_vencimento = { lt: hoje };
+          break;
+        case 'VENCE_HOJE':
+          where.data_vencimento = { 
+            gte: new Date(hoje.setHours(0, 0, 0, 0)),
+            lt: new Date(hoje.setHours(23, 59, 59, 999))
+          };
+          break;
+        case 'VENCE_SEMANA':
+          where.data_vencimento = { gte: hoje, lte: fimSemana };
+          break;
+        case 'VENCE_MES':
+          where.data_vencimento = { gte: hoje, lte: fimMes };
+          break;
+        case 'NAO_VENCE':
+          where.data_vencimento = { gt: fimMes };
+          break;
+      }
+    }
 
     const offset = (page - 1) * limit;
 
@@ -122,7 +165,7 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const { descricao, local, valor_total, data_transacao, observacoes, participantes, tags = [], eh_parcelado, total_parcelas } = data;
+    const { descricao, local, valor_total, data_transacao, observacoes, participantes, tags = [], eh_parcelado, total_parcelas, data_vencimento, forma_pagamento } = data;
 
     // VALIDAÇÃO DE TAGS - Garantir que todas pertencem ao mesmo Hub
     if (tags && tags.length > 0) {
@@ -150,6 +193,15 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
 
     const pessoasIds = participantes.map(p => p.pessoa_id);
     const grupoParcela = ehParcelado ? randomUUID() : null;
+
+    // LÓGICA PARA DATA DE VENCIMENTO
+    let dataVencimentoFinal = data_vencimento ? new Date(data_vencimento) : null;
+    
+    // Se não informada, usar padrão: data_transacao + 30 dias
+    if (!dataVencimentoFinal) {
+      dataVencimentoFinal = new Date(data_transacao);
+      dataVencimentoFinal.setDate(dataVencimentoFinal.getDate() + 30);
+    }
 
     // Verificar se todos os participantes pertencem ao Hub
     const membrosValidos = await prisma.membros_hub.findMany({
@@ -184,6 +236,10 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
           const dataParcela = new Date(data_transacao);
           dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
 
+          // Calcular vencimento da parcela
+          const vencimentoParcela = new Date(dataVencimentoFinal!);
+          vencimentoParcela.setMonth(vencimentoParcela.getMonth() + (i - 1));
+
           const transacaoData = {
             hubId,
             descricao: `${descricao} (Parc. ${i}/${totalParcelas})`,
@@ -191,6 +247,8 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
             valor_total: valorParcela,
             valor_parcela: valorParcela,
             data_transacao: dataParcela,
+            data_vencimento: vencimentoParcela, // Novo campo
+            forma_pagamento: forma_pagamento || null, // Novo campo
             observacoes: observacoes || null,
             eh_parcelado: true,
             parcela_atual: i,
@@ -225,6 +283,8 @@ export const createGasto = async (req: Request, res: Response): Promise<void> =>
           valor_total,
           valor_parcela: valor_total,
           data_transacao: new Date(data_transacao),
+          data_vencimento: dataVencimentoFinal, // Novo campo
+          forma_pagamento: forma_pagamento || null, // Novo campo
           observacoes: observacoes || null,
           eh_parcelado: false,
           parcela_atual: 1,
@@ -488,7 +548,8 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
       valor_recebido,
       data_transacao,
       observacoes,
-      tags = []
+      tags = [],
+      forma_pagamento // Novo campo
     }: CreateReceitaInput = req.body;
 
     const novaReceita = await prisma.transacoes.create({
@@ -504,6 +565,8 @@ export const createReceita = async (req: Request, res: Response): Promise<void> 
         status_pagamento: 'PAGO_TOTAL',
         criado_por: userId,
         valor_parcela: valor_recebido,
+        forma_pagamento: forma_pagamento || null, // Novo campo
+        // Receitas NÃO têm data_vencimento
         transacao_participantes: {
           create: {
             pessoa_id: userId,

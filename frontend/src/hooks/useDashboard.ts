@@ -11,6 +11,8 @@ export interface DashboardParams {
   data_fim?: string;
   incluir_graficos?: boolean;
   incluir_comparativo?: boolean;
+  incluir_vencimentos?: boolean; // ✅ NOVO
+  incluir_forma_pagamento?: boolean; // ✅ NOVO
 }
 
 export interface DashboardResumo {
@@ -19,12 +21,17 @@ export interface DashboardResumo {
   saldo_periodo: number;
   transacoes_pendentes: number;
   pessoas_devedoras: number;
+  transacoes_vencidas: number; // ✅ NOVO: Contador de vencidas
+  valor_vencido: number; // ✅ NOVO: Valor total vencido
+  proximos_vencimentos: number; // ✅ NOVO: Contador próximos
 }
 
 export interface DashboardComparativo {
   gastos_variacao: number;
   receitas_variacao: number;
   transacoes_variacao: number;
+  transacoes_vencidas_variacao?: number; // ✅ NOVO: Variação vencidas
+  valor_vencido_variacao?: number; // ✅ NOVO: Variação valor vencido
 }
 
 export interface GastoPorDia {
@@ -38,9 +45,25 @@ export interface GastoPorCategoria {
   cor: string;
 }
 
+// ✅ NOVO: Interface para gastos por forma de pagamento
+export interface GastoPorFormaPagamento {
+  forma: string;
+  valor: number;
+  cor: string;
+}
+
+// ✅ NOVO: Interface para vencimentos por período
+export interface VencimentoPorPeriodo {
+  periodo: string;
+  vencidas: number;
+  vencendo: number;
+}
+
 export interface DashboardGraficos {
   gastosPorDia: GastoPorDia[];
   gastosPorCategoria: GastoPorCategoria[];
+  gastosPorFormaPagamento?: GastoPorFormaPagamento[]; // ✅ NOVO
+  vencimentosPorPeriodo?: VencimentoPorPeriodo[]; // ✅ NOVO
 }
 
 export interface DashboardPeriodo {
@@ -81,15 +104,22 @@ export function useDashboard(params: DashboardParams = {}) {
           saldo_periodo: data.resumo?.saldo_periodo ?? data.resumo?.saldoPeriodo ?? 0,
           transacoes_pendentes: data.resumo?.transacoes_pendentes ?? data.resumo?.transacoesPendentes ?? 0,
           pessoas_devedoras: data.resumo?.pessoas_devedoras ?? data.resumo?.pessoasDevedoras ?? 0,
+          transacoes_vencidas: data.resumo?.transacoes_vencidas ?? 0, // ✅ NOVO
+          valor_vencido: data.resumo?.valor_vencido ?? 0, // ✅ NOVO
+          proximos_vencimentos: data.resumo?.proximos_vencimentos ?? 0, // ✅ NOVO
         },
         comparativo: data.comparativo && {
           gastos_variacao: data.comparativo.gastos_variacao ?? data.comparativo.gastosVariacao ?? 0,
           receitas_variacao: data.comparativo.receitas_variacao ?? data.comparativo.receitasVariacao ?? 0,
           transacoes_variacao: data.comparativo.transacoes_variacao ?? data.comparativo.transacoesVariacao ?? 0,
+          transacoes_vencidas_variacao: data.comparativo.transacoes_vencidas_variacao ?? 0, // ✅ NOVO
+          valor_vencido_variacao: data.comparativo.valor_vencido_variacao ?? 0, // ✅ NOVO
         },
         graficos: data.graficos && {
           gastosPorDia: data.graficos.gastos_por_dia ?? data.graficos.gastosPorDia ?? [],
           gastosPorCategoria: data.graficos.gastos_por_categoria ?? data.graficos.gastosPorCategoria ?? [],
+          gastosPorFormaPagamento: data.graficos.gastos_por_forma_pagamento ?? [], // ✅ NOVO
+          vencimentosPorPeriodo: data.graficos.vencimentos_por_periodo ?? [], // ✅ NOVO
         },
         periodo: {
           tipo: data.periodo?.tipo,
@@ -111,6 +141,8 @@ export interface TransacaoRecente {
   valor: number;
   data: string;
   tipo: 'GASTO' | 'RECEITA';
+  data_vencimento?: string; // ✅ NOVO: Data de vencimento
+  forma_pagamento?: string; // ✅ NOVO: Forma de pagamento
   tag?: {
     id: number;
     nome: string;
@@ -138,6 +170,8 @@ export function useTransacoesRecentes(limit = 5) {
             valor?: number; 
             valor_total?: number; 
             data_transacao?: string;
+            data_vencimento?: string; // ✅ NOVO
+            forma_pagamento?: string; // ✅ NOVO
             id?: number;
             descricao?: string;
             tipo?: string;
@@ -150,6 +184,8 @@ export function useTransacoesRecentes(limit = 5) {
             descricao: t.descricao || '',
             valor,
             data: t.data_transacao || '', // ✅ Mapeamento correto: data_transacao → data
+            data_vencimento: t.data_vencimento, // ✅ NOVO
+            forma_pagamento: t.forma_pagamento, // ✅ NOVO
             tipo: (t.tipo as 'GASTO' | 'RECEITA') || 'GASTO',
             tag: t.tag,
           };

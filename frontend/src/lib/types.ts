@@ -67,6 +67,8 @@ export interface Transacao {
   local?: string;
   valor_total: number;
   data_transacao: string;
+  data_vencimento?: string; // ✅ NOVO: Data de vencimento (opcional)
+  forma_pagamento?: PaymentMethod; // ✅ NOVO: Forma de pagamento (opcional)
   eh_parcelado: boolean;
   parcela_atual?: number;
   total_parcelas?: number;
@@ -208,6 +210,8 @@ export interface CreateTransacaoFormData {
   local?: string;
   valor_total: number;
   data_transacao: string;
+  data_vencimento?: string; // ✅ NOVO: Apenas para gastos
+  forma_pagamento?: PaymentMethod; // ✅ NOVO: Para gastos e receitas
   eh_parcelado: boolean;
   total_parcelas: number;
   observacoes?: string;
@@ -256,11 +260,16 @@ export interface DashboardData {
     saldo_periodo: number;
     transacoes_pendentes: number;
     pessoas_devedoras: number;
+    transacoes_vencidas: number; // ✅ NOVO: Contador de vencidas
+    valor_vencido: number; // ✅ NOVO: Valor total vencido
+    proximos_vencimentos: number; // ✅ NOVO: Contador próximos
   };
   comparativo?: {
     gastos_variacao: number;
     receitas_variacao: number;
     transacoes_variacao: number;
+    transacoes_vencidas_variacao?: number; // ✅ NOVO: Variação vencidas
+    valor_vencido_variacao?: number; // ✅ NOVO: Variação valor vencido
   };
   graficos?: {
     gastos_por_dia: Array<{
@@ -271,6 +280,16 @@ export interface DashboardData {
       categoria: string;
       valor: number;
       cor: string;
+    }>;
+    gastos_por_forma_pagamento?: Array<{ // ✅ NOVO
+      forma: PaymentMethod;
+      valor: number;
+      cor: string;
+    }>;
+    vencimentos_por_periodo?: Array<{ // ✅ NOVO
+      periodo: string;
+      vencidas: number;
+      vencendo: number;
     }>;
     status_pagamentos: {
       pendente: number;
@@ -291,6 +310,8 @@ export interface DashboardQueryParams {
   data_fim?: string;
   incluir_graficos?: boolean;
   incluir_comparativo?: boolean;
+  incluir_vencimentos?: boolean; // ✅ NOVO
+  incluir_forma_pagamento?: boolean; // ✅ NOVO
   apenas_confirmadas?: boolean;
 }
 
@@ -351,6 +372,10 @@ export interface TransacaoFilters {
   tag_id?: number;
   data_inicio?: string;
   data_fim?: string;
+  data_vencimento_inicio?: string; // ✅ NOVO: Filtro por vencimento
+  data_vencimento_fim?: string; // ✅ NOVO: Filtro por vencimento
+  forma_pagamento?: PaymentMethod; // ✅ NOVO: Filtro por forma
+  vencimento_status?: 'VENCIDA' | 'VENCE_HOJE' | 'VENCE_SEMANA' | 'VENCE_MES' | 'NAO_VENCE'; // ✅ NOVO
   status_pagamento?: PaymentStatus;
   valor_min?: number;
   valor_max?: number;

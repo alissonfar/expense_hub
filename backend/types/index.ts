@@ -98,6 +98,8 @@ export interface TransacaoCreate {
   valor_total: number;
   tipo: 'GASTO' | 'RECEITA';
   data_transacao?: Date;
+  data_vencimento?: string; // ✅ NOVO: Data de vencimento (apenas para gastos)
+  forma_pagamento?: 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS'; // ✅ NOVO
   observacoes?: string;
   repetir_mensalmente?: boolean;
   numero_parcelas?: number;
@@ -165,6 +167,11 @@ export interface TransacaoFilters {
   status?: 'PENDENTE' | 'PAGO_PARCIAL' | 'PAGO_TOTAL';
   valor_min?: number;
   valor_max?: number;
+  // ✅ NOVOS FILTROS
+  data_vencimento_inicio?: string;
+  data_vencimento_fim?: string;
+  forma_pagamento?: 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS';
+  vencimento_status?: 'VENCIDA' | 'VENCE_HOJE' | 'VENCE_SEMANA' | 'VENCE_MES' | 'NAO_VENCE';
 }
 
 export interface PaginationQuery {

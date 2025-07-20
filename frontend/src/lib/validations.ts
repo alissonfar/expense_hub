@@ -175,6 +175,16 @@ export const createTransacaoSchema = z.object({
     .refine(date => !isNaN(Date.parse(date)), {
       message: 'Data inválida'
     }),
+  data_vencimento: z // ✅ NOVO: Data de vencimento (opcional)
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de vencimento deve estar no formato YYYY-MM-DD')
+    .optional()
+    .or(z.literal('')),
+  forma_pagamento: z // ✅ NOVO: Forma de pagamento (opcional)
+    .enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'] as const, {
+      message: 'Forma de pagamento inválida'
+    })
+    .optional(),
   eh_parcelado: z.boolean().default(false),
   total_parcelas: z
     .number()
@@ -200,6 +210,26 @@ export const createTransacaoSchema = z.object({
     )
     .max(10, 'Máximo de 10 participantes por transação')
     .optional()
+}).refine((data) => {
+  // ✅ NOVO: Validação específica para gastos - data de vencimento >= data da transação
+  if (data.tipo === 'GASTO' && data.data_vencimento && data.data_vencimento !== '') {
+    const dataTransacao = new Date(data.data_transacao);
+    const dataVencimento = new Date(data.data_vencimento);
+    return dataVencimento >= dataTransacao;
+  }
+  return true;
+}, {
+  message: 'Data de vencimento deve ser maior ou igual à data da transação',
+  path: ['data_vencimento']
+}).refine((data) => {
+  // ✅ NOVO: Validação específica para receitas - não devem ter data de vencimento
+  if (data.tipo === 'RECEITA' && data.data_vencimento && data.data_vencimento !== '') {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Receitas não podem ter data de vencimento',
+  path: ['data_vencimento']
 });
 
 export const updateTransacaoSchema = createTransacaoSchema.partial();
@@ -290,6 +320,10 @@ export const transacaoFiltersSchema = z.object({
   tag_id: z.number().positive().optional(),
   data_inicio: z.string().optional(),
   data_fim: z.string().optional(),
+  data_vencimento_inicio: z.string().optional(), // ✅ NOVO: Filtro por vencimento
+  data_vencimento_fim: z.string().optional(), // ✅ NOVO: Filtro por vencimento
+  forma_pagamento: z.enum(['PIX', 'DINHEIRO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'OUTROS'] as const).optional(), // ✅ NOVO
+  vencimento_status: z.enum(['VENCIDA', 'VENCE_HOJE', 'VENCE_SEMANA', 'VENCE_MES', 'NAO_VENCE'] as const).optional(), // ✅ NOVO
   status_pagamento: z.enum(['PENDENTE', 'PAGO_PARCIAL', 'PAGO_TOTAL'] as const).optional(),
   valor_min: z.number().positive().optional(),
   valor_max: z.number().positive().optional(),

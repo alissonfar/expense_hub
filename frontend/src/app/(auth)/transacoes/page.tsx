@@ -323,6 +323,60 @@ export default function TransacoesPage() {
       },
     },
     {
+      // ✅ NOVO: Coluna de Vencimento
+      id: 'vencimento',
+      header: 'Vencimento',
+      cell: ({ row }: { row: { original: Transacao } }) => {
+        const transacao = row.original;
+        if (!transacao.data_vencimento || transacao.tipo !== 'GASTO') return '-';
+        
+        const hoje = new Date();
+        const vencimento = new Date(transacao.data_vencimento);
+        const diasAteVencimento = Math.ceil((vencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diasAteVencimento < 0) {
+          return <Badge variant="destructive">Vencida</Badge>;
+        } else if (diasAteVencimento === 0) {
+          return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Hoje</Badge>;
+        } else if (diasAteVencimento <= 7) {
+          return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">{diasAteVencimento}d</Badge>;
+        } else {
+          return (
+            <div className="text-sm text-gray-600">
+              {format(vencimento, 'dd/MM', { locale: ptBR })}
+            </div>
+          );
+        }
+      },
+    },
+    {
+      // ✅ NOVO: Coluna de Forma de Pagamento
+      id: 'forma_pagamento',
+      header: 'Forma de Pagamento',
+      cell: ({ row }: { row: { original: Transacao } }) => {
+        const transacao = row.original;
+        if (!transacao.forma_pagamento) return '-';
+        
+        const formas = {
+          PIX: { label: 'PIX', color: 'bg-green-100 text-green-800 border-green-200' },
+          DINHEIRO: { label: 'Dinheiro', color: 'bg-gray-100 text-gray-800 border-gray-200' },
+          TRANSFERENCIA: { label: 'Transferência', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+          DEBITO: { label: 'Débito', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+          CREDITO: { label: 'Crédito', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+          OUTROS: { label: 'Outros', color: 'bg-gray-100 text-gray-800 border-gray-200' }
+        };
+        
+        const formaInfo = formas[transacao.forma_pagamento as keyof typeof formas];
+        if (!formaInfo) return '-';
+        
+        return (
+          <Badge variant="outline" className={formaInfo.color}>
+            {formaInfo.label}
+          </Badge>
+        );
+      },
+    },
+    {
       id: 'status',
       header: 'Status',
       cell: ({ row }: { row: { original: Transacao } }) => {
@@ -626,7 +680,7 @@ export default function TransacoesPage() {
         
         {showFilters && (
           <CardContent className="border-t">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
               <Select
                 value={filters.tipo || ''}
                 onValueChange={(value) => handleFilterChange('tipo', value || undefined)}
@@ -653,6 +707,43 @@ export default function TransacoesPage() {
                   <SelectItem value="PENDENTE">Pendente</SelectItem>
                   <SelectItem value="PAGO_PARCIAL">Pago Parcial</SelectItem>
                   <SelectItem value="PAGO_TOTAL">Pago Total</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* ✅ NOVO: Filtro por Forma de Pagamento */}
+              <Select
+                value={filters.forma_pagamento || ''}
+                onValueChange={(value) => handleFilterChange('forma_pagamento', value || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Forma de Pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as formas</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+                  <SelectItem value="DEBITO">Débito</SelectItem>
+                  <SelectItem value="CREDITO">Crédito</SelectItem>
+                  <SelectItem value="OUTROS">Outros</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* ✅ NOVO: Filtro por Status de Vencimento */}
+              <Select
+                value={filters.vencimento_status || ''}
+                onValueChange={(value) => handleFilterChange('vencimento_status', value || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Status Vencimento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="VENCIDA">Vencidas</SelectItem>
+                  <SelectItem value="VENCE_HOJE">Vence hoje</SelectItem>
+                  <SelectItem value="VENCE_SEMANA">Vence esta semana</SelectItem>
+                  <SelectItem value="VENCE_MES">Vence este mês</SelectItem>
+                  <SelectItem value="NAO_VENCE">Não vence</SelectItem>
                 </SelectContent>
               </Select>
 

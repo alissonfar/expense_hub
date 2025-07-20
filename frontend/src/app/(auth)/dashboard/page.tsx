@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, AlertCircle, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -236,7 +236,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         <KPICard
           title="Receitas no Período"
           value={dadosParaUsar?.resumo.total_receitas ?? 0}
@@ -314,6 +314,66 @@ export default function DashboardPage() {
               "Importante revisar regularmente"
             ],
             tip: "Revisar pendências para evitar atrasos"
+          }}
+        />
+        
+        {/* ✅ NOVO: Card de Transações Vencidas */}
+        <KPICard
+          title="Transações Vencidas"
+          value={dadosParaUsar?.resumo.transacoes_vencidas ?? 0}
+          type="alert"
+          subtitle="Requer atenção urgente"
+          progress={calcularProgressoTemporal()}
+          loading={loadingDashboard}
+          tooltip={{
+            title: "Transações Vencidas",
+            description: "Transações que já ultrapassaram a data de vencimento.",
+            details: [
+              "Necessitam ação imediata",
+              "Podem gerar multas ou juros",
+              "Afetam o fluxo de caixa"
+            ],
+            tip: "Priorize o pagamento destas transações"
+          }}
+        />
+        
+        {/* ✅ NOVO: Card de Valor Vencido */}
+        <KPICard
+          title="Valor Vencido"
+          value={dadosParaUsar?.resumo.valor_vencido ?? 0}
+          type="expense"
+          subtitle="Total em atraso"
+          progress={calcularProgressoTemporal()}
+          loading={loadingDashboard}
+          tooltip={{
+            title: "Valor Total Vencido",
+            description: "Soma dos valores de todas as transações vencidas.",
+            details: [
+              "Impacto financeiro direto",
+              "Base para negociação",
+              "Controle de inadimplência"
+            ],
+            tip: "Monitore para evitar problemas financeiros"
+          }}
+        />
+        
+        {/* ✅ NOVO: Card de Próximos Vencimentos */}
+        <KPICard
+          title="Próximos Vencimentos"
+          value={dadosParaUsar?.resumo.proximos_vencimentos ?? 0}
+          type="warning"
+          subtitle="Próximos 30 dias"
+          progress={calcularProgressoTemporal()}
+          loading={loadingDashboard}
+          tooltip={{
+            title: "Próximos Vencimentos",
+            description: "Transações que vencem nos próximos 30 dias.",
+            details: [
+              "Planejamento de fluxo de caixa",
+              "Evita atrasos de pagamento",
+              "Organização financeira"
+            ],
+            tip: "Programe-se para os pagamentos futuros"
           }}
         />
       </div>
