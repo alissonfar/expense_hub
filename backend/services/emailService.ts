@@ -3,6 +3,7 @@ import { EmailData, EmailResult, EmailConfig } from '../types/email';
 import { EmailUtils } from '../utils/emailUtils';
 import { EmailTemplates } from './emailTemplates';
 import { EmailMonitoring } from './emailMonitoring';
+import { MetricType } from '../types/god';
 
 export class EmailService {
   private static instance: EmailService;
@@ -11,6 +12,7 @@ export class EmailService {
   private isInitialized = false;
   private retryAttempts: number;
   private retryDelay: number;
+  private metricsService: any = null;
 
   private constructor() {
     this.monitoring = new EmailMonitoring();
@@ -85,6 +87,43 @@ export class EmailService {
   }
 
   /**
+   * Inicializa o serviço de métricas (lazy loading)
+   */
+  private async initializeMetrics(): Promise<void> {
+    if (this.metricsService) return;
+    
+    try {
+      const { default: MetricsService } = await import('./metricsService');
+      this.metricsService = MetricsService;
+    } catch (error) {
+      console.warn('⚠️ Serviço de métricas não disponível:', error);
+    }
+  }
+
+  /**
+   * Registra métrica de email enviado
+   */
+  private async recordEmailMetric(success: boolean): Promise<void> {
+    try {
+      await this.initializeMetrics();
+      if (!this.metricsService) return;
+
+      const prisma = (global as any).prisma;
+      if (!prisma) return;
+
+      const metricsInstance = this.metricsService.getInstance(prisma);
+      
+      if (success) {
+        await metricsInstance.incrementMetric(MetricType.EMAILS_SENT_TODAY, 1);
+      } else {
+        await metricsInstance.incrementMetric(MetricType.EMAILS_FAILED_TODAY, 1);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao registrar métrica de email:', error);
+    }
+  }
+
+  /**
    * Envia email de convite para novo membro
    */
   async sendInviteEmail(data: EmailData): Promise<EmailResult> {
@@ -129,6 +168,9 @@ export class EmailService {
         this.monitoring.incrementCount();
         this.monitoring.logUsage();
       }
+
+      // Registrar métrica
+      await this.recordEmailMetric(result.success);
 
       return result;
 
@@ -186,6 +228,9 @@ export class EmailService {
         this.monitoring.incrementCount();
         this.monitoring.logUsage();
       }
+
+      // Registrar métrica
+      await this.recordEmailMetric(result.success);
 
       return result;
 
@@ -250,6 +295,9 @@ export class EmailService {
         this.monitoring.logUsage();
       }
 
+      // Registrar métrica
+      await this.recordEmailMetric(result.success);
+
       return result;
 
     } catch (error) {
@@ -313,6 +361,9 @@ export class EmailService {
         this.monitoring.logUsage();
       }
 
+      // Registrar métrica
+      await this.recordEmailMetric(result.success);
+
       return result;
 
     } catch (error) {
@@ -375,6 +426,9 @@ export class EmailService {
         this.monitoring.incrementCount();
         this.monitoring.logUsage();
       }
+
+      // Registrar métrica
+      await this.recordEmailMetric(result.success);
 
       return result;
 

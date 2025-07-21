@@ -155,21 +155,32 @@ class MetricsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [sentToday, failedToday, queueSize] = await Promise.all([
-      this.getMetricValue(MetricType.EMAILS_SENT_TODAY),
-      this.getMetricValue(MetricType.EMAILS_FAILED_TODAY),
-      this.getMetricValue(MetricType.EMAIL_QUEUE_SIZE)
-    ]);
+    try {
+      // Buscar métricas do dia atual
+      const [sentToday, failedToday, queueSize] = await Promise.all([
+        this.getMetricValue(MetricType.EMAILS_SENT_TODAY),
+        this.getMetricValue(MetricType.EMAILS_FAILED_TODAY),
+        this.getMetricValue(MetricType.EMAIL_QUEUE_SIZE)
+      ]);
 
-    const total = sentToday + failedToday;
-    const successRate = total > 0 ? (sentToday / total) * 100 : 0;
+      const total = sentToday + failedToday;
+      const successRate = total > 0 ? (sentToday / total) * 100 : 0;
 
-    return {
-      sentToday,
-      failedToday,
-      successRate: Math.round(successRate * 100) / 100,
-      queueSize
-    };
+      return {
+        sentToday,
+        failedToday,
+        successRate: Math.round(successRate * 100) / 100,
+        queueSize
+      };
+    } catch (error) {
+      console.error('Erro ao obter métricas de email:', error);
+      return {
+        sentToday: 0,
+        failedToday: 0,
+        successRate: 0,
+        queueSize: 0
+      };
+    }
   }
 
   /**

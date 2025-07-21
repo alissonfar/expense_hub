@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Mail, CheckCircle, RefreshCw, ArrowRight, AlertCircle } from 'lucide-re
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
-export default function VerificationPendingPage() {
+function VerificationPendingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -44,10 +44,11 @@ export default function VerificationPendingPage() {
       });
       
       setShowResendForm(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string } } };
       toast({
         title: "Erro ao reenviar",
-        description: error.response?.data?.message || "Tente novamente em alguns minutos.",
+        description: axiosError?.response?.data?.message || "Tente novamente em alguns minutos.",
         variant: "destructive",
       });
     } finally {
@@ -57,12 +58,6 @@ export default function VerificationPendingPage() {
 
   const handleCheckEmail = () => {
     // Abrir cliente de email padrão ou redirecionar para Gmail/Outlook
-    const emailProviders = [
-      'https://mail.google.com',
-      'https://outlook.live.com',
-      'https://mail.yahoo.com'
-    ];
-    
     // Tentar abrir Gmail primeiro
     window.open('https://mail.google.com', '_blank');
   };
@@ -112,7 +107,7 @@ export default function VerificationPendingPage() {
                   <span className="text-sm font-bold text-blue-600">2</span>
                 </div>
                 <p className="text-sm text-gray-700">
-                  Clique no botão <strong>"Ativar Minha Conta"</strong> no email
+                  Clique no botão <strong>&quot;Ativar Minha Conta&quot;</strong> no email
                 </p>
               </div>
               
@@ -220,5 +215,22 @@ export default function VerificationPendingPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function VerificationPendingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <VerificationPendingContent />
+    </Suspense>
   );
 } 

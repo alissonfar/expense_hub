@@ -22,8 +22,8 @@ class GodController {
     try {
       logger.info('Dashboard do Modo Deus acessado', { userId: req.auth?.pessoaId });
 
-      // Buscar dados em paralelo
-      const [emailMetrics, authMetrics, systemMetrics, recentLogs, errorCount] = await Promise.all([
+      // Buscar dados em paralelo com fallbacks
+      const [emailMetrics, authMetrics, systemMetrics, recentLogs, errorCount] = await Promise.allSettled([
         this.metricsService.getEmailMetrics(),
         this.metricsService.getAuthMetrics(),
         this.metricsService.getSystemMetrics(),
@@ -35,12 +35,35 @@ class GodController {
         }).then(logs => logs.length)
       ]);
 
+      // Dados padrão caso algum serviço falhe
+      const defaultEmailMetrics = {
+        sentToday: 0,
+        failedToday: 0,
+        successRate: 0,
+        queueSize: 0
+      };
+
+      const defaultAuthMetrics = {
+        loginAttempts: 0,
+        failedLogins: 0,
+        activeUsers: 0,
+        tokenRefreshes: 0
+      };
+
+      const defaultSystemMetrics = {
+        memoryUsage: 0,
+        cpuUsage: 0,
+        diskUsage: 0,
+        uptime: 0,
+        databaseConnections: 0
+      };
+
       const dashboardData = {
-        emailMetrics,
-        authMetrics,
-        systemMetrics,
-        recentLogs,
-        errorCount,
+        emailMetrics: emailMetrics.status === 'fulfilled' ? emailMetrics.value : defaultEmailMetrics,
+        authMetrics: authMetrics.status === 'fulfilled' ? authMetrics.value : defaultAuthMetrics,
+        systemMetrics: systemMetrics.status === 'fulfilled' ? systemMetrics.value : defaultSystemMetrics,
+        recentLogs: recentLogs.status === 'fulfilled' ? recentLogs.value : [],
+        errorCount: errorCount.status === 'fulfilled' ? errorCount.value : 0,
         timestamp: new Date().toISOString()
       };
 
@@ -85,7 +108,7 @@ class GodController {
         offset: parseInt(offset as string)
       };
 
-      const logs = await this.loggingService.getLogs(filters);
+      const logs = await this.loggingService.getLogs(filters).catch(() => []);
 
       res.json({
         success: true,
@@ -127,7 +150,7 @@ class GodController {
         offset: parseInt(offset as string)
       };
 
-      const metrics = await this.metricsService.getMetrics(filters);
+      const metrics = await this.metricsService.getMetrics(filters).catch(() => []);
 
       res.json({
         success: true,

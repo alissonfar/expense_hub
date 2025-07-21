@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { api } from "@/lib/api";
 import { 
   Activity, 
   AlertTriangle, 
   BarChart3, 
   Download, 
-  Eye, 
   FileText, 
   HardDrive, 
   Mail, 
@@ -63,7 +63,12 @@ interface SystemStatus {
   auth: string;
   database: string;
   metrics: DashboardData;
-  recentErrors: Array<any>;
+  recentErrors: Array<{
+    id: number;
+    timestamp: string;
+    level: string;
+    message: string;
+  }>;
   timestamp: string;
 }
 
@@ -73,8 +78,22 @@ export default function GodModePage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [metrics, setMetrics] = useState<any[]>([]);
+  const [logs, setLogs] = useState<Array<{
+    id: number;
+    timestamp: string;
+    level: string;
+    category: string;
+    message: string;
+    userId?: number;
+    hubId?: number;
+  }>>([]);
+  const [metrics, setMetrics] = useState<Array<{
+    id: number;
+    timestamp: string;
+    name: string;
+    value: number;
+    unit: string;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,89 +110,67 @@ export default function GodModePage() {
     }
   }, [usuario, toast]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await fetch('/api/god/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Erro ao carregar dashboard');
-      
-      const data = await response.json();
-      setDashboardData(data.data);
+      const response = await api.get('/god/dashboard');
+      if (response.data?.data) {
+        setDashboardData(response.data.data);
+      } else {
+        console.error('Resposta inválida da API:', response);
+        toast({
+          title: "Erro ao carregar dashboard",
+          description: "Dados inválidos recebidos do servidor.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      console.error('Erro ao carregar dashboard:', error);
       toast({
         title: "Erro ao carregar dashboard",
         description: "Tente novamente.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const fetchSystemStatus = async () => {
+  const fetchSystemStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/god/status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Erro ao carregar status');
-      
-      const data = await response.json();
-      setSystemStatus(data.data);
-    } catch (error) {
+      const response = await api.get('/god/status');
+      setSystemStatus(response.data.data);
+    } catch {
       toast({
         title: "Erro ao carregar status",
         description: "Tente novamente.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
-      const response = await fetch('/api/god/logs?limit=50', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Erro ao carregar logs');
-      
-      const data = await response.json();
-      setLogs(data.data);
-    } catch (error) {
+      const response = await api.get('/god/logs?limit=50');
+      setLogs(response.data.data);
+    } catch {
       toast({
         title: "Erro ao carregar logs",
         description: "Tente novamente.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch('/api/god/metrics?limit=50', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Erro ao carregar métricas');
-      
-      const data = await response.json();
-      setMetrics(data.data);
-    } catch (error) {
+      const response = await api.get('/god/metrics?limit=50');
+      setMetrics(response.data.data);
+    } catch {
       toast({
         title: "Erro ao carregar métricas",
         description: "Tente novamente.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -185,7 +182,7 @@ export default function GodModePage() {
         fetchMetrics()
       ]);
       toast({ title: "Dados atualizados com sucesso!" });
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao atualizar dados",
         description: "Tente novamente.",
@@ -198,15 +195,11 @@ export default function GodModePage() {
 
   const handleExport = async (type: 'logs' | 'metrics', format: 'json' | 'csv') => {
     try {
-      const response = await fetch(`/api/god/export/${type}?format=${format}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await api.get(`/god/export/${type}?format=${format}`, {
+        responseType: 'blob'
       });
       
-      if (!response.ok) throw new Error('Erro ao exportar dados');
-      
-      const blob = await response.blob();
+      const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -217,7 +210,7 @@ export default function GodModePage() {
       document.body.removeChild(a);
       
       toast({ title: `Exportação de ${type} realizada com sucesso!` });
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao exportar dados",
         description: "Tente novamente.",
@@ -228,23 +221,12 @@ export default function GodModePage() {
 
   const handleMaintenance = async (action: string) => {
     try {
-      const response = await fetch('/api/god/maintenance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ action })
-      });
-      
-      if (!response.ok) throw new Error('Erro na manutenção');
-      
-      const data = await response.json();
-      toast({ title: data.message });
+      const response = await api.post('/god/maintenance', { action });
+      toast({ title: response.data.message });
       
       // Recarregar dados após manutenção
       await handleRefresh();
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro na manutenção",
         description: "Tente novamente.",
@@ -271,7 +253,7 @@ export default function GodModePage() {
       
       loadData();
     }
-  }, [usuario]);
+  }, [usuario, fetchDashboardData, fetchSystemStatus, fetchLogs, fetchMetrics]);
 
   if (!usuario?.is_god) {
     return (
@@ -350,7 +332,7 @@ export default function GodModePage() {
 
         {/* Dashboard */}
         <TabsContent value="dashboard" className="space-y-6">
-          {dashboardData && (
+          {dashboardData && dashboardData.emailMetrics && (
             <>
               {/* Métricas Principais */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -360,9 +342,9 @@ export default function GodModePage() {
                     <Mail className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{dashboardData.emailMetrics.sentToday}</div>
+                    <div className="text-2xl font-bold">{dashboardData.emailMetrics?.sentToday || 0}</div>
                     <p className="text-xs text-muted-foreground">
-                      {dashboardData.emailMetrics.failedToday} falharam
+                      {dashboardData.emailMetrics?.failedToday || 0} falharam
                     </p>
                   </CardContent>
                 </Card>
@@ -373,9 +355,9 @@ export default function GodModePage() {
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{dashboardData.authMetrics.loginAttempts}</div>
+                    <div className="text-2xl font-bold">{dashboardData.authMetrics?.loginAttempts || 0}</div>
                     <p className="text-xs text-muted-foreground">
-                      {dashboardData.authMetrics.failedLogins} falharam
+                      {dashboardData.authMetrics?.failedLogins || 0} falharam
                     </p>
                   </CardContent>
                 </Card>
@@ -386,7 +368,7 @@ export default function GodModePage() {
                     <HardDrive className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{dashboardData.systemMetrics.memoryUsage}MB</div>
+                    <div className="text-2xl font-bold">{dashboardData.systemMetrics?.memoryUsage || 0}MB</div>
                     <p className="text-xs text-muted-foreground">
                       Uso atual do sistema
                     </p>
@@ -399,7 +381,7 @@ export default function GodModePage() {
                     <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{dashboardData.errorCount}</div>
+                    <div className="text-2xl font-bold">{dashboardData.errorCount || 0}</div>
                     <p className="text-xs text-muted-foreground">
                       Últimas 24 horas
                     </p>
@@ -417,7 +399,7 @@ export default function GodModePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {dashboardData.recentLogs.slice(0, 10).map((log) => (
+                    {(dashboardData.recentLogs || []).slice(0, 10).map((log) => (
                       <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           <Badge className={getLogLevelColor(log.level)}>
@@ -601,14 +583,14 @@ export default function GodModePage() {
                     <div className="flex items-center space-x-3">
                       <Zap className="h-4 w-4 text-blue-500" />
                       <div>
-                        <p className="text-sm font-medium">{metric.metricName}</p>
+                        <p className="text-sm font-medium">{metric.name}</p>
                         <p className="text-xs text-gray-500">
                           {new Date(metric.timestamp).toLocaleString()}
                         </p>
                       </div>
                     </div>
                     <div className="text-sm font-bold">
-                      {metric.metricValue}
+                      {metric.value} {metric.unit}
                     </div>
                   </div>
                 ))}

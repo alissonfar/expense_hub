@@ -50,9 +50,10 @@ export default function LoginPage() {
       router.push('/select-hub');
       
       // O redirecionamento será feito pelo AuthContext + middleware
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || "Credenciais inválidas";
-      const errorType = error?.response?.data?.error;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
+      const errorMessage = axiosError?.response?.data?.message || "Credenciais inválidas";
+      const errorType = axiosError?.response?.data?.error;
       
       // Tratamento específico para email não verificado
       if (errorType === 'EmailNaoVerificado') {

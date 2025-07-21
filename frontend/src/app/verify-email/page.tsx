@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ interface VerificationResponse {
   };
 }
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -50,10 +50,11 @@ export default function VerifyEmailPage() {
         setStatus('error');
         setError(response.data.message || 'Erro ao verificar email.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setStatus('error');
-      if (error.response?.data?.message) {
-        setError(error.response.data.message);
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      if (axiosError?.response?.data?.message) {
+        setError(axiosError.response.data.message);
       } else {
         setError('Erro ao conectar com o servidor. Tente novamente.');
       }
@@ -152,5 +153,22 @@ export default function VerifyEmailPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 } 
