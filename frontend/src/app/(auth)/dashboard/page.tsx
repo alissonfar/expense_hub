@@ -236,7 +236,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KPICard
           title="Receitas no Período"
           value={dadosParaUsar?.resumo.total_receitas ?? 0}
@@ -298,44 +298,7 @@ export default function DashboardPage() {
           />
         )}
         
-        <KPICard
-          title="Transações Pendentes"
-          value={dadosParaUsar?.resumo.transacoes_pendentes ?? 0}
-          type="pending"
-          subtitle="Aguardando aprovação"
-          progress={calcularProgressoTemporal()}
-          loading={loadingDashboard}
-          tooltip={{
-            title: "Transações Pendentes",
-            description: "Transações que aguardam confirmação ou processamento.",
-            details: [
-              "Requerem atenção para aprovação",
-              "Podem afetar o saldo final",
-              "Importante revisar regularmente"
-            ],
-            tip: "Revisar pendências para evitar atrasos"
-          }}
-        />
-        
-        {/* ✅ NOVO: Card de Transações Vencidas */}
-        <KPICard
-          title="Transações Vencidas"
-          value={dadosParaUsar?.resumo.transacoes_vencidas ?? 0}
-          type="expense"
-          subtitle="Requer atenção urgente"
-          progress={calcularProgressoTemporal()}
-          loading={loadingDashboard}
-          tooltip={{
-            title: "Transações Vencidas",
-            description: "Transações que já ultrapassaram a data de vencimento.",
-            details: [
-              "Necessitam ação imediata",
-              "Podem gerar multas ou juros",
-              "Afetam o fluxo de caixa"
-            ],
-            tip: "Priorize o pagamento destas transações"
-          }}
-        />
+
         
         {/* ✅ NOVO: Card de Valor Vencido */}
         <KPICard
