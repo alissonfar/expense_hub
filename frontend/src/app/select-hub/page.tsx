@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useEnhancedToast } from '@/components/ui/enhanced-toast';
 import { useRequirePartialAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
@@ -17,7 +17,7 @@ export default function SelectHubPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isHubSelecionado, setIsHubSelecionado] = useState(false);
   const auth = useRequirePartialAuth();
-  const { toast } = useToast();
+  const { showSuccess, showError, showInfo } = useEnhancedToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -46,26 +46,24 @@ export default function SelectHubPage() {
       // Buscar refreshToken do localStorage explicitamente
       const refreshToken = localStorage.getItem('@PersonalExpenseHub:refreshToken');
       if (!refreshToken) {
-        toast({
-          title: 'Erro de autenticação',
-          description: 'Token de autenticação não encontrado. Faça login novamente.',
-          variant: 'destructive',
-        });
+        showError(
+          'Erro de autenticação',
+          'Token de autenticação não encontrado. Faça login novamente.'
+        );
         return;
       }
       // Opcional: passar refreshToken explicitamente para selectHub se necessário
       await auth.selectHub(hubId);
-      toast({
-        title: "Hub selecionado com sucesso!",
-        description: "Redirecionando para o dashboard...",
-      });
+      showSuccess(
+        "Hub selecionado com sucesso!",
+        "Redirecionando para o dashboard..."
+      );
       setIsHubSelecionado(true);
     } catch {
-      toast({
-        title: "Erro ao selecionar hub",
-        description: "Erro ao acessar o hub. Tente novamente.",
-        variant: "destructive",
-      });
+      showError(
+        "Erro ao selecionar hub",
+        "Erro ao acessar o hub. Tente novamente."
+      );
       setSelectedHubId(null);
     }
   };
@@ -82,13 +80,16 @@ export default function SelectHubPage() {
     setIsCreating(true);
     try {
       const novoHub = await auth.createHub(hubName.trim());
-      toast({ title: 'Hub criado com sucesso!', description: `Você pode agora acessar o hub "${novoHub.nome}".` });
+      showSuccess(
+        'Hub criado com sucesso!', 
+        `Você pode agora acessar o hub "${novoHub.nome}".`
+      );
       setShowCreateModal(false);
       setHubName('');
       // Selecionar o novo hub automaticamente
       await handleSelectHub(novoHub.id);
     } catch {
-      toast({ title: 'Erro ao criar hub', description: 'Tente novamente.', variant: 'destructive' });
+      showError('Erro ao criar hub', 'Tente novamente.');
     } finally {
       setIsCreating(false);
     }
@@ -97,10 +98,10 @@ export default function SelectHubPage() {
   const handleLogout = async () => {
     try {
       await auth.logout();
-      toast({ title: 'Logout realizado', description: 'Você saiu da sua conta.' });
+      showInfo('Logout realizado', 'Você saiu da sua conta.');
       router.push('/login');
     } catch {
-      toast({ title: 'Erro ao sair', description: 'Tente novamente.', variant: 'destructive' });
+      showError('Erro ao sair', 'Tente novamente.');
     }
   };
 

@@ -17,7 +17,8 @@ const createApiClient = (): AxiosInstance => {
   client.interceptors.request.use(
     (config) => {
       const token = localStorage.getItem('@PersonalExpenseHub:accessToken');
-      if (token) {
+      // Só adicionar token se não houver Authorization customizado
+      if (token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       return config;

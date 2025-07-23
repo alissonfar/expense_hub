@@ -277,34 +277,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [accessToken, clearStorage, queryClient]);
 
-  // Função de refresh token
+  // Função de refresh token (mantida para compatibilidade, mas não usada)
   const refreshAccessToken = useCallback(async (): Promise<string> => {
-    try {
-      // Buscar refreshToken do estado OU localStorage (robustez máxima)
-      const tokenToUse =
-        refreshToken ||
-        localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-      if (!tokenToUse) {
-        throw new Error('Token de refresh não encontrado');
-      }
-      const response = await api.post('/auth/refresh', {}, {
-        headers: {
-          Authorization: `Bearer ${tokenToUse}`
-        }
-      });
-      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
-      updateTokens(newAccessToken, newRefreshToken);
-      return newAccessToken;
-    } catch (error) {
-      console.error('[AuthContext][refreshAccessToken] Erro:', error, {
-        refreshToken: refreshToken || localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
-        localStorage: localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
-        cookie: document.cookie
-      });
-      await logout();
-      throw error;
-    }
-  }, [refreshToken, updateTokens, STORAGE_KEYS.REFRESH_TOKEN, logout]);
+    // Sistema usa refresh automático via middleware, não manual
+    throw new Error('Refresh manual não é suportado. Use selectHub para renovar tokens.');
+  }, []);
 
   // Função de registro
   const register = async (data: {
@@ -416,28 +393,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return response;
       },
       async (error) => {
-        const originalRequest = error.config;
-        // Se a requisição for para /auth/refresh e der 401, não tente mais nada!
-        if (error.response?.status === 401 && originalRequest.url?.includes('/auth/refresh')) {
-          // Logout imediato e não reenvia requisição
+        // Removido refresh manual - o sistema usa refresh automático via middleware
+        // Se receber 401, apenas rejeita o erro para que o usuário seja redirecionado
+        if (error.response?.status === 401) {
+          console.log('[AuthContext][Interceptor] Erro 401 - Token expirado, redirecionando para login');
           await logout();
-          return Promise.reject(error);
-        }
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          try {
-            const newAccessToken = await refreshAccessToken();
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            return api(originalRequest);
-          } catch (refreshError) {
-            // Remover interceptor ao falhar
-            if (responseInterceptorId.current !== null) {
-              api.interceptors.response.eject(responseInterceptorId.current);
-              responseInterceptorId.current = null;
-            }
-            await logout();
-            return Promise.reject(refreshError);
-          }
         }
         return Promise.reject(error);
       }

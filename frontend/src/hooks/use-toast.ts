@@ -1,8 +1,8 @@
 import * as React from "react"
 import { ToastActionElement } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 5000
 
 interface ToasterToast {
   id: string
@@ -11,7 +11,9 @@ interface ToasterToast {
   action?: ToastActionElement
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  variant?: "default" | "destructive"
+  variant?: "default" | "destructive" | "success" | "warning" | "info"
+  icon?: React.ReactNode
+  duration?: number
 }
 
 let count = 0
