@@ -102,17 +102,191 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
       clearInterval(progressInterval);
       setProgress(100);
 
-      // Simular download
-      const blob = new Blob(['Dados do relatório...'], { 
-        type: config.formato === 'pdf' ? 'application/pdf' : 
-              config.formato === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+      // Gerar conteúdo real do relatório
+      let conteudo = '';
+      let nomeArquivo = `relatorio_${new Date().toISOString().split('T')[0]}`;
+      
+      if (config.formato === 'csv') {
+        // Gerar CSV
+        const linhas = [];
+        
+        if (config.incluirResumo && dados.resumo) {
+          linhas.push('RESUMO EXECUTIVO');
+          linhas.push('Métrica,Valor');
+          linhas.push(`Total Gastos,R$ ${dados.resumo.total_gastos.toFixed(2)}`);
+          linhas.push(`Total Receitas,R$ ${dados.resumo.total_receitas.toFixed(2)}`);
+          linhas.push(`Saldo do Período,R$ ${dados.resumo.saldo_periodo.toFixed(2)}`);
+          linhas.push(`Transações Pendentes,${dados.resumo.transacoes_pendentes}`);
+          linhas.push(`Pessoas Devedoras,${dados.resumo.pessoas_devedoras}`);
+          linhas.push(`Transações Vencidas,${dados.resumo.transacoes_vencidas}`);
+          linhas.push(`Valor Vencido,R$ ${dados.resumo.valor_vencido.toFixed(2)}`);
+          linhas.push('');
+        }
+        
+        if (config.incluirComparativo && dados.comparativo) {
+          linhas.push('ANÁLISE COMPARATIVA');
+          linhas.push('Métrica,Variação (%)');
+          linhas.push(`Gastos,${dados.comparativo.gastos_variacao.toFixed(1)}%`);
+          linhas.push(`Receitas,${dados.comparativo.receitas_variacao.toFixed(1)}%`);
+          linhas.push(`Transações,${dados.comparativo.transacoes_variacao.toFixed(1)}%`);
+          linhas.push('');
+        }
+        
+        if (config.incluirGraficos && dados.graficos) {
+          if (dados.graficos.gastosPorCategoria.length > 0) {
+            linhas.push('GASTOS POR CATEGORIA');
+            linhas.push('Categoria,Valor');
+            dados.graficos.gastosPorCategoria.forEach(cat => {
+              linhas.push(`${cat.nome},R$ ${cat.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+          
+          if (dados.graficos.gastosPorDia.length > 0) {
+            linhas.push('GASTOS POR DIA');
+            linhas.push('Data,Valor');
+            dados.graficos.gastosPorDia.forEach(dia => {
+              linhas.push(`${dia.data},R$ ${dia.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+        }
+        
+        if (config.incluirDetalhes) {
+          linhas.push('FILTROS APLICADOS');
+          linhas.push('Filtro,Valor');
+          linhas.push(`Período,${filtros.periodo}`);
+          if (filtros.dataInicio) linhas.push(`Data Início,${filtros.dataInicio}`);
+          if (filtros.dataFim) linhas.push(`Data Fim,${filtros.dataFim}`);
+          if (filtros.categorias.length > 0) linhas.push(`Categorias,${filtros.categorias.join(', ')}`);
+          if (filtros.pessoas.length > 0) linhas.push(`Pessoas,${filtros.pessoas.join(', ')}`);
+        }
+        
+        conteudo = linhas.join('\n');
+        nomeArquivo += '.csv';
+      } else if (config.formato === 'excel') {
+        // Para Excel, criar um CSV que pode ser aberto no Excel
+        const linhas = [];
+        linhas.push('RELATÓRIO DE FINANÇAS PESSOAIS');
+        linhas.push('');
+        
+        if (config.incluirResumo && dados.resumo) {
+          linhas.push('RESUMO EXECUTIVO');
+          linhas.push('Métrica\tValor');
+          linhas.push(`Total Gastos\tR$ ${dados.resumo.total_gastos.toFixed(2)}`);
+          linhas.push(`Total Receitas\tR$ ${dados.resumo.total_receitas.toFixed(2)}`);
+          linhas.push(`Saldo do Período\tR$ ${dados.resumo.saldo_periodo.toFixed(2)}`);
+          linhas.push(`Transações Pendentes\t${dados.resumo.transacoes_pendentes}`);
+          linhas.push(`Pessoas Devedoras\t${dados.resumo.pessoas_devedoras}`);
+          linhas.push(`Transações Vencidas\t${dados.resumo.transacoes_vencidas}`);
+          linhas.push(`Valor Vencido\tR$ ${dados.resumo.valor_vencido.toFixed(2)}`);
+          linhas.push('');
+        }
+        
+        if (config.incluirComparativo && dados.comparativo) {
+          linhas.push('ANÁLISE COMPARATIVA');
+          linhas.push('Métrica\tVariação (%)');
+          linhas.push(`Gastos\t${dados.comparativo.gastos_variacao.toFixed(1)}%`);
+          linhas.push(`Receitas\t${dados.comparativo.receitas_variacao.toFixed(1)}%`);
+          linhas.push(`Transações\t${dados.comparativo.transacoes_variacao.toFixed(1)}%`);
+          linhas.push('');
+        }
+        
+        if (config.incluirGraficos && dados.graficos) {
+          if (dados.graficos.gastosPorCategoria.length > 0) {
+            linhas.push('GASTOS POR CATEGORIA');
+            linhas.push('Categoria\tValor');
+            dados.graficos.gastosPorCategoria.forEach(cat => {
+              linhas.push(`${cat.nome}\tR$ ${cat.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+          
+          if (dados.graficos.gastosPorDia.length > 0) {
+            linhas.push('GASTOS POR DIA');
+            linhas.push('Data\tValor');
+            dados.graficos.gastosPorDia.forEach(dia => {
+              linhas.push(`${dia.data}\tR$ ${dia.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+        }
+        
+        conteudo = linhas.join('\n');
+        nomeArquivo += '.xls';
+      } else {
+        // PDF - criar texto formatado
+        const linhas = [];
+        linhas.push('RELATÓRIO DE FINANÇAS PESSOAIS');
+        linhas.push('================================');
+        linhas.push('');
+        
+        if (config.incluirResumo && dados.resumo) {
+          linhas.push('RESUMO EXECUTIVO');
+          linhas.push('----------------');
+          linhas.push(`Total de Gastos: R$ ${dados.resumo.total_gastos.toFixed(2)}`);
+          linhas.push(`Total de Receitas: R$ ${dados.resumo.total_receitas.toFixed(2)}`);
+          linhas.push(`Saldo do Período: R$ ${dados.resumo.saldo_periodo.toFixed(2)}`);
+          linhas.push(`Transações Pendentes: ${dados.resumo.transacoes_pendentes}`);
+          linhas.push(`Pessoas Devedoras: ${dados.resumo.pessoas_devedoras}`);
+          linhas.push(`Transações Vencidas: ${dados.resumo.transacoes_vencidas}`);
+          linhas.push(`Valor Vencido: R$ ${dados.resumo.valor_vencido.toFixed(2)}`);
+          linhas.push('');
+        }
+        
+        if (config.incluirComparativo && dados.comparativo) {
+          linhas.push('ANÁLISE COMPARATIVA');
+          linhas.push('-------------------');
+          linhas.push(`Variação em Gastos: ${dados.comparativo.gastos_variacao.toFixed(1)}%`);
+          linhas.push(`Variação em Receitas: ${dados.comparativo.receitas_variacao.toFixed(1)}%`);
+          linhas.push(`Variação em Transações: ${dados.comparativo.transacoes_variacao.toFixed(1)}%`);
+          linhas.push('');
+        }
+        
+        if (config.incluirGraficos && dados.graficos) {
+          if (dados.graficos.gastosPorCategoria.length > 0) {
+            linhas.push('GASTOS POR CATEGORIA');
+            linhas.push('---------------------');
+            dados.graficos.gastosPorCategoria.forEach(cat => {
+              linhas.push(`${cat.nome}: R$ ${cat.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+          
+          if (dados.graficos.gastosPorDia.length > 0) {
+            linhas.push('GASTOS POR DIA');
+            linhas.push('---------------');
+            dados.graficos.gastosPorDia.forEach(dia => {
+              linhas.push(`${dia.data}: R$ ${dia.valor.toFixed(2)}`);
+            });
+            linhas.push('');
+          }
+        }
+        
+        if (config.incluirDetalhes) {
+          linhas.push('FILTROS APLICADOS');
+          linhas.push('-----------------');
+          linhas.push(`Período: ${filtros.periodo}`);
+          if (filtros.dataInicio) linhas.push(`Data Início: ${filtros.dataInicio}`);
+          if (filtros.dataFim) linhas.push(`Data Fim: ${filtros.dataFim}`);
+          if (filtros.categorias.length > 0) linhas.push(`Categorias: ${filtros.categorias.join(', ')}`);
+          if (filtros.pessoas.length > 0) linhas.push(`Pessoas: ${filtros.pessoas.join(', ')}`);
+        }
+        
+        conteudo = linhas.join('\n');
+        nomeArquivo += '.txt';
+      }
+      
+      const blob = new Blob([conteudo], { 
+        type: config.formato === 'pdf' ? 'text/plain' : 
+              config.formato === 'excel' ? 'text/tab-separated-values' :
               'text/csv'
       });
       
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `relatorio_${Date.now()}.${config.formato}`;
+      link.download = nomeArquivo;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

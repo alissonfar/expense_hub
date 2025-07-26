@@ -71,7 +71,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
     getProgressoMeta
   } = useMetasFinanceiras();
   
-  const { tags } = useTags();
+  const { data: tags = [] } = useTags();
   
   const [showCriarDialog, setShowCriarDialog] = useState(false);
   const [showConquistasDialog, setShowConquistasDialog] = useState(false);
@@ -385,7 +385,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
                         <Select
                           value={novaMeta.categoriaId || ''}
                           onValueChange={(value) => {
-                            const tag = tags.find(t => t.id === value);
+                            const tag = tags?.find(t => t.id === value);
                             setNovaMeta(prev => ({
                               ...prev,
                               categoriaId: value,
@@ -397,7 +397,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
                             <SelectValue placeholder="Selecione uma categoria" />
                           </SelectTrigger>
                           <SelectContent>
-                            {tags.map(tag => (
+                            {tags?.map(tag => (
                               <SelectItem key={tag.id} value={tag.id}>
                                 {tag.nome}
                               </SelectItem>

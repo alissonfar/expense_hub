@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './useAuth';
 
 export type TipoMeta = 'economia' | 'reducao_gastos' | 'limite_categoria' | 'valor_fixo' | 'percentual';
@@ -361,6 +361,11 @@ export function useMetasFinanceiras() {
     return metas.filter(m => m.prioridade === prioridade && m.status === 'ativa');
   };
 
+  // Memoizar estatísticas e listas para evitar re-renderizações infinitas
+  const estatisticas = useMemo(() => getEstatisticas(), [metas, conquistas]);
+  const metasAtivas = useMemo(() => getMetasPorStatus('ativa'), [metas]);
+  const metasConcluidas = useMemo(() => getMetasPorStatus('concluida'), [metas]);
+
   return {
     metas,
     conquistas,
@@ -374,8 +379,8 @@ export function useMetasFinanceiras() {
     getEstatisticas,
     getMetasPorStatus,
     getMetasPorPrioridade,
-    metasAtivas: getMetasPorStatus('ativa'),
-    metasConcluidas: getMetasPorStatus('concluida'),
-    estatisticas: getEstatisticas(),
+    metasAtivas,
+    metasConcluidas,
+    estatisticas,
   };
 }

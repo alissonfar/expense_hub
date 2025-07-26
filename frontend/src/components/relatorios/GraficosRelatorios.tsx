@@ -7,6 +7,7 @@ import { GraficoGastosPorDia } from '@/components/dashboard/GraficoGastosPorDia'
 import { GraficoComparacao } from './GraficoComparacao';
 import { BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react';
 import { RelatoriosGraficos, RelatoriosComparativo } from '@/hooks/useRelatorios';
+import { useState } from 'react';
 
 interface GraficosRelatoriosProps {
   data?: RelatoriosGraficos;
@@ -21,6 +22,8 @@ export function GraficosRelatorios({
   loading = false, 
   periodo = '30_dias' 
 }: GraficosRelatoriosProps) {
+  const [activeTab, setActiveTab] = useState('categorias');
+
   if (loading) {
     return (
       <Card className="w-full">
@@ -44,7 +47,7 @@ export function GraficosRelatorios({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="categorias" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="categorias" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />

@@ -40,6 +40,12 @@ const CustomTooltip = ({ active, payload, label }: {
 }) => {
   if (active && payload && payload.length) {
     const data = payload[0];
+    
+    // Verificar se data e variacao existem antes de acessar
+    if (!data || typeof data.variacao !== 'number') {
+      return null;
+    }
+    
     return (
       <div className="bg-white p-4 rounded-lg shadow-lg border border-blue-100">
         <p className="text-sm font-medium text-gray-900 mb-2">{label}</p>
@@ -51,7 +57,7 @@ const CustomTooltip = ({ active, payload, label }: {
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(data.atual)}
+              }).format(data.atual || 0)}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -61,7 +67,7 @@ const CustomTooltip = ({ active, payload, label }: {
               {new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
-              }).format(data.anterior)}
+              }).format(data.anterior || 0)}
             </span>
           </div>
           <div className="flex items-center gap-2 pt-2 border-t border-gray-100">

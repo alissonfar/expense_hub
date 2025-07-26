@@ -94,6 +94,14 @@ export function useRelatorios(params: RelatoriosParams = {}) {
     ...params,
   };
 
+  // Se o período for personalizado, garantir que data_inicio e data_fim estejam presentes
+  if (defaultParams.periodo === 'personalizado' && (!defaultParams.data_inicio || !defaultParams.data_fim)) {
+    // Se não tiver datas, mudar para 30_dias como fallback
+    defaultParams.periodo = '30_dias';
+    delete defaultParams.data_inicio;
+    delete defaultParams.data_fim;
+  }
+
   return useQuery<RelatoriosData>({
     queryKey: ['relatorios', hubAtual?.id, defaultParams],
     queryFn: async () => {

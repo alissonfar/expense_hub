@@ -49,7 +49,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
     alertas 
   } = useOrcamento();
   
-  const { tags } = useTags();
+  const { data: tags = [] } = useTags();
   
   const [showDefinirDialog, setShowDefinirDialog] = useState(false);
   const [novasCategorias, setNovasCategorias] = useState<NovaCategoriaBudget[]>([]);
@@ -85,7 +85,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
       return;
     }
 
-    const tagSelecionada = tags.find(tag => tag.id === categoriaTemp.categoriaId);
+    const tagSelecionada = tags?.find(tag => tag.id === categoriaTemp.categoriaId);
     const corAleatoria = coresDisponiveis[novasCategorias.length % coresDisponiveis.length];
 
     setNovasCategorias(prev => [...prev, {
@@ -217,7 +217,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
                           <Select
                             value={categoriaTemp.categoriaId}
                             onValueChange={(value) => {
-                              const tag = tags.find(t => t.id === value);
+                              const tag = tags?.find(t => t.id === value);
                               setCategoriaTemp(prev => ({
                                 ...prev,
                                 categoriaId: value,

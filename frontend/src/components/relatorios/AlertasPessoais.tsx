@@ -63,7 +63,7 @@ export function AlertasPessoais({ className }: AlertasPessoaisProps) {
   const { orcamentoAtual, estatisticas: estatisticasOrcamento, alertas: alertasOrcamento } = useOrcamento();
   const { metasAtivas, estatisticas: estatisticasMetas } = useMetasFinanceiras();
   
-  const [alertas, setAlertas] = useState<AlertaInteligente[]>([]);
+  const [todosAlertas, setTodosAlertas] = useState<AlertaInteligente[]>([]);
   const [alertasLidos, setAlertasLidos] = useState<string[]>([]);
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
@@ -216,20 +216,19 @@ export function AlertasPessoais({ className }: AlertasPessoaisProps) {
       });
     }
 
-    // Filtrar alertas já lidos
-    const alertasNaoLidos = novosAlertas.filter(alerta => !alertasLidos.includes(alerta.id));
-    setAlertas(alertasNaoLidos);
-  }, [orcamentoAtual, estatisticasOrcamento, metasAtivas, estatisticasMetas, alertasLidos]);
+    setTodosAlertas(novosAlertas);
+  }, [orcamentoAtual, estatisticasOrcamento, metasAtivas, estatisticasMetas]);
+
+  // Filtrar alertas não lidos
+  const alertas = todosAlertas.filter(alerta => !alertasLidos.includes(alerta.id));
 
   const marcarComoLido = (alertaId: string) => {
     setAlertasLidos(prev => [...prev, alertaId]);
-    setAlertas(prev => prev.filter(a => a.id !== alertaId));
   };
 
   const marcarTodosComoLidos = () => {
-    const todosIds = alertas.map(a => a.id);
+    const todosIds = todosAlertas.map(a => a.id);
     setAlertasLidos(prev => [...prev, ...todosIds]);
-    setAlertas([]);
     
     toast({
       title: "Alertas marcados como lidos",

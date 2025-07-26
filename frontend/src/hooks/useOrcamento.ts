@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './useAuth';
 
 export interface OrcamentoCategoria {
@@ -332,6 +332,10 @@ export function useOrcamento() {
     };
   };
 
+  // Memoizar estatísticas para evitar re-renderizações infinitas
+  const estatisticas = useMemo(() => getEstatisticas(), [orcamentos, alertas]);
+  const orcamentoAtual = useMemo(() => getOrcamentoMes(), [orcamentos]);
+
   return {
     orcamentos,
     alertas: alertas.filter(a => !a.lido), // Apenas não lidos por padrão
@@ -342,7 +346,7 @@ export function useOrcamento() {
     marcarAlertaLido,
     limparAlertasAntigos,
     getEstatisticas,
-    orcamentoAtual: getOrcamentoMes(),
-    estatisticas: getEstatisticas(),
+    orcamentoAtual,
+    estatisticas,
   };
 }
