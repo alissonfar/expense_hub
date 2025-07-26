@@ -13,6 +13,8 @@ import { Download, FileText, Table, FileImage, Settings, Check, AlertCircle } fr
 import { FiltroRelatorio, RelatoriosData } from '@/hooks/useRelatorios';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ExportacaoRelatoriosProps {
   dados: RelatoriosData;
@@ -71,6 +73,8 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
     setProgress(0);
 
     try {
+      console.log('🚀 Iniciando exportação...', { config, dados: !!dados, filtros });
+      
       // Simular progresso
       const progressInterval = setInterval(() => {
         setProgress(prev => {
@@ -92,6 +96,8 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
           comparativo: config.incluirComparativo ? dados.comparativo : undefined,
         },
       };
+
+      console.log('📊 Dados preparados:', exportData);
 
       // TODO: Implementar chamada real para API de exportação
       // const response = await api.post('/relatorios/exportar', exportData);
@@ -215,72 +221,429 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
         conteudo = linhas.join('\n');
         nomeArquivo += '.xls';
       } else {
-        // PDF - criar texto formatado
-        const linhas = [];
-        linhas.push('RELATÓRIO DE FINANÇAS PESSOAIS');
-        linhas.push('================================');
-        linhas.push('');
+                // PDF - Gerar PDF profissional com jsPDF
+        console.log('📄 Iniciando geração de PDF...');
+        
+        try {
+          const doc = new jsPDF({
+            orientation: config.orientacao || 'portrait',
+            unit: 'mm',
+            format: 'a4'
+          });
+          
+          console.log('📄 PDF criado com sucesso');
+
+          let yPosition = 25;
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 25;
+          const contentWidth = pageWidth - (margin * 2);
+
+          // =============================================
+          // CABEÇALHO PROFISSIONAL
+          // =============================================
+          
+          // Retângulo de fundo do cabeçalho
+          doc.setFillColor(41, 128, 185);
+          doc.rect(0, 0, pageWidth, 45, 'F');
+          
+          // Logo/Ícone (círculo com $)
+          doc.setFillColor(255, 255, 255);
+          doc.circle(35, 22, 8, 'F');
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(41, 128, 185);
+          doc.text('$', 35, 26, { align: 'center' });
+          
+          // Título principal
+          doc.setFontSize(28);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(255, 255, 255);
+          doc.text('RELATÓRIO FINANCEIRO', pageWidth / 2, 22, { align: 'center' });
+          
+          // Subtítulo
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Personal Expense Hub', pageWidth / 2, 32, { align: 'center' });
+          
+          // Data e hora de geração
+          doc.setFontSize(10);
+          doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, pageWidth / 2, 40, { align: 'center' });
+          
+          yPosition = 60;
+
+        // =============================================
+        // INFORMAÇÕES DO PERÍODO
+        // =============================================
+        
+        // Período analisado
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(52, 73, 94);
+        doc.text('PERÍODO ANALISADO', margin, yPosition);
+        yPosition += 8;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(74, 85, 104);
+        
+        const periodoText = filtros.periodo === 'personalizado' 
+          ? `${filtros.dataInicio} a ${filtros.dataFim}`
+          : filtros.periodo.replace('_', ' ').toUpperCase();
+        
+        doc.text(`Período: ${periodoText}`, margin, yPosition);
+        yPosition += 6;
+        
+        if (dados.periodo) {
+          doc.text(`Data início: ${dados.periodo.data_inicio}`, margin, yPosition);
+          yPosition += 6;
+          doc.text(`Data fim: ${dados.periodo.data_fim}`, margin, yPosition);
+        }
+        
+        yPosition += 15;
+
+        // =============================================
+        // RESUMO EXECUTIVO
+        // =============================================
         
         if (config.incluirResumo && dados.resumo) {
-          linhas.push('RESUMO EXECUTIVO');
-          linhas.push('----------------');
-          linhas.push(`Total de Gastos: R$ ${dados.resumo.total_gastos.toFixed(2)}`);
-          linhas.push(`Total de Receitas: R$ ${dados.resumo.total_receitas.toFixed(2)}`);
-          linhas.push(`Saldo do Período: R$ ${dados.resumo.saldo_periodo.toFixed(2)}`);
-          linhas.push(`Transações Pendentes: ${dados.resumo.transacoes_pendentes}`);
-          linhas.push(`Pessoas Devedoras: ${dados.resumo.pessoas_devedoras}`);
-          linhas.push(`Transações Vencidas: ${dados.resumo.transacoes_vencidas}`);
-          linhas.push(`Valor Vencido: R$ ${dados.resumo.valor_vencido.toFixed(2)}`);
-          linhas.push('');
+          console.log('📊 Adicionando resumo executivo...', dados.resumo);
+          
+          // Título da seção com linha decorativa
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(41, 128, 185);
+          doc.text('RESUMO EXECUTIVO', margin, yPosition);
+          
+          // Linha decorativa
+          doc.setDrawColor(41, 128, 185);
+          doc.setLineWidth(0.5);
+          doc.line(margin, yPosition + 2, margin + 60, yPosition + 2);
+          
+          yPosition += 15;
+
+          const resumoData = [
+            ['Métrica', 'Valor'],
+            ['Total de Gastos', `R$ ${dados.resumo.total_gastos.toFixed(2)}`],
+            ['Total de Receitas', `R$ ${dados.resumo.total_receitas.toFixed(2)}`],
+            ['Saldo do Período', `R$ ${dados.resumo.saldo_periodo.toFixed(2)}`],
+            ['Transações Pendentes', dados.resumo.transacoes_pendentes.toString()],
+            ['Pessoas Devedoras', dados.resumo.pessoas_devedoras.toString()],
+            ['Transações Vencidas', dados.resumo.transacoes_vencidas.toString()],
+            ['Valor Vencido', `R$ ${dados.resumo.valor_vencido.toFixed(2)}`]
+          ];
+
+          console.log('📊 Criando tabela de resumo...', resumoData);
+          
+          autoTable(doc, {
+            startY: yPosition,
+            head: [resumoData[0]],
+            body: resumoData.slice(1),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [41, 128, 185], 
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 11
+            },
+            styles: { 
+              fontSize: 10,
+              cellPadding: 6,
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin },
+            tableWidth: contentWidth,
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.6 },
+              1: { cellWidth: contentWidth * 0.4, halign: 'right' }
+            }
+          });
+
+          yPosition = (doc as any).lastAutoTable.finalY + 20;
+          console.log('📊 Tabela de resumo criada, nova posição Y:', yPosition);
         }
+
+        // =============================================
+        // ANÁLISE COMPARATIVA
+        // =============================================
         
         if (config.incluirComparativo && dados.comparativo) {
-          linhas.push('ANÁLISE COMPARATIVA');
-          linhas.push('-------------------');
-          linhas.push(`Variação em Gastos: ${dados.comparativo.gastos_variacao.toFixed(1)}%`);
-          linhas.push(`Variação em Receitas: ${dados.comparativo.receitas_variacao.toFixed(1)}%`);
-          linhas.push(`Variação em Transações: ${dados.comparativo.transacoes_variacao.toFixed(1)}%`);
-          linhas.push('');
-        }
-        
-        if (config.incluirGraficos && dados.graficos) {
-          if (dados.graficos.gastosPorCategoria.length > 0) {
-            linhas.push('GASTOS POR CATEGORIA');
-            linhas.push('---------------------');
-            dados.graficos.gastosPorCategoria.forEach(cat => {
-              linhas.push(`${cat.nome}: R$ ${cat.valor.toFixed(2)}`);
-            });
-            linhas.push('');
-          }
+          console.log('📊 Adicionando análise comparativa...', dados.comparativo);
           
-          if (dados.graficos.gastosPorDia.length > 0) {
-            linhas.push('GASTOS POR DIA');
-            linhas.push('---------------');
-            dados.graficos.gastosPorDia.forEach(dia => {
-              linhas.push(`${dia.data}: R$ ${dia.valor.toFixed(2)}`);
-            });
-            linhas.push('');
-          }
+          // Título da seção com linha decorativa
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(46, 204, 113);
+          doc.text('ANÁLISE COMPARATIVA', margin, yPosition);
+          
+          // Linha decorativa
+          doc.setDrawColor(46, 204, 113);
+          doc.setLineWidth(0.5);
+          doc.line(margin, yPosition + 2, margin + 70, yPosition + 2);
+          
+          yPosition += 15;
+
+          const comparativoData = [
+            ['Métrica', 'Variação (%)'],
+            ['Gastos', `${dados.comparativo.gastos_variacao.toFixed(1)}%`],
+            ['Receitas', `${dados.comparativo.receitas_variacao.toFixed(1)}%`],
+            ['Transações', `${dados.comparativo.transacoes_variacao.toFixed(1)}%`],
+            ['Transações Vencidas', `${dados.comparativo.transacoes_vencidas_variacao.toFixed(1)}%`],
+            ['Valor Vencido', `${dados.comparativo.valor_vencido_variacao.toFixed(1)}%`]
+          ];
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [comparativoData[0]],
+            body: comparativoData.slice(1),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [46, 204, 113], 
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 11
+            },
+            styles: { 
+              fontSize: 10,
+              cellPadding: 6,
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin },
+            tableWidth: contentWidth,
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.6 },
+              1: { cellWidth: contentWidth * 0.4, halign: 'right' }
+            }
+          });
+
+          yPosition = (doc as any).lastAutoTable.finalY + 20;
         }
+
+        // =============================================
+        // ANÁLISE POR CATEGORIAS
+        // =============================================
+        
+        if (config.incluirGraficos && dados.graficos && dados.graficos.gastosPorCategoria.length > 0) {
+          console.log('📊 Adicionando gastos por categoria...', dados.graficos.gastosPorCategoria);
+          
+          // Título da seção com linha decorativa
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(155, 89, 182);
+          doc.text('ANÁLISE POR CATEGORIAS', margin, yPosition);
+          
+          // Linha decorativa
+          doc.setDrawColor(155, 89, 182);
+          doc.setLineWidth(0.5);
+          doc.line(margin, yPosition + 2, margin + 80, yPosition + 2);
+          
+          yPosition += 15;
+
+          const categoriaData = [
+            ['Categoria', 'Valor']
+          ];
+
+          dados.graficos.gastosPorCategoria.forEach(cat => {
+            categoriaData.push([cat.nome, `R$ ${cat.valor.toFixed(2)}`]);
+          });
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [categoriaData[0]],
+            body: categoriaData.slice(1),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [155, 89, 182], 
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 11
+            },
+            styles: { 
+              fontSize: 10,
+              cellPadding: 6,
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin },
+            tableWidth: contentWidth,
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.6 },
+              1: { cellWidth: contentWidth * 0.4, halign: 'right' }
+            }
+          });
+
+          yPosition = (doc as any).lastAutoTable.finalY + 20;
+        }
+
+        // =============================================
+        // EVOLUÇÃO TEMPORAL
+        // =============================================
+        
+        if (config.incluirGraficos && dados.graficos && dados.graficos.gastosPorDia.length > 0) {
+          console.log('📊 Adicionando gastos por dia...', dados.graficos.gastosPorDia);
+          
+          // Título da seção com linha decorativa
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(230, 126, 34);
+          doc.text('EVOLUÇÃO TEMPORAL', margin, yPosition);
+          
+          // Linha decorativa
+          doc.setDrawColor(230, 126, 34);
+          doc.setLineWidth(0.5);
+          doc.line(margin, yPosition + 2, margin + 70, yPosition + 2);
+          
+          yPosition += 15;
+
+          const diaData = [
+            ['Data', 'Valor']
+          ];
+
+          dados.graficos.gastosPorDia.forEach(dia => {
+            diaData.push([dia.data, `R$ ${dia.valor.toFixed(2)}`]);
+          });
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [diaData[0]],
+            body: diaData.slice(1),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [230, 126, 34], 
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 11
+            },
+            styles: { 
+              fontSize: 10,
+              cellPadding: 6,
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin },
+            tableWidth: contentWidth,
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.5 },
+              1: { cellWidth: contentWidth * 0.5, halign: 'right' }
+            }
+          });
+
+          yPosition = (doc as any).lastAutoTable.finalY + 20;
+        }
+
+        // =============================================
+        // CONFIGURAÇÕES E FILTROS
+        // =============================================
         
         if (config.incluirDetalhes) {
-          linhas.push('FILTROS APLICADOS');
-          linhas.push('-----------------');
-          linhas.push(`Período: ${filtros.periodo}`);
-          if (filtros.dataInicio) linhas.push(`Data Início: ${filtros.dataInicio}`);
-          if (filtros.dataFim) linhas.push(`Data Fim: ${filtros.dataFim}`);
-          if (filtros.categorias.length > 0) linhas.push(`Categorias: ${filtros.categorias.join(', ')}`);
-          if (filtros.pessoas.length > 0) linhas.push(`Pessoas: ${filtros.pessoas.join(', ')}`);
+          console.log('📊 Adicionando filtros aplicados...', filtros);
+          
+          // Título da seção com linha decorativa
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(52, 73, 94);
+          doc.text('CONFIGURAÇÕES E FILTROS', margin, yPosition);
+          
+          // Linha decorativa
+          doc.setDrawColor(52, 73, 94);
+          doc.setLineWidth(0.5);
+          doc.line(margin, yPosition + 2, margin + 90, yPosition + 2);
+          
+          yPosition += 15;
+
+          const filtrosData = [
+            ['Filtro', 'Valor'],
+            ['Período', filtros.periodo]
+          ];
+
+          if (filtros.dataInicio) filtrosData.push(['Data Início', filtros.dataInicio]);
+          if (filtros.dataFim) filtrosData.push(['Data Fim', filtros.dataFim]);
+          if (filtros.categorias.length > 0) filtrosData.push(['Categorias', filtros.categorias.join(', ')]);
+          if (filtros.pessoas.length > 0) filtrosData.push(['Pessoas', filtros.pessoas.join(', ')]);
+
+          autoTable(doc, {
+            startY: yPosition,
+            head: [filtrosData[0]],
+            body: filtrosData.slice(1),
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [52, 73, 94], 
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 11
+            },
+            styles: { 
+              fontSize: 10,
+              cellPadding: 6,
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            margin: { left: margin, right: margin },
+            tableWidth: contentWidth,
+            columnStyles: {
+              0: { cellWidth: contentWidth * 0.5 },
+              1: { cellWidth: contentWidth * 0.5 }
+            }
+          });
         }
+
+        // =============================================
+        // RODAPÉ PROFISSIONAL
+        // =============================================
         
-        conteudo = linhas.join('\n');
-        nomeArquivo += '.txt';
+        // Adicionar rodapé na última página
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          
+          // Linha separadora
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.2);
+          doc.line(margin, pageHeight - 25, pageWidth - margin, pageHeight - 25);
+          
+          // Texto do rodapé
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Personal Expense Hub - Página ${i} de ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+          doc.text(`Gerado automaticamente em ${new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        }
+
+        // Gerar PDF
+        console.log('📄 Gerando blob do PDF...');
+        const pdfBlob = doc.output('blob');
+        console.log('📄 Blob gerado:', pdfBlob);
+        
+        const url = window.URL.createObjectURL(pdfBlob);
+        console.log('📄 URL criada:', url);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        console.log('📄 PDF profissional gerado e baixado com sucesso!');
+
+        toast({
+          title: "Exportação concluída!",
+          description: `Relatório PDF profissional gerado com sucesso`,
+        });
+
+        setIsOpen(false);
+        return; // Sair da função para PDF
+        } catch (pdfError) {
+          console.error('❌ Erro na geração do PDF:', pdfError);
+          throw new Error(`Erro na geração do PDF: ${pdfError.message}`);
+        }
       }
       
       const blob = new Blob([conteudo], { 
-        type: config.formato === 'pdf' ? 'text/plain' : 
-              config.formato === 'excel' ? 'text/tab-separated-values' :
-              'text/csv'
+        type: config.formato === 'excel' ? 'text/tab-separated-values' : 'text/csv'
       });
       
       const url = window.URL.createObjectURL(blob);
@@ -299,9 +662,12 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
 
       setIsOpen(false);
     } catch (error) {
+      console.error('❌ Erro na exportação:', error);
+      console.error('❌ Stack trace:', error.stack);
+      
       toast({
         title: "Erro na exportação",
-        description: "Não foi possível exportar o relatório. Tente novamente.",
+        description: error.message || "Não foi possível exportar o relatório. Tente novamente.",
         variant: "destructive",
       });
     } finally {
