@@ -1,11 +1,17 @@
-import { FileText } from 'lucide-react';
+'use client';
 
-export default function RelatoriosPlaceholder() {
+import { RelatoriosDashboard } from '@/components/relatorios/RelatoriosDashboard';
+
+export default function RelatoriosPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <FileText className="w-16 h-16 text-blue-400 mb-4" />
-      <h1 className="text-2xl font-bold mb-2">Relatórios</h1>
-      <p className="text-muted-foreground mb-4">A página de relatórios estará disponível em breve.<br />Acompanhe as novidades!</p>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
+          <p className="text-gray-600">Análise completa das suas finanças pessoais</p>
+        </div>
+      </div>
+      <RelatoriosDashboard />
     </div>
   );
 } 

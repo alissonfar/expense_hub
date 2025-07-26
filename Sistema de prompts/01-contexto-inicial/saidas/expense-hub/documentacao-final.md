@@ -1,11 +1,4 @@
-# DOCUMENTAÇÃO FINAL: MÓDULO DE CONVIDAR NOVOS MEMBROS OU CADASTRAR PESSOAS
-
-**Data da Documentação**: 2025-01-27  
-**Baseado na Análise**: PASSO-01 - Análise Completa de Contexto  
-**Versão**: 1.0  
-**Responsável**: AI Assistant  
-
----
+ # DOCUMENTAÇÃO ESTRUTURADA: MÓDULO DE TRANSAÇÕES - EXPENSE HUB
 
 ## 🏠 ÍNDICE RÁPIDO
 - [Resumo Executivo](#resumo-executivo)
@@ -22,39 +15,40 @@
 ## 📋 RESUMO EXECUTIVO
 
 ### 🎯 Visão Geral
-**Nome**: Módulo de Convidar Novos Membros ou Cadastrar Pessoas  
-**Tipo**: Fullstack (React + Node.js + TypeScript)  
-**Tecnologia Principal**: React + Node.js + TypeScript + Prisma  
-**Estado Atual**: Maduro (funcionalidades principais implementadas)  
-**Complexidade**: Alta (multi-tenancy, RBAC, sistema de convites)  
-**Qualidade Geral**: Boa (bem estruturado, com validações e testes)  
+**Nome**: Expense Hub - Módulo de Transações  
+**Tipo**: Fullstack (React/Next.js + Node.js/Express)  
+**Tecnologia Principal**: React, Next.js, Node.js, TypeScript, Prisma, PostgreSQL  
+**Estado Atual**: Em Desenvolvimento Ativo  
+**Complexidade**: Alta  
+**Qualidade Geral**: Boa
 
 ### 🎪 O Que Faz
-O módulo de gestão de membros é o coração do sistema multi-tenant do Expense Hub, permitindo que proprietários e administradores convidem novos membros para seus Hubs, gerenciem papéis e controlem o acesso de cada pessoa. O sistema utiliza um mecanismo de convites por token com expiração de 24 horas, oferecendo segurança e flexibilidade.
-
-O módulo implementa um sistema completo de RBAC (Role-Based Access Control) com quatro papéis distintos: PROPRIETARIO, ADMINISTRADOR, COLABORADOR e VISUALIZADOR. Cada papel tem permissões específicas e, para colaboradores, é possível definir políticas de acesso (GLOBAL ou INDIVIDUAL) que controlam quais dados cada pessoa pode visualizar e modificar.
+O módulo de transações do Expense Hub é responsável por toda a gestão de gastos e receitas, com suporte a multi-tenancy (vários workspaces isolados), parcelamento, divisão de valores entre participantes, categorização por tags e controle de acesso baseado em papéis (RBAC). Permite criar, editar, listar, filtrar e excluir transações financeiras, integrando-se com pagamentos, pessoas, tags e relatórios. O frontend oferece uma interface moderna e responsiva, enquanto o backend garante segurança, validação e isolamento de dados.
 
 ### 📊 Métricas Rápidas
-- **Arquivos Analisados**: 15+ arquivos principais
-- **Dependências Mapeadas**: 8 APIs principais
-- **Integrações Identificadas**: 4 sistemas principais
-- **Testes Encontrados**: Sim (testes de integração)
-- **Documentação Existente**: Boa (documentação técnica completa)
+- **Arquivos Analisados**: 20+ principais
+- **Dependências Mapeadas**: 10+
+- **Integrações Identificadas**: 5+
+- **Testes Encontrados**: Parcial (unitário e scripts)
+- **Documentação Existente**: Boa
 
 ### ⚡ Status Atual
-- ✅ **Pontos Fortes**: 
-  - Arquitetura multi-tenant bem implementada
-  - Sistema de convites seguro com tokens
-  - Validação robusta com Zod
-  - Controle de acesso baseado em roles
-  - Soft delete para preservação de dados
-- ⚠️ **Pontos de Atenção**: 
-  - Funcionalidade de editar papel não implementada na UI
-  - Reenvio de convite não implementado na UI
-  - Sistema de emails não implementado
-  - Algumas validações de negócio podem precisar de refinamento
-- 🚫 **Problemas Críticos**: 
-  - Funcionalidades de gestão de membros incompletas na interface
+- ✅ **Pontos Fortes**:
+  - Arquitetura multi-tenant robusta
+  - Validação consistente com Zod
+  - Componentização e modularidade no frontend
+  - Documentação técnica presente
+  - Uso de TypeScript e ESLint
+- ⚠️ **Pontos de Atenção**:
+  - Cobertura de testes automatizados baixa
+  - Logs de debug em produção
+  - Queries podem ser otimizadas
+  - Conversões de tipos inconsistentes
+  - Soft delete requer atenção
+- 🚫 **Problemas Críticos**:
+  - Falta de testes automatizados abrangentes
+  - Lógica de parcelamento complexa
+  - Possíveis riscos de performance em grandes volumes
 
 ---
 
@@ -62,324 +56,317 @@ O módulo implementa um sistema completo de RBAC (Role-Based Access Control) com
 
 ### 🏗️ Arquitetura Geral
 ```
-📁 Estrutura de Pastas:
-backend/
-├── controllers/pessoaController.ts (411 linhas)
-├── schemas/pessoa.ts (89 linhas)
-├── routes/pessoa.ts (129 linhas)
-├── middleware/auth.ts (339 linhas)
-└── prisma/schema.prisma (tabelas pessoas, membros_hub)
-
-frontend/
-├── src/app/(auth)/membros/page.tsx (240 linhas)
-├── src/components/pessoas/InvitePessoaForm.tsx (151 linhas)
-├── src/hooks/usePessoas.ts (123 linhas)
-├── src/app/ativar-convite/page.tsx (164 linhas)
-└── src/lib/types.ts (tipos Pessoa, PessoaHub, Convite)
-
-🔗 Fluxo de Dados:
-Convite → Token → Ativação → Senha → Acesso ao Hub
-Gestão → Listar → Editar → Remover (soft delete)
-
-🔌 Pontos de Integração:
-- Sistema de autenticação (JWT)
-- Sistema de hubs (multi-tenancy)
-- Sistema de transações (participantes)
-- Sistema de pagamentos (pessoas)
+transacoes/
+├── Frontend
+│   ├── pages/
+│   │   ├── page.tsx (Listagem principal)
+│   │   ├── nova/page.tsx (Criação)
+│   │   └── [id]/ (Detalhes e edição)
+│   ├── components/
+│   │   ├── TransactionForm.tsx (Formulário principal)
+│   │   ├── EditTransactionForm.tsx (Edição)
+│   │   └── TransactionForm/ (Componentes modulares)
+│   └── hooks/
+│       └── useTransacoes.ts (Lógica de negócio)
+└── Backend
+    ├── controllers/transacaoController.ts
+    ├── schemas/transacao.ts
+    ├── routes/transacao.ts
+    └── prisma/schema.prisma (Modelo de dados)
 ```
 
+#### 🔗 Fluxo de Dados
+- Usuário interage com UI (Next.js/React)
+- Chamada para API REST `/api/transacoes`
+- Backend Express valida, processa e persiste via Prisma
+- Banco PostgreSQL armazena dados isolados por Hub
+- Resposta retorna para frontend, que atualiza interface
+
+#### 🔌 Pontos de Integração
+- API de Pessoas (`/api/pessoas`)
+- API de Pagamentos (`/api/pagamentos`)
+- API de Tags (`/api/tags`)
+- API de Hubs (`/api/hub`)
+- Dashboard e Relatórios
+
 ### 🧩 Componentes Principais
-| Componente | Localização | Função | Estado |
-|------------|-------------|--------|--------|
-| pessoaController | backend/controllers/ | CRUD de membros | ✅ OK |
-| InvitePessoaForm | frontend/components/ | Formulário de convite | ✅ OK |
-| usePessoas | frontend/hooks/ | Lógica de negócio | ✅ OK |
-| página membros | frontend/app/membros/ | Interface principal | ⚠️ Atenção |
-| ativar-convite | frontend/app/ativar-convite/ | Ativação de convite | ✅ OK |
-| auth middleware | backend/middleware/ | Controle de acesso | ✅ OK |
+| Componente                | Localização                                 | Função                        | Estado     |
+|---------------------------|---------------------------------------------|-------------------------------|------------|
+| TransactionForm           | frontend/src/components/transacoes/         | Formulário de transação       | OK         |
+| EditTransactionForm       | frontend/src/components/transacoes/         | Edição de transação           | OK         |
+| TransactionForm/*         | frontend/src/components/transacoes/TransactionForm/ | Subcomponentes do formulário | OK         |
+| useTransacoes             | frontend/src/hooks/                         | Lógica de listagem e ações    | OK         |
+| transacaoController.ts    | backend/controllers/                        | Controller principal backend  | OK         |
+| transacao.ts (schema)     | backend/schemas/                            | Validação Zod                 | OK         |
+| transacao.ts (rota)       | backend/routes/                             | Rotas REST                    | OK         |
+| schema.prisma             | backend/prisma/                             | Modelo de dados               | OK         |
 
 ### 🛠️ Tecnologias Utilizadas
-| Categoria | Tecnologia | Versão | Uso |
-|-----------|------------|--------|-----|
-| Framework Backend | Express.js | 4.21.1 | Principal |
-| Framework Frontend | Next.js | 15.3.5 | Principal |
-| ORM | Prisma | 6.12.0 | Principal |
-| Validação | Zod | 3.25.67 | Principal |
-| Autenticação | JWT | 8.5.1 | Principal |
-| UI Components | Radix UI | - | Secundário |
-| Estado | TanStack Query | 5.81.5 | Secundário |
-| Formulários | React Hook Form | 7.60.0 | Secundário |
+| Categoria   | Tecnologia         | Versão   | Uso         |
+|-------------|--------------------|----------|-------------|
+| Framework   | Next.js            | 15       | Principal   |
+| Framework   | Express            | 4.x      | Principal   |
+| ORM         | Prisma             | 6.x      | Principal   |
+| Banco       | PostgreSQL         | 14+      | Principal   |
+| UI          | React              | 19       | Principal   |
+| UI          | Shadcn/ui, Radix   | -        | Específico  |
+| Validação   | Zod                | 3.x      | Principal   |
+| Formulário  | react-hook-form    | 7.x      | Específico  |
+| Cache       | TanStack Query     | 5.x      | Específico  |
+| CSS         | Tailwind CSS       | 3.x      | Principal   |
 
 ---
 
 ## 🔗 DEPENDÊNCIAS E INTEGRAÇÕES
 
 ### 📥 DEPENDÊNCIAS DE ENTRADA (O que consome)
-| Tipo | Fonte | Descrição | Criticidade |
-|------|-------|-----------|-------------|
-| API | `/api/auth/ativar-convite` | Ativação de convites | Alta |
-| API | `/api/auth/reenviar-convite` | Reenvio de convites | Média |
-| Serviço | Prisma Client | Operações de banco | Crítica |
-| Serviço | JWT Utils | Autenticação | Crítica |
-| Biblioteca | bcrypt | Hash de senhas | Crítica |
-| Biblioteca | Zod | Validação de dados | Alta |
+| Tipo      | Fonte           | Descrição                        | Criticidade |
+|-----------|-----------------|----------------------------------|-------------|
+| API       | /api/pessoas    | Participantes das transações      | Alta        |
+| API       | /api/tags       | Categorização                    | Média       |
+| API       | /api/pagamentos | Status de pagamento              | Alta        |
+| API       | /api/hub        | Contexto multi-tenant            | Alta        |
+| Serviço   | Prisma Client   | Banco de dados                   | Crítica     |
+| Serviço   | JWT Auth        | Autenticação                     | Crítica     |
+| Lib       | Zod             | Validação                        | Alta        |
+| Lib       | date-fns        | Datas                            | Média       |
+| Lib       | react-hook-form | Formulários                      | Média       |
+| Lib       | TanStack Query  | Cache/sync                       | Média       |
 
 ### 📤 DEPENDÊNCIAS DE SAÍDA (O que oferece)
-| Tipo | Destino | Descrição | Impacto |
-|------|---------|-----------|---------|
-| Endpoint | `/api/pessoas` | CRUD de membros | Alto |
-| Componente | Sistema de transações | Participantes | Alto |
-| Componente | Sistema de pagamentos | Pessoas | Alto |
-| Hook | usePessoas | Listagem de membros | Médio |
-| Hook | useInvitePessoa | Convite de membros | Médio |
+| Tipo       | Destino         | Descrição                        | Impacto     |
+|------------|-----------------|----------------------------------|-------------|
+| Endpoint   | Frontend/API    | Listagem, criação, edição, deleção | Alto      |
+| Componente | UI              | Formulário, tabela, detalhe      | Alto        |
+| Hook       | UI              | Lógica de negócio                | Alto        |
 
 ### 🌐 INTEGRAÇÕES EXTERNAS
-- **APIs Externas**: Nenhuma identificada
-- **Serviços Cloud**: Nenhum identificado
-- **Bancos de Dados**: PostgreSQL via Prisma
-- **Sistemas Legados**: Nenhum identificado
+- **Pagamentos**: Associação de pagamentos às transações
+- **Pessoas**: Participantes vinculados
+- **Tags**: Categorização
+- **Relatórios**: Dados para relatórios
+- **Dashboard**: Métricas e estatísticas
 
 ---
 
 ## ⚙️ FUNCIONALIDADES MAPEADAS
 
 ### 🎯 Funcionalidade Principal
-**Nome**: Gestão Completa de Membros em Hubs Multi-tenant  
-**Descrição**: Sistema completo para convidar, gerenciar e controlar o acesso de membros em Hubs, com suporte a diferentes papéis e políticas de acesso.  
-**Fluxo**: Convite → Token → Ativação → Senha → Acesso → Gestão  
-**Entradas**: Email, nome, papel, política de acesso  
-**Saídas**: Membro ativo no Hub com permissões definidas  
+**Nome**: Gestão de Transações Financeiras
+**Descrição**: Permite criar, editar, listar, filtrar e excluir transações financeiras (gastos e receitas) com suporte a multi-tenancy, parcelamento, divisão entre participantes, categorização e controle de acesso por papéis.
+**Fluxo**: Usuário acessa interface → Preenche formulário → Validação → Chamada API → Persistência → Atualização UI
+**Entradas**: Dados do formulário, contexto do Hub, participantes, tags
+**Saídas**: Transação criada/editada, listagem atualizada, métricas
 
 ### 🔧 Subfuncionalidades
-| Funcionalidade | Descrição | Localização | Estado |
-|----------------|-----------|-------------|--------|
-| Convidar Membro | Cria convite e envia token | pessoaController.convidarMembro | ✅ Funcionando |
-| Ativar Convite | Ativa convite com senha | authController.ativarConvite | ✅ Funcionando |
-| Reenviar Convite | Reenvia convite expirado | pessoaController.reenviarConvite | ✅ Funcionando |
-| Listar Membros | Lista membros do Hub | pessoaController.listMembros | ✅ Funcionando |
-| Editar Papel | Atualiza papel do membro | pessoaController.updateMembro | ⚠️ Parcial |
-| Remover Membro | Soft delete do membro | pessoaController.removerMembro | ✅ Funcionando |
-| Formulário Convite | Interface para convidar | InvitePessoaForm | ✅ Funcionando |
-| Página Membros | Interface principal | membros/page.tsx | ⚠️ Incompleta |
+| Funcionalidade         | Descrição                                 | Localização                        | Estado         |
+|-----------------------|-------------------------------------------|------------------------------------|----------------|
+| Gestão de Gastos      | Criação, edição, parcelamento, divisão    | Frontend/backend                   | Funcionando    |
+| Gestão de Receitas    | Criação/edição pelo proprietário          | Frontend/backend                   | Funcionando    |
+| Parcelamento          | Criação automática de múltiplas transações| Backend                            | Funcionando    |
+| Participantes         | Múltiplos participantes, validação        | Frontend/backend                   | Funcionando    |
+| Filtros e Busca       | Filtros por tipo, status, datas, tags     | Frontend/backend                   | Funcionando    |
 
 ### 📊 Casos de Uso Identificados
-1. **Convidar Novo Membro**
-   - **Ator**: Proprietário ou Administrador
-   - **Cenário**: Acessa página de membros → Clica "Convidar" → Preenche formulário
-   - **Resultado**: Membro recebe convite por email com token de ativação
-
-2. **Ativar Convite**
-   - **Ator**: Pessoa convidada
-   - **Cenário**: Acessa link de convite → Define senha → Ativa conta
-   - **Resultado**: Conta ativada e acesso ao Hub concedido
-
-3. **Gerenciar Membros**
-   - **Ator**: Proprietário ou Administrador
-   - **Cenário**: Lista membros → Edita papéis → Remove membros
-   - **Resultado**: Controle total sobre membros do Hub
+1. **Criação de Gasto**
+   - **Ator**: Usuário autenticado
+   - **Cenário**: Preenche formulário e salva
+   - **Resultado**: Gasto criado, UI atualizada
+2. **Parcelamento**
+   - **Ator**: Usuário autenticado
+   - **Cenário**: Informa parcelas, sistema gera múltiplas transações
+   - **Resultado**: Parcelas criadas, agrupadas por UUID
+3. **Pagamento**
+   - **Ator**: Usuário autenticado
+   - **Cenário**: Registra pagamento, status atualizado
+   - **Resultado**: Status de pagamento alterado
 
 ---
 
-## 🧪 QUALIDADE E TESTES
+## 🧪 QUALIDADE
 
 ### 📏 Padrões de Qualidade
-- **Linting**: ESLint configurado - ✅ Configurado
-- **Formatação**: Prettier configurado - ✅ Configurado
-- **Comentários**: Boa cobertura - ✅ Boa
-- **Documentação de Código**: Nível alto - ✅ Alto
+- **Linting**: ESLint/Prettier - Configurado
+- **Formatação**: Prettier
+- **Comentários**: Média
+- **Documentação de Código**: Boa
 
 ### 📝 Documentação Existente
-- **README**: Existe - ✅ Boa qualidade
-- **API Docs**: Existe - ✅ Atualizada
-- **Comentários no Código**: Suficientes - ✅ Suficientes
-- **Documentação Técnica**: Alto nível - ✅ Alto
-
-### 🧪 Testes
-- **Cobertura**: Média (testes de integração)
-- **Tipos**: Testes de integração em `backend/scripts/`
-- **Scripts**: `test42end.js` com 6 endpoints testados
-- **Necessidade**: Expandir testes unitários
+- **README**: Não encontrado
+- **API Docs**: Sim - Atualizada
+- **Comentários no Código**: Suficientes
+- **Documentação Técnica**: Boa (docs/2025-07-06_crud_transacoes.md)
 
 ---
 
 ## ⚠️ RISCOS E ALERTAS
 
 ### 🚨 PROBLEMAS CRÍTICOS
-1. **Funcionalidades Incompletas na UI**
-   - **Descrição**: Editar papel e reenviar convite não implementados
-   - **Impacto**: Usuários não conseguem gerenciar membros completamente
-   - **Localização**: `frontend/src/app/(auth)/membros/page.tsx`
+1. **Falta de testes automatizados abrangentes**
+   - **Descrição**: Apenas testes unitários básicos
+   - **Impacto**: Risco de regressão
+   - **Localização**: Frontend/backend
    - **Prioridade**: Alta
-
-2. **Sistema de Emails Não Implementado**
-   - **Descrição**: Convites são gerados mas não enviados por email
-   - **Impacto**: Usuários não recebem convites automaticamente
-   - **Localização**: Backend (função de envio de email)
+2. **Lógica de parcelamento complexa**
+   - **Descrição**: Criação automática de múltiplas transações
+   - **Impacto**: Difícil manutenção
+   - **Localização**: Backend
    - **Prioridade**: Alta
+3. **Performance em grandes volumes**
+   - **Descrição**: Queries podem ser lentas
+   - **Impacto**: Lentidão
+   - **Localização**: Backend
+   - **Prioridade**: Média
 
 ### ⚡ PONTOS DE ATENÇÃO
-- **Código Complexo**: Lógica de multi-tenancy e RBAC requer atenção especial
-- **Dependências Frágeis**: Tokens de convite podem expirar
-- **Performance**: Queries podem ser otimizadas para grandes volumes
-- **Segurança**: Validação de senhas e tokens precisa ser robusta
+- **Código Complexo**: Parcelamento, validação de participantes
+- **Dependências Frágeis**: Prisma, JWT, TanStack Query
+- **Performance**: Queries sem otimização
+- **Segurança**: Isolamento multi-tenant crítico
 
 ### 🔧 DÉBITO TÉCNICO
-- **TODOs**: Implementar funcionalidades faltantes na UI
-- **FIXMEs**: Sistema de emails pendente
-- **Code Smells**: Alguns logs de debug em produção
-- **Refatoração Necessária**: Melhorar organização de componentes
+- **TODOs**: ErrorBoundary, configurações pendentes
+- **FIXMEs**: Logs de debug
+- **Code Smells**: Conversões de tipos
+- **Refatoração Necessária**: Soft delete, testes
 
 ---
 
 ## 🚀 GUIA PARA PRÓXIMOS PASSOS
 
 ### ✅ PONTOS SEGUROS PARA MODIFICAÇÃO
-1. **Componentes de UI (InvitePessoaForm)**
-   - **Por que é seguro**: Componente isolado com validações
-   - **Tipo de mudança recomendada**: Melhorias de UX
+1. **Componentes de UI**
+   - **Por que é seguro**: Bem isolados e testáveis
+   - **Tipo de mudança recomendada**: Add/Modify
    - **Impacto esperado**: Baixo
-
-2. **Hooks do Frontend (usePessoas)**
-   - **Por que é seguro**: Lógica bem encapsulada
-   - **Tipo de mudança recomendada**: Otimizações
+2. **Hooks de Frontend**
+   - **Por que é seguro**: Lógica separada
+   - **Tipo de mudança recomendada**: Add/Modify
    - **Impacto esperado**: Baixo
-
-3. **Validações (Schemas Zod)**
-   - **Por que é seguro**: Validações independentes
-   - **Tipo de mudança recomendada**: Refinamentos
+3. **Validações (Zod)**
+   - **Por que é seguro**: Schemas centralizados
+   - **Tipo de mudança recomendada**: Add/Modify
    - **Impacto esperado**: Baixo
 
 ### 🧪 ESTRATÉGIAS DE VALIDAÇÃO
-- **Testes Obrigatórios**: Testes de integração para fluxos de convite
-- **Pontos de Verificação**: Validação de tokens e senhas
-- **Rollback**: Backup de dados antes de mudanças críticas
-- **Monitoramento**: Logs de convites e ativações
+- **Testes Unitários**: Para lógica de negócio
+- **Testes de Integração**: Para fluxos completos
+- **Validação de Tipos**: TypeScript strict mode
+- **Testes Manuais**: Scripts de teste existentes
 
 ### 📋 PREPARAÇÃO PARA PASSO-03
-**Contexto Disponível**: Esta documentação serve como base completa  
+**Contexto Disponível**: Esta documentação serve como base completa
 **Tipos de Ação Suportados**:
-- ✅ Correção de Bugs (funcionalidades incompletas identificadas)
-- ✅ Refatoração (componentes bem mapeados)
-- ✅ Nova Feature (sistema de emails)
-- ✅ Otimização (queries e performance)
+- ✅ Correção de Bugs
+- ✅ Refatoração
+- ✅ Nova Feature
+- ✅ Otimização
 
 ### 🎯 RECOMENDAÇÕES DE SEQUÊNCIA
-1. **Primeiro**: Implementar funcionalidades faltantes na UI (editar papel, reenviar convite)
-2. **Segundo**: Implementar sistema de envio de emails
-3. **Terceiro**: Melhorar testes e documentação
-4. **Por último**: Otimizações de performance e UX
+1. **Primeiro**: Limpeza de logs de debug
+2. **Segundo**: Implementar testes automatizados
+3. **Por último**: Otimizar queries e performance
 
 ---
 
 ## 📚 REFERÊNCIA TÉCNICA
 
 ### 📁 MAPEAMENTO COMPLETO DE ARQUIVOS
-```
-Backend:
-├── controllers/
-│   ├── pessoaController.ts (411 linhas) - CRUD de membros
-│   └── authController.ts (395 linhas) - Autenticação e convites
-├── schemas/
-│   ├── pessoa.ts (89 linhas) - Validações de membros
-│   └── auth.ts - Validações de autenticação
-├── routes/
-│   ├── pessoa.ts (129 linhas) - Rotas de membros
-│   └── auth.ts - Rotas de autenticação
-├── middleware/
-│   └── auth.ts (339 linhas) - Controle de acesso
-├── prisma/
-│   └── schema.prisma - Modelos pessoas e membros_hub
-└── types/
-    └── index.ts - Tipos TypeScript
-
-Frontend:
-├── app/(auth)/membros/
-│   └── page.tsx (240 linhas) - Página principal
-├── app/ativar-convite/
-│   └── page.tsx (164 linhas) - Ativação de convite
-├── components/pessoas/
-│   └── InvitePessoaForm.tsx (151 linhas) - Formulário de convite
-├── hooks/
-│   └── usePessoas.ts (123 linhas) - Lógica de negócio
-└── lib/
-    └── types.ts - Tipos TypeScript
-```
+- frontend/src/app/(auth)/transacoes/page.tsx
+- frontend/src/app/(auth)/transacoes/nova/page.tsx
+- frontend/src/app/(auth)/transacoes/[id]/TransacaoDetalheClient.tsx
+- frontend/src/components/transacoes/TransactionForm.tsx
+- frontend/src/components/transacoes/EditTransactionForm.tsx
+- frontend/src/components/transacoes/TransactionForm/*
+- frontend/src/hooks/useTransacoes.ts
+- frontend/src/lib/types.ts
+- backend/controllers/transacaoController.ts
+- backend/schemas/transacao.ts
+- backend/routes/transacao.ts
+- backend/prisma/schema.prisma
+- backend/scripts/*
+- docs/2025-07-06_crud_transacoes.md
+- docs/API.md
+- docs/2025-01-20_plano_melhorias_transacoes.md
 
 ### 🔍 COMANDOS UTILIZADOS NA ANÁLISE
 ```bash
 # Mapeamento inicial
 list_dir .
-list_dir backend
-list_dir frontend/src
-
-# Busca por arquivos relacionados
-grep_search "pessoa" *.ts,*.tsx,*.js,*.jsx
-grep_search "membro" *.ts,*.tsx,*.js,*.jsx
-grep_search "convite" *.ts,*.tsx,*.js,*.jsx
-
-# Análise de arquivos principais
-read_file backend/controllers/pessoaController.ts 1-200
-read_file backend/schemas/pessoa.ts 1-89
-read_file backend/routes/pessoa.ts 1-129
-read_file frontend/src/app/(auth)/membros/page.tsx 1-200
-read_file frontend/src/components/pessoas/InvitePessoaForm.tsx 1-151
-read_file frontend/src/hooks/usePessoas.ts 1-123
-read_file backend/prisma/schema.prisma 1-200
-read_file frontend/src/lib/types.ts 1-200
-read_file backend/controllers/authController.ts 1-200
-read_file backend/middleware/auth.ts 1-200
-
-# Busca por testes e documentação
-grep_search "test.*pessoa|test.*membro|test.*convite" *.js,*.ts,*.md
-grep_search "pessoa|membro|convite" *.md
+read_file frontend/package.json
+read_file backend/package.json
+# Busca por referências
+grep_search "transacao" *.ts,*.tsx,*.js,*.json
+grep_search "transaction" *.ts,*.tsx,*.js,*.json
+# Análise estrutural
+list_dir frontend/src/app/(auth)/transacoes
+list_dir frontend/src/components/transacoes
+list_dir backend/controllers
+list_dir backend/schemas
+list_dir backend/routes
+# Análise de schemas e tipos
+read_file backend/schemas/transacao.ts
+read_file frontend/src/lib/types.ts
+# Análise de hooks e APIs
+read_file frontend/src/hooks/useTransacoes.ts
+read_file backend/routes/transacao.ts
+# Análise de banco de dados
+read_file backend/prisma/schema.prisma
+# Análise de documentação
+grep_search "transacao" *.md
+read_file docs/2025-07-06_crud_transacoes.md
+# Análise de testes
+grep_search "test" *.test.*,*.spec.*
+list_dir backend/scripts
+# Análise de integrações
+grep_search "pagamento" *.ts,*.tsx
+# Análise de configurações
+read_file backend/env.example
+# Análise de problemas
+grep_search "TODO|FIXME|BUG|HACK" *.ts,*.tsx,*.js
+# Análise de UI
+read_file frontend/src/app/(auth)/transacoes/page.tsx
 ```
 
 ### 🏷️ GLOSSÁRIO TÉCNICO
-| Termo | Definição | Contexto no Projeto |
-|-------|-----------|-------------------|
-| Hub | Workspace/tenant isolado | Unidade básica de isolamento |
-| Pessoa | Usuário do sistema | Entidade que pode pertencer a múltiplos Hubs |
-| Membro | Pessoa em um Hub específico | Relação pessoa-hub com papel |
-| Role | Papel/permissão no Hub | PROPRIETARIO, ADMINISTRADOR, COLABORADOR, VISUALIZADOR |
-| Convite | Token para ativação | Mecanismo de entrada de novos membros |
-| RBAC | Role-Based Access Control | Controle de acesso baseado em papéis |
-| Multi-tenant | Múltiplos tenants isolados | Arquitetura de isolamento por Hub |
-| Soft Delete | Exclusão lógica | Preservação de dados históricos |
+| Termo              | Definição                                 | Contexto no Projeto                |
+|--------------------|-------------------------------------------|------------------------------------|
+| Multi-tenancy      | Isolamento de dados por workspace (Hub)   | Todas as queries e modelos         |
+| Parcelamento       | Divisão de gasto em múltiplas transações  | Backend/controller                 |
+| Soft delete        | Marcação de inativo sem remover do banco  | Todas as entidades principais      |
+| RBAC               | Controle de acesso baseado em papéis      | Backend, frontend, API             |
+| Zod                | Biblioteca de validação de dados          | Schemas frontend/backend           |
+| Prisma             | ORM para PostgreSQL                       | Backend                            |
+| TanStack Query     | Cache e sincronização de dados            | Frontend                           |
 
 ### 🔗 REFERÊNCIAS EXTERNAS
-- **Documentação Oficial**: 
-  - [Prisma Docs](https://www.prisma.io/docs)
-  - [Next.js Docs](https://nextjs.org/docs)
-  - [React Query Docs](https://tanstack.com/query/latest)
-- **Recursos Importantes**: 
-  - [Zod Documentation](https://zod.dev/)
-  - [JWT.io](https://jwt.io/)
-- **Ferramentas**: 
-  - [Prisma Studio](https://www.prisma.io/studio)
-  - [PostgreSQL](https://www.postgresql.org/)
+- [Prisma ORM](https://www.prisma.io/docs/)
+- [Next.js](https://nextjs.org/docs)
+- [React](https://react.dev/)
+- [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/overview)
+- [Zod](https://zod.dev/)
+- [Shadcn/ui](https://ui.shadcn.com/)
 
 ---
 
 ## 📋 METADADOS DA DOCUMENTAÇÃO
-
 - **Criado em**: 2025-01-27
-- **Baseado na análise**: PASSO-01 - Análise Completa de Contexto
+- **Baseado na análise**: Sistema de prompts/01-contexto-inicial/saidas/expense-hub/OLD_analise-completa.md
 - **Versão**: 1.0
-- **Próxima revisão**: Após implementação de funcionalidades faltantes
+- **Próxima revisão**: 2025-07-30
 - **Responsável**: AI Assistant
 
 ---
 
 ## 🔄 CONEXÃO COM PRÓXIMOS PASSOS
-
-**ENTRADA RECEBIDA**: Análise bruta e não estruturada do PASSO-01  
-**SAÍDA PRODUZIDA**: Documentação completa, estruturada e consultável  
+**ENTRADA RECEBIDA**: Análise bruta do PASSO-01
+**SAÍDA PRODUZIDA**: Documentação estruturada e consultável
 **PRÓXIMOS PASSOS HABILITADOS**: 
 - PASSO-03: Análise específica (bugs/refatoração/features)
 - PASSO-04: Implementação de soluções
 
-**ARQUIVO DE SAÍDA**: `01-contexto-inicial/saidas/expense-hub/documentacao-final.md`
+**ARQUIVO DE SAÍDA**: Sistema de prompts/01-contexto-inicial/saidas/expense-hub/documentacao-final.md
 
 ---
 
-**📖 RESULTADO**: Uma documentação completa que serve como fonte única de verdade sobre o módulo de gestão de membros para todas as ações futuras! 
+**📖 RESULTADO**: Esta documentação serve como fonte única de verdade sobre o módulo de transações do Expense Hub para todas as ações futuras!
