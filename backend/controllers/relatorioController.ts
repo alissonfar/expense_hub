@@ -5,14 +5,16 @@ import {
   transacoesQuerySchema,
   pendenciasQuerySchema,
   dashboardQuerySchema,
-  categoriasQuerySchema
+  categoriasQuerySchema,
+  panoramaGeralQuerySchema
 } from '../schemas/relatorio';
 import { 
   SaldosQueryInput,
   TransacoesQueryInput,
   PendenciasQueryInput,
   DashboardQueryInput,
-  CategoriasQueryInput
+  CategoriasQueryInput,
+  PanoramaGeralQueryInput
 } from '../schemas/relatorio';
 
 // =============================================
@@ -1528,4 +1530,342 @@ export const getSaldoHistoricoPessoa = async (req: Request, res: Response): Prom
       timestamp: new Date().toISOString()
     });
   }
+};
+
+/**
+ * Panorama Geral do HUB
+ * GET /api/relatorios/panorama-geral
+ */
+export const getPanoramaGeral = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Usar Prisma Client estendido com isolamento multi-tenant
+    const prisma = getExtendedPrismaClient(req.auth!);
+    
+    // Validar e extrair parâmetros da query
+    const queryData = panoramaGeralQuerySchema.parse(req.query);
+    
+    // 1. Calcular período de análise
+    const periodo = calcularPeriodoAnalise(queryData);
+    
+    // 2. Buscar transações com dívidas pendentes
+    const transacoesComDividas = await buscarTransacoesComDividas(prisma, periodo, queryData);
+    
+    // 3. Calcular saldos por pessoa
+    const saldosPorPessoa = await calcularSaldosPorPessoa(prisma, transacoesComDividas, queryData);
+    
+    // 4. Gerar resumo executivo
+    const resumo = gerarResumoExecutivo(saldosPorPessoa);
+    
+    // 5. Analisar por status
+    const analisePorStatus = analisarPorStatus(transacoesComDividas);
+    
+    // 6. Formatar resposta
+    const resposta = {
+      resumo,
+      devedores: saldosPorPessoa,
+      analise_por_status: analisePorStatus,
+      filtros_aplicados: queryData
+    };
+    
+    res.json({
+      success: true,
+      message: 'Panorama geral gerado com sucesso',
+      data: resposta,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erro interno do servidor ao gerar panorama geral',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+// =============================================
+// FUNÇÕES AUXILIARES PARA PANORAMA GERAL
+// =============================================
+
+/**
+ * Calcula o período de análise baseado nos parâmetros
+ */
+function calcularPeriodoAnalise(queryData: PanoramaGeralQueryInput) {
+  const hoje = new Date();
+  
+  if (queryData.periodo === 'personalizado' && queryData.data_inicio && queryData.data_fim) {
+    return {
+      data_inicio: new Date(queryData.data_inicio),
+      data_fim: new Date(queryData.data_fim)
+    };
+  }
+  
+  // Para mês atual
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  
+  return {
+    data_inicio: inicioMes,
+    data_fim: fimMes
+  };
+}
+
+/**
+ * Busca transações com dívidas pendentes
+ */
+async function buscarTransacoesComDividas(prisma: any, periodo: any, queryData: PanoramaGeralQueryInput) {
+  const whereTransacoes: any = {
+    tipo: 'GASTO',
+    confirmado: true,
+    data_transacao: {
+      gte: periodo.data_inicio,
+      lte: periodo.data_fim
+    }
+  };
+
+  // Aplicar filtro de status de pagamento se necessário
+  if (queryData.status_pagamento !== 'TODOS') {
+    whereTransacoes.status_pagamento = queryData.status_pagamento;
+  }
+
+  return await prisma.transacoes.findMany({
+    where: whereTransacoes,
+    include: {
+      transacao_participantes: {
+        include: {
+          pessoas: {
+            select: {
+              id: true,
+              nome: true,
+              email: true,
+              ativo: true
+            }
+          }
+        }
+      },
+      pagamento_transacoes: {
+        include: {
+          pagamentos: {
+            select: {
+              data_pagamento: true,
+              valor_total: true
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Calcula saldos por pessoa baseado nas transações
+ */
+async function calcularSaldosPorPessoa(prisma: any, transacoes: any[], queryData: PanoramaGeralQueryInput) {
+  const saldosPorPessoa = new Map();
+
+  // Processar cada transação
+  for (const transacao of transacoes) {
+    for (const participante of transacao.transacao_participantes) {
+      if (!participante.pessoas.ativo) continue;
+      
+      // Filtrar por pessoa específica se solicitado
+      if (queryData.pessoa_id && participante.pessoa_id !== queryData.pessoa_id) {
+        continue;
+      }
+
+      const pessoaId = participante.pessoa_id;
+      const valorDevido = Number(participante.valor_devido || 0);
+      const valorPago = Number(participante.valor_pago || 0);
+      const saldoDevido = valorDevido - valorPago;
+
+      // Pular se não há dívida pendente
+      if (saldoDevido <= 0) continue;
+
+      if (!saldosPorPessoa.has(pessoaId)) {
+        saldosPorPessoa.set(pessoaId, {
+          pessoa_id: pessoaId,
+          nome: participante.pessoas.nome,
+          total_devido: 0,
+          total_pago: 0,
+          saldo_devido: 0,
+          transacoes_pendentes: 0,
+          transacoes_vencidas: 0,
+          ultimo_pagamento: null,
+          dias_sem_pagamento: 0,
+          detalhes_transacoes: []
+        });
+      }
+
+      const saldo = saldosPorPessoa.get(pessoaId);
+      saldo.total_devido += valorDevido;
+      saldo.total_pago += valorPago;
+      saldo.saldo_devido += saldoDevido;
+
+      if (saldoDevido > 0) {
+        saldo.transacoes_pendentes++;
+        
+        // Verificar se está vencida
+        if (transacao.data_vencimento && new Date(transacao.data_vencimento) < new Date()) {
+          saldo.transacoes_vencidas++;
+        }
+      }
+
+      // Adicionar detalhes se solicitado
+      if (queryData.incluir_detalhes) {
+        const diasAtraso = transacao.data_vencimento 
+          ? Math.max(0, Math.floor((new Date().getTime() - new Date(transacao.data_vencimento).getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
+
+        saldo.detalhes_transacoes.push({
+          transacao_id: transacao.id,
+          descricao: transacao.descricao,
+          valor_devido: valorDevido,
+          valor_pago: valorPago,
+          data_transacao: transacao.data_transacao.toISOString().split('T')[0],
+          data_vencimento: transacao.data_vencimento?.toISOString().split('T')[0],
+          status: transacao.status_pagamento,
+          dias_atraso: diasAtraso > 0 ? diasAtraso : undefined
+        });
+      }
+    }
+  }
+
+  // Buscar último pagamento para cada pessoa
+  for (const [pessoaId, saldo] of saldosPorPessoa) {
+    const ultimoPagamento = await prisma.pagamentos.findFirst({
+      where: {
+        pessoa_id: pessoaId
+      },
+      orderBy: {
+        data_pagamento: 'desc'
+      },
+      select: {
+        data_pagamento: true
+      }
+    });
+
+    if (ultimoPagamento) {
+      saldo.ultimo_pagamento = ultimoPagamento.data_pagamento.toISOString().split('T')[0];
+      saldo.dias_sem_pagamento = Math.floor(
+        (new Date().getTime() - new Date(ultimoPagamento.data_pagamento).getTime()) / (1000 * 60 * 60 * 24)
+      );
+    }
+  }
+
+  // Converter para array e ordenar
+  let resultado = Array.from(saldosPorPessoa.values());
+  
+  // Aplicar ordenação
+  const campo = queryData.ordenar_por;
+  const direcao = queryData.ordem;
+  
+  resultado.sort((a, b) => {
+    let valorA, valorB;
+    
+    switch (campo) {
+      case 'nome':
+        valorA = a.nome.toLowerCase();
+        valorB = b.nome.toLowerCase();
+        break;
+      case 'valor_devido':
+        valorA = a.saldo_devido;
+        valorB = b.saldo_devido;
+        break;
+      case 'dias_atraso':
+        valorA = a.dias_sem_pagamento;
+        valorB = b.dias_sem_pagamento;
+        break;
+      default:
+        valorA = a.saldo_devido;
+        valorB = b.saldo_devido;
+    }
+    
+    if (direcao === 'asc') {
+      return valorA < valorB ? -1 : valorA > valorB ? 1 : 0;
+    } else {
+      return valorA > valorB ? -1 : valorA < valorB ? 1 : 0;
+    }
+  });
+
+  return resultado;
+}
+
+/**
+ * Gera resumo executivo baseado nos saldos
+ */
+function gerarResumoExecutivo(saldosPorPessoa: any[]) {
+  const totalDividasPendentes = saldosPorPessoa.reduce((sum, saldo) => sum + saldo.saldo_devido, 0);
+  const totalDividasVencidas = saldosPorPessoa.reduce((sum, saldo) => sum + (saldo.transacoes_vencidas > 0 ? saldo.saldo_devido : 0), 0);
+  const pessoasComDividas = saldosPorPessoa.length;
+  const mediaDividaPorPessoa = pessoasComDividas > 0 ? totalDividasPendentes / pessoasComDividas : 0;
+  const totalTransacoesPendentes = saldosPorPessoa.reduce((sum, saldo) => sum + saldo.transacoes_pendentes, 0);
+  
+  // Encontrar maior devedor
+  const maiorDevedor = saldosPorPessoa.reduce((maior, atual) => 
+    atual.saldo_devido > maior.saldo_devido ? atual : maior, 
+    { saldo_devido: 0, nome: 'N/A' }
+  );
+
+  return {
+    total_dividas_pendentes: totalDividasPendentes,
+    total_dividas_vencidas: totalDividasVencidas,
+    pessoas_com_dividas: pessoasComDividas,
+    media_divida_por_pessoa: mediaDividaPorPessoa,
+    total_transacoes_pendentes: totalTransacoesPendentes,
+    valor_maior_divida: maiorDevedor.saldo_devido,
+    pessoa_maior_devedora: maiorDevedor.nome
+  };
+}
+
+/**
+ * Analisa transações por status de vencimento
+ */
+function analisarPorStatus(transacoes: any[]) {
+  const hoje = new Date();
+  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const fimHoje = new Date(inicioHoje.getTime() + 24 * 60 * 60 * 1000);
+  const fimSemana = new Date(inicioHoje.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const analise = {
+    pendentes: { valor: 0, quantidade: 0 },
+    vencidas: { valor: 0, quantidade: 0 },
+    vence_hoje: { valor: 0, quantidade: 0 },
+    vence_semana: { valor: 0, quantidade: 0 }
+  };
+
+  for (const transacao of transacoes) {
+    for (const participante of transacao.transacao_participantes) {
+      const valorDevido = Number(participante.valor_devido || 0);
+      const valorPago = Number(participante.valor_pago || 0);
+      const saldoDevido = valorDevido - valorPago;
+
+      if (saldoDevido <= 0) continue;
+
+      const dataVencimento = transacao.data_vencimento ? new Date(transacao.data_vencimento) : null;
+
+      if (!dataVencimento) {
+        // Sem vencimento = pendente
+        analise.pendentes.valor += saldoDevido;
+        analise.pendentes.quantidade++;
+      } else if (dataVencimento < inicioHoje) {
+        // Vencida
+        analise.vencidas.valor += saldoDevido;
+        analise.vencidas.quantidade++;
+      } else if (dataVencimento >= inicioHoje && dataVencimento < fimHoje) {
+        // Vence hoje
+        analise.vence_hoje.valor += saldoDevido;
+        analise.vence_hoje.quantidade++;
+      } else if (dataVencimento >= fimHoje && dataVencimento < fimSemana) {
+        // Vence esta semana
+        analise.vence_semana.valor += saldoDevido;
+        analise.vence_semana.quantidade++;
+      } else {
+        // Futuras = pendentes
+        analise.pendentes.valor += saldoDevido;
+        analise.pendentes.quantidade++;
+      }
+    }
+  }
+
+  return analise;
 }; 

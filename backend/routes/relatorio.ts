@@ -5,14 +5,16 @@ import {
   getPendencias,
   getTransacoes,
   getCategorias,
-  getSaldoHistoricoPessoa
+  getSaldoHistoricoPessoa,
+  getPanoramaGeral
 } from '../controllers/relatorioController';
 import {
   saldosQuerySchema,
   dashboardQuerySchema,
   pendenciasQuerySchema,
   transacoesQuerySchema,
-  categoriasQuerySchema
+  categoriasQuerySchema,
+  panoramaGeralQuerySchema
 } from '../schemas/relatorio';
 import {
   requireAuth,
@@ -245,6 +247,16 @@ router.get('/categorias',
   requireAuth,
   validateQuery(categoriasQuerySchema),
   getCategorias
+);
+
+/**
+ * GET /api/relatorios/panorama-geral
+ * Panorama geral do HUB com foco em dívidas
+ */
+router.get('/panorama-geral',
+  requireAuth,
+  validateQuery(panoramaGeralQuerySchema),
+  getPanoramaGeral
 );
 
 /**

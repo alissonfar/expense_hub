@@ -434,6 +434,64 @@ export const categoriasQuerySchema = z.object({
     .describe('Incluir transações sem categoria/tag')
 });
 
+/**
+ * Schema para parâmetros de query do panorama geral do HUB
+ */
+export const panoramaGeralQuerySchema = z.object({
+  // Período de análise
+  periodo: z
+    .enum(['mes_atual', 'personalizado'])
+    .default('mes_atual')
+    .describe('Período de análise'),
+  
+  // Para período personalizado
+  data_inicio: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de início deve estar no formato YYYY-MM-DD')
+    .optional(),
+  
+  data_fim: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de fim deve estar no formato YYYY-MM-DD')
+    .optional(),
+  
+  // Filtros de pessoas
+  pessoa_id: z
+    .union([z.string(), z.number()])
+    .transform(val => {
+      if (typeof val === 'number') return val;
+      return parseInt(val);
+    })
+    .optional(),
+  
+  // Filtros de status
+  status_pagamento: z
+    .enum(['PENDENTE', 'PAGO_PARCIAL', 'TODOS'])
+    .default('TODOS')
+    .describe('Status do pagamento'),
+  
+  // Ordenação
+  ordenar_por: z
+    .enum(['nome', 'valor_devido', 'dias_atraso'])
+    .default('valor_devido')
+    .describe('Campo para ordenação'),
+  
+  ordem: z
+    .enum(['asc', 'desc'])
+    .default('desc')
+    .describe('Direção da ordenação'),
+  
+  // Formato de resposta
+  incluir_detalhes: z
+    .union([z.string(), z.boolean()])
+    .default('false')
+    .transform(val => {
+      if (typeof val === 'boolean') return val;
+      return val === 'true';
+    })
+    .describe('Incluir detalhes das transações')
+});
+
 // =============================================
 // TIPOS INFERIDOS DOS SCHEMAS
 // =============================================
@@ -443,6 +501,7 @@ export type TransacoesQueryInput = z.infer<typeof transacoesQuerySchema>;
 export type PendenciasQueryInput = z.infer<typeof pendenciasQuerySchema>;
 export type DashboardQueryInput = z.infer<typeof dashboardQuerySchema>;
 export type CategoriasQueryInput = z.infer<typeof categoriasQuerySchema>;
+export type PanoramaGeralQueryInput = z.infer<typeof panoramaGeralQuerySchema>;
 
 // =============================================
 // SCHEMAS DE RESPOSTA (PARA DOCUMENTAÇÃO)
