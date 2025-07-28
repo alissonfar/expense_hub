@@ -19,6 +19,7 @@ import { PanoramaGeralResumo } from './PanoramaGeralResumo';
 import { ListaDevedores } from './ListaDevedores';
 import { AnalisePorStatus } from './AnalisePorStatus';
 import { FiltrosPanoramaGeral } from './FiltrosPanoramaGeral';
+import { ExportacaoPanoramaGeral } from './ExportacaoPanoramaGeral';
 import { cn } from '@/lib/utils';
 
 interface PanoramaGeralHubProps {
@@ -74,10 +75,10 @@ export function PanoramaGeralHub({ className }: PanoramaGeralHubProps) {
             Atualizar
           </Button>
           {data && (
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
+            <ExportacaoPanoramaGeral 
+              dados={data}
+              filtros={filtros}
+            />
           )}
         </div>
       </div>
