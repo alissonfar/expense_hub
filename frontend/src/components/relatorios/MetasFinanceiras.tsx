@@ -20,9 +20,7 @@ import {
   Trophy, 
   Calendar as CalendarIcon,
   Edit,
-  Trash2,
   Save,
-  Star,
   Clock,
   TrendingUp,
   CheckCircle,
@@ -59,15 +57,12 @@ interface NovaMeta {
 export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
   const { 
     metasAtivas, 
-    metasConcluidas,
     estatisticas,
     conquistas,
     isLoading, 
     criarMeta,
     atualizarProgresso,
     alterarStatusMeta,
-    editarMeta,
-    removerMeta,
     getProgressoMeta
   } = useMetasFinanceiras();
   
@@ -155,7 +150,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
 
       setShowCriarDialog(false);
       resetFormulario();
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro",
         description: "Não foi possível criar a meta. Tente novamente.",
@@ -385,7 +380,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
                         <Select
                           value={novaMeta.categoriaId || ''}
                           onValueChange={(value) => {
-                            const tag = tags?.find(t => t.id === value);
+                            const tag = tags?.find(t => t.id === Number(value));
                             setNovaMeta(prev => ({
                               ...prev,
                               categoriaId: value,
@@ -398,7 +393,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
                           </SelectTrigger>
                           <SelectContent>
                             {tags?.map(tag => (
-                              <SelectItem key={tag.id} value={tag.id}>
+                              <SelectItem key={tag.id} value={String(tag.id)}>
                                 {tag.nome}
                               </SelectItem>
                             ))}
@@ -707,7 +702,7 @@ export function MetasFinanceiras({ className }: MetasFinanceirasProps) {
             <DialogHeader>
               <DialogTitle>Atualizar Progresso</DialogTitle>
               <DialogDescription>
-                Atualize o progresso da meta "{metaSelecionada.nome}"
+                Atualize o progresso da meta &quot;{metaSelecionada.nome}&quot;
               </DialogDescription>
             </DialogHeader>
             

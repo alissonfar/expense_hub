@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileText, Table, FileImage, Settings, Check, User } from 'lucide-react';
+import { Download, FileText, Table, FileImage, User } from 'lucide-react';
 import { RelatorioPessoaData, RelatorioPessoaParams } from '@/hooks/useRelatorioPessoa';
 import { toast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
@@ -83,29 +83,16 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
         });
       }, 200);
 
-      // Preparar dados para exportação
-      const exportData = {
-        ...filtros,
-        configuracao: config,
-        dados: {
-          saldo: dados.saldo,
-          resumo: config.incluirResumo ? dados.resumo : undefined,
-          transacoes: config.incluirTransacoes ? dados.transacoes : undefined,
-        },
-      };
-
-      console.log('📊 Dados preparados:', exportData);
-
       // Executar exportação baseada no formato
       switch (config.formato) {
         case 'pdf':
-          await exportarPDF(exportData);
+          await exportarPDF();
           break;
         case 'excel':
-          await exportarExcel(exportData);
+          await exportarExcel();
           break;
         case 'csv':
-          await exportarCSV(exportData);
+          await exportarCSV();
           break;
       }
 
@@ -135,7 +122,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
     }
   };
 
-  const exportarPDF = async (exportData: any) => {
+  const exportarPDF = async () => {
     console.log('📄 Gerando PDF...');
     
     try {
@@ -203,6 +190,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
 
         // Resumo das Transações
@@ -232,6 +220,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
       }
 
@@ -267,6 +256,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
       }
 
@@ -291,7 +281,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
     }
   };
 
-  const exportarExcel = async (exportData: any) => {
+  const exportarExcel = async () => {
     console.log('📊 Gerando Excel...');
     
     try {
@@ -348,7 +338,7 @@ export function ExportacaoRelatorioPessoa({ dados, filtros, className }: Exporta
     }
   };
 
-  const exportarCSV = async (exportData: any) => {
+  const exportarCSV = async () => {
     console.log('📄 Gerando CSV...');
     
     try {

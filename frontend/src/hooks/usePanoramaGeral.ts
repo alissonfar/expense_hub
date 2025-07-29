@@ -60,45 +60,46 @@ export interface PanoramaGeralData {
 }
 
 // Mapeamento das propriedades do backend para frontend
-function mapBackendToFrontend(backendData: Record<string, any>): PanoramaGeralData {
+function mapBackendToFrontend(backendData: Record<string, unknown>): PanoramaGeralData {
+  const resumo = backendData.resumo as Record<string, unknown>;
   return {
     resumo: {
-      totalDividasPendentes: backendData.resumo.total_dividas_pendentes,
-      totalDividasVencidas: backendData.resumo.total_dividas_vencidas,
-      pessoasComDividas: backendData.resumo.pessoas_com_dividas,
-      mediaDividaPorPessoa: backendData.resumo.media_divida_por_pessoa,
-      totalTransacoesPendentes: backendData.resumo.total_transacoes_pendentes,
-      valorMaiorDivida: backendData.resumo.valor_maior_divida,
-      pessoaMaiorDevedora: backendData.resumo.pessoa_maior_devedora
+      totalDividasPendentes: resumo.total_dividas_pendentes as number,
+      totalDividasVencidas: resumo.total_dividas_vencidas as number,
+      pessoasComDividas: resumo.pessoas_com_dividas as number,
+      mediaDividaPorPessoa: resumo.media_divida_por_pessoa as number,
+      totalTransacoesPendentes: resumo.total_transacoes_pendentes as number,
+      valorMaiorDivida: resumo.valor_maior_divida as number,
+      pessoaMaiorDevedora: resumo.pessoa_maior_devedora as string
     },
-    devedores: backendData.devedores.map((devedor: Record<string, any>) => ({
-      pessoaId: devedor.pessoa_id,
-      nome: devedor.nome,
-      totalDevido: devedor.total_devido,
-      totalPago: devedor.total_pago,
-      saldoDevido: devedor.saldo_devido,
-      transacoesPendentes: devedor.transacoes_pendentes,
-      transacoesVencidas: devedor.transacoes_vencidas,
-      ultimoPagamento: devedor.ultimo_pagamento,
-      diasSemPagamento: devedor.dias_sem_pagamento,
-      detalhesTransacoes: devedor.detalhes_transacoes?.map((detalhe: Record<string, any>) => ({
-        transacaoId: detalhe.transacao_id,
-        descricao: detalhe.descricao,
-        valorDevido: detalhe.valor_devido,
-        valorPago: detalhe.valor_pago,
-        dataTransacao: detalhe.data_transacao,
-        dataVencimento: detalhe.data_vencimento,
-        status: detalhe.status,
-        diasAtraso: detalhe.dias_atraso
+    devedores: (backendData.devedores as Record<string, unknown>[]).map((devedor: Record<string, unknown>) => ({
+      pessoaId: devedor.pessoa_id as number,
+      nome: devedor.nome as string,
+      totalDevido: devedor.total_devido as number,
+      totalPago: devedor.total_pago as number,
+      saldoDevido: devedor.saldo_devido as number,
+      transacoesPendentes: devedor.transacoes_pendentes as number,
+      transacoesVencidas: devedor.transacoes_vencidas as number,
+      ultimoPagamento: devedor.ultimo_pagamento as string,
+      diasSemPagamento: devedor.dias_sem_pagamento as number,
+      detalhesTransacoes: (devedor.detalhes_transacoes as Record<string, unknown>[])?.map((detalhe: Record<string, unknown>) => ({
+        transacaoId: detalhe.transacao_id as number,
+        descricao: detalhe.descricao as string,
+        valorDevido: detalhe.valor_devido as number,
+        valorPago: detalhe.valor_pago as number,
+        dataTransacao: detalhe.data_transacao as string,
+        dataVencimento: detalhe.data_vencimento as string | undefined,
+        status: detalhe.status as string,
+        diasAtraso: detalhe.dias_atraso as number | undefined
       }))
     })),
     analisePorStatus: {
-      pendentes: backendData.analise_por_status.pendentes,
-      vencidas: backendData.analise_por_status.vencidas,
-      venceHoje: backendData.analise_por_status.vence_hoje,
-      venceSemana: backendData.analise_por_status.vence_semana
+      pendentes: (backendData.analise_por_status as Record<string, unknown>).pendentes as { valor: number; quantidade: number },
+      vencidas: (backendData.analise_por_status as Record<string, unknown>).vencidas as { valor: number; quantidade: number },
+      venceHoje: (backendData.analise_por_status as Record<string, unknown>).vence_hoje as { valor: number; quantidade: number },
+      venceSemana: (backendData.analise_por_status as Record<string, unknown>).vence_semana as { valor: number; quantidade: number }
     },
-    filtrosAplicados: backendData.filtros_aplicados
+    filtrosAplicados: backendData.filtros_aplicados as PanoramaGeralParams
   };
 }
 

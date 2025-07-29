@@ -50,53 +50,53 @@ export interface RelatorioPessoaData {
 }
 
 // Mapeamento das propriedades do backend para frontend
-function mapBackendToFrontend(backendData: any): RelatorioPessoaData {
-  const saldo = backendData.saldos[0]; // Pegar apenas a pessoa específica
+function mapBackendToFrontend(backendData: Record<string, unknown>): RelatorioPessoaData {
+  const saldo = (backendData.saldos as Record<string, unknown>[])[0]; // Pegar apenas a pessoa específica
   
   return {
     saldo: {
-      pessoaId: saldo.pessoa_id,
-      pessoaNome: saldo.pessoa_nome,
-      pessoaEmail: saldo.pessoa_email,
-      totalDeve: saldo.total_deve,
-      totalPago: saldo.total_pago,
-      saldoFinal: saldo.saldo_final,
-      status: saldo.status,
-      transacoesPendentes: saldo.transacoes_pendentes,
-      ultimaTransacao: saldo.ultima_transacao,
-      detalhes: saldo.detalhes?.map((detalhe: any) => ({
-        id: detalhe.transacao_id,
-        descricao: detalhe.descricao,
-        valorTotal: detalhe.valor_total,
-        valorDevido: detalhe.valor_devido,
-        valorPago: detalhe.valor_pago,
-        dataTransacao: detalhe.data_transacao,
-        statusPagamento: detalhe.status_pagamento,
-        categoria: detalhe.categoria,
-        tags: detalhe.tags
+      pessoaId: saldo.pessoa_id as number,
+      pessoaNome: saldo.pessoa_nome as string,
+      pessoaEmail: saldo.pessoa_email as string,
+      totalDeve: saldo.total_deve as number,
+      totalPago: saldo.total_pago as number,
+      saldoFinal: saldo.saldo_final as number,
+      status: saldo.status as 'DEVEDOR' | 'CREDOR' | 'QUITADO',
+      transacoesPendentes: saldo.transacoes_pendentes as number,
+      ultimaTransacao: saldo.ultima_transacao as string,
+      detalhes: (saldo.detalhes as Record<string, unknown>[])?.map((detalhe: Record<string, unknown>) => ({
+        id: detalhe.transacao_id as number,
+        descricao: detalhe.descricao as string,
+        valorTotal: detalhe.valor_total as number,
+        valorDevido: detalhe.valor_devido as number,
+        valorPago: detalhe.valor_pago as number,
+        dataTransacao: detalhe.data_transacao as string,
+        statusPagamento: detalhe.status_pagamento as string,
+        categoria: detalhe.categoria as string,
+        tags: detalhe.tags as string[]
       }))
     },
     resumo: {
-      totalTransacoes: saldo.detalhes?.length || 0,
-      transacoesPendentes: saldo.detalhes?.filter((t: any) => t.status_pagamento === 'PENDENTE').length || 0,
-      transacoesPagas: saldo.detalhes?.filter((t: any) => t.status_pagamento === 'PAGO').length || 0,
-      valorMedioTransacao: saldo.detalhes?.length > 0 ? 
-        saldo.detalhes.reduce((sum: number, t: any) => sum + t.valor_total, 0) / saldo.detalhes.length : 0,
-      maiorTransacao: Math.max(...(saldo.detalhes?.map((t: any) => t.valor_total) || [0])),
-      menorTransacao: Math.min(...(saldo.detalhes?.map((t: any) => t.valor_total) || [0]))
+      totalTransacoes: (saldo.detalhes as Record<string, unknown>[])?.length || 0,
+      transacoesPendentes: (saldo.detalhes as Record<string, unknown>[])?.filter((t: Record<string, unknown>) => t.status_pagamento === 'PENDENTE').length || 0,
+      transacoesPagas: (saldo.detalhes as Record<string, unknown>[])?.filter((t: Record<string, unknown>) => t.status_pagamento === 'PAGO').length || 0,
+      valorMedioTransacao: (saldo.detalhes as Record<string, unknown>[])?.length > 0 ? 
+        (saldo.detalhes as Record<string, unknown>[]).reduce((sum: number, t: Record<string, unknown>) => sum + (t.valor_total as number), 0) / (saldo.detalhes as Record<string, unknown>[]).length : 0,
+      maiorTransacao: Math.max(...((saldo.detalhes as Record<string, unknown>[])?.map((t: Record<string, unknown>) => t.valor_total as number) || [0])),
+      menorTransacao: Math.min(...((saldo.detalhes as Record<string, unknown>[])?.map((t: Record<string, unknown>) => t.valor_total as number) || [0]))
     },
-    transacoes: saldo.detalhes?.map((detalhe: any) => ({
-      id: detalhe.transacao_id,
-      descricao: detalhe.descricao,
-      valorTotal: detalhe.valor_total,
-      valorDevido: detalhe.valor_devido,
-      valorPago: detalhe.valor_pago,
-      dataTransacao: detalhe.data_transacao,
-      statusPagamento: detalhe.status_pagamento,
-      categoria: detalhe.categoria,
-      tags: detalhe.tags
+    transacoes: (saldo.detalhes as Record<string, unknown>[])?.map((detalhe: Record<string, unknown>) => ({
+      id: detalhe.transacao_id as number,
+      descricao: detalhe.descricao as string,
+      valorTotal: detalhe.valor_total as number,
+      valorDevido: detalhe.valor_devido as number,
+      valorPago: detalhe.valor_pago as number,
+      dataTransacao: detalhe.data_transacao as string,
+      statusPagamento: detalhe.status_pagamento as string,
+      categoria: detalhe.categoria as string,
+      tags: detalhe.tags as string[]
     })) || [],
-    filtrosAplicados: backendData.filtros_aplicados
+    filtrosAplicados: backendData.filtros_aplicados as RelatorioPessoaParams
   };
 }
 
@@ -107,7 +107,6 @@ export function useRelatorioPessoa(params: RelatorioPessoaParams) {
   const { accessToken, hubAtual } = useAuth();
 
   const defaultParams: RelatorioPessoaParams = {
-    pessoaId: params.pessoaId,
     periodo: 'mes_atual',
     incluirDetalhes: true,
     ...params,

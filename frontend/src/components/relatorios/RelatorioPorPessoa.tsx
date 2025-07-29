@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+
 import { 
   User, 
-  DollarSign, 
   Calendar,
   TrendingUp,
   AlertTriangle,
@@ -120,8 +119,8 @@ export function RelatorioPorPessoa({ className }: RelatorioPorPessoaProps) {
                     </SelectItem>
                   ) : (
                     pessoas?.map((pessoa) => (
-                      <SelectItem key={pessoa.id} value={pessoa.id.toString()}>
-                        {pessoa.nome}
+                      <SelectItem key={pessoa.pessoaId} value={pessoa.pessoaId.toString()}>
+                        {pessoa.pessoa?.nome || 'Nome não disponível'}
                       </SelectItem>
                     ))
                   )}
@@ -158,11 +157,11 @@ export function RelatorioPorPessoa({ className }: RelatorioPorPessoaProps) {
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <Skeleton className="h-8 w-48" />
+                  <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-24 w-full" />
+                    <div className="h-24 w-full bg-gray-200 rounded animate-pulse" />
+                    <div className="h-24 w-full bg-gray-200 rounded animate-pulse" />
+                    <div className="h-24 w-full bg-gray-200 rounded animate-pulse" />
                   </div>
                 </div>
               </CardContent>

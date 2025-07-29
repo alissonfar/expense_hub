@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileText, Table, FileImage, Settings, Check } from 'lucide-react';
+import { Download, FileText, Table, FileImage, Settings } from 'lucide-react';
 import { PanoramaGeralData, PanoramaGeralParams } from '@/hooks/usePanoramaGeral';
 import { usePessoas } from '@/hooks/usePessoas';
 import { toast } from '@/hooks/use-toast';
@@ -29,6 +29,15 @@ interface ConfiguracaoExportacao {
   incluirDetalhes: boolean;
   pessoaId?: number;
   orientacao?: 'portrait' | 'landscape';
+}
+
+
+
+interface PessoaData {
+  pessoaId: number;
+  pessoa?: {
+    nome?: string;
+  };
 }
 
 export function ExportacaoPanoramaGeral({ dados, filtros, className }: ExportacaoPanoramaGeralProps) {
@@ -124,13 +133,13 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
       if (config.modalidade === 'panorama_geral') {
         switch (config.formato) {
           case 'pdf':
-            await exportarPDF(exportData);
+            await exportarPDF();
             break;
           case 'excel':
-            await exportarExcel(exportData);
+            await exportarExcel();
             break;
           case 'csv':
-            await exportarCSV(exportData);
+            await exportarCSV();
             break;
         }
       } else {
@@ -146,13 +155,13 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
 
         switch (config.formato) {
           case 'pdf':
-            await exportarPDFPorPessoa(pessoaSelecionada, exportData);
+            await exportarPDFPorPessoa(pessoaSelecionada);
             break;
           case 'excel':
-            await exportarExcelPorPessoa(pessoaSelecionada, exportData);
+            await exportarExcelPorPessoa(pessoaSelecionada);
             break;
           case 'csv':
-            await exportarCSVPorPessoa(pessoaSelecionada, exportData);
+            await exportarCSVPorPessoa(pessoaSelecionada);
             break;
         }
       }
@@ -183,7 +192,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
     }
   };
 
-  const exportarPDF = async (exportData: any) => {
+  const exportarPDF = async () => {
     console.log('📄 Gerando PDF...');
     
     try {
@@ -243,6 +252,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
       }
 
@@ -277,6 +287,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
       }
 
@@ -333,7 +344,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
     }
   };
 
-  const exportarExcel = async (exportData: any) => {
+  const exportarExcel = async () => {
     console.log('📊 Gerando Excel...');
     
     try {
@@ -391,7 +402,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
     }
   };
 
-  const exportarCSV = async (exportData: any) => {
+  const exportarCSV = async () => {
     console.log('📄 Gerando CSV...');
     
     try {
@@ -453,8 +464,8 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
   // FUNÇÕES DE EXPORTAÇÃO POR PESSOA
   // =============================================
 
-  const exportarPDFPorPessoa = async (pessoa: any, exportData: any) => {
-    console.log('📄 Gerando PDF por pessoa...', pessoa.nome);
+  const exportarPDFPorPessoa = async (pessoa: PessoaData) => {
+    console.log('📄 Gerando PDF por pessoa...', pessoa.pessoa?.nome);
     
     try {
       const doc = new jsPDF(config.orientacao === 'landscape' ? 'landscape' : 'portrait', 'mm', 'a4');
@@ -525,6 +536,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
           margin: { left: margin, right: margin },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         yPosition = (doc as any).lastAutoTable.finalY + 15;
 
                  // Detalhes das transações
@@ -596,7 +608,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
     }
   };
 
-  const exportarExcelPorPessoa = async (pessoa: any, exportData: any) => {
+  const exportarExcelPorPessoa = async (pessoa: PessoaData) => {
     console.log('📊 Gerando Excel por pessoa...', pessoa.pessoa?.nome);
     
     try {
@@ -653,7 +665,7 @@ export function ExportacaoPanoramaGeral({ dados, filtros, className }: Exportaca
     }
   };
 
-  const exportarCSVPorPessoa = async (pessoa: any, exportData: any) => {
+  const exportarCSVPorPessoa = async (pessoa: PessoaData) => {
     console.log('📄 Gerando CSV por pessoa...', pessoa.pessoa?.nome);
     
     try {

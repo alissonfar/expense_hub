@@ -4,13 +4,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
   Bell, 
-  AlertTriangle, 
   TrendingUp, 
   Target,
-  Calendar,
   PiggyBank,
   CheckCircle,
   X,
@@ -60,7 +57,7 @@ export interface AlertaInteligente {
 }
 
 export function AlertasPessoais({ className }: AlertasPessoaisProps) {
-  const { orcamentoAtual, estatisticas: estatisticasOrcamento, alertas: alertasOrcamento } = useOrcamento();
+  const { orcamentoAtual, estatisticas: estatisticasOrcamento } = useOrcamento();
   const { metasAtivas, estatisticas: estatisticasMetas } = useMetasFinanceiras();
   
   const [todosAlertas, setTodosAlertas] = useState<AlertaInteligente[]>([]);

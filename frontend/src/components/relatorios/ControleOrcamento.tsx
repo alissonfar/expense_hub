@@ -16,7 +16,6 @@ import {
   AlertTriangle, 
   CheckCircle, 
   TrendingUp, 
-  TrendingDown,
   Calendar,
   Target,
   Edit,
@@ -45,8 +44,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
     orcamentoAtual, 
     estatisticas, 
     isLoading, 
-    definirOrcamento,
-    alertas 
+    definirOrcamento
   } = useOrcamento();
   
   const { data: tags = [] } = useTags();
@@ -85,7 +83,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
       return;
     }
 
-    const tagSelecionada = tags?.find(tag => tag.id === categoriaTemp.categoriaId);
+    const tagSelecionada = tags?.find(tag => tag.id === Number(categoriaTemp.categoriaId));
     const corAleatoria = coresDisponiveis[novasCategorias.length % coresDisponiveis.length];
 
     setNovasCategorias(prev => [...prev, {
@@ -128,7 +126,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
 
       setShowDefinirDialog(false);
       setNovasCategorias([]);
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro",
         description: "Não foi possível salvar o orçamento. Tente novamente.",
@@ -217,7 +215,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
                           <Select
                             value={categoriaTemp.categoriaId}
                             onValueChange={(value) => {
-                              const tag = tags?.find(t => t.id === value);
+                              const tag = tags?.find(t => t.id === Number(value));
                               setCategoriaTemp(prev => ({
                                 ...prev,
                                 categoriaId: value,
@@ -230,9 +228,9 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
                             </SelectTrigger>
                             <SelectContent>
                               {tags
-                                .filter(tag => !novasCategorias.some(cat => cat.categoriaId === tag.id))
+                                .filter(tag => !novasCategorias.some(cat => cat.categoriaId === String(tag.id)))
                                 .map(tag => (
-                                <SelectItem key={tag.id} value={tag.id}>
+                                <SelectItem key={tag.id} value={String(tag.id)}>
                                   {tag.nome}
                                 </SelectItem>
                               ))}
@@ -412,8 +410,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
                     </div>
                     <Progress 
                       value={estatisticas.percentualGasto} 
-                      className="h-2"
-                      indicatorClassName={getProgressColor(estatisticas.percentualGasto)}
+                      className={`h-2 ${getProgressColor(estatisticas.percentualGasto)}`}
                     />
                     <p className="text-xs text-blue-600">
                       {estatisticas.percentualGasto.toFixed(1)}% do orçamento utilizado
@@ -526,8 +523,7 @@ export function ControleOrcamento({ className }: ControleOrcamentoProps) {
                         
                         <Progress 
                           value={Math.min(percentual, 100)} 
-                          className="h-2"
-                          indicatorClassName={getProgressColor(percentual)}
+                          className={`h-2 ${getProgressColor(percentual)}`}
                         />
                         
                         {categoria.limite > 0 && categoria.gastoAtual <= categoria.limite && (

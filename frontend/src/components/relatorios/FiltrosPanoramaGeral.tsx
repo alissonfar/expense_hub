@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar, Filter, RotateCcw } from 'lucide-react';
+import { Filter, RotateCcw } from 'lucide-react';
 import { PanoramaGeralParams } from '@/hooks/usePanoramaGeral';
 
 interface FiltrosPanoramaGeralProps {

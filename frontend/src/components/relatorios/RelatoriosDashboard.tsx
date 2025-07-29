@@ -1,9 +1,8 @@
  'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Download, FileBarChart } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { FileBarChart } from 'lucide-react';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { FiltrosAvancados } from './FiltrosAvancados';
 import { GraficosRelatorios } from './GraficosRelatorios';
@@ -86,6 +85,7 @@ export function RelatoriosDashboard({ className }: RelatoriosDashboardProps) {
       <StaggeredGrid className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           <KPICard
+            key="total-gastos"
             title="Total Gastos"
             value={data?.resumo.total_gastos || 0}
             type="expense"
@@ -104,6 +104,7 @@ export function RelatoriosDashboard({ className }: RelatoriosDashboardProps) {
           />,
           
           <KPICard
+            key="total-receitas"
             title="Total Receitas"
             value={data?.resumo.total_receitas || 0}
             type="revenue"
@@ -120,6 +121,7 @@ export function RelatoriosDashboard({ className }: RelatoriosDashboardProps) {
           />,
           
           <KPICard
+            key="saldo-periodo"
             title="Saldo do Período"
             value={data?.resumo.saldo_periodo || 0}
             type="balance"
@@ -135,6 +137,7 @@ export function RelatoriosDashboard({ className }: RelatoriosDashboardProps) {
           />,
           
           <KPICard
+            key="transacoes-pendentes"
             title="Transações Pendentes"
             value={data?.resumo.transacoes_pendentes || 0}
             type="pending"

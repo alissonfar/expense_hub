@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { FiltroRelatorio, PeriodoTipo } from '@/hooks/useRelatorios';
-import { useFiltrosSalvos, FiltroSalvo } from '@/hooks/useFiltrosSalvos';
+import { useFiltrosSalvos } from '@/hooks/useFiltrosSalvos';
 
 interface FiltrosAvancadosProps {
   filtros: FiltroRelatorio;
@@ -44,7 +44,6 @@ export function FiltrosAvancados({
     filtrosSalvos,
     salvarFiltro,
     carregarFiltro,
-    removerFiltro,
     nomeJaExiste,
   } = useFiltrosSalvos();
 

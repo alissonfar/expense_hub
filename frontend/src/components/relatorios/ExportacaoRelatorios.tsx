@@ -2,16 +2,15 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileText, Table, FileImage, Settings, Check, AlertCircle } from 'lucide-react';
+import { Download, FileText, Table, FileImage, Settings, Check } from 'lucide-react';
 import { FiltroRelatorio, RelatoriosData } from '@/hooks/useRelatorios';
-import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -30,6 +29,8 @@ interface ConfiguracaoExportacao {
   incluirComparativo: boolean;
   orientacao?: 'portrait' | 'landscape';
 }
+
+
 
 export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRelatoriosProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -360,6 +361,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
             }
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           yPosition = (doc as any).lastAutoTable.finalY + 20;
           console.log('📊 Tabela de resumo criada, nova posição Y:', yPosition);
         }
@@ -418,6 +420,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
             }
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           yPosition = (doc as any).lastAutoTable.finalY + 20;
         }
 
@@ -474,6 +477,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
             }
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           yPosition = (doc as any).lastAutoTable.finalY + 20;
         }
 
@@ -530,6 +534,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
             }
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           yPosition = (doc as any).lastAutoTable.finalY + 20;
         }
 
@@ -594,7 +599,8 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
         // =============================================
         
         // Adicionar rodapé na última página
-        const pageCount = doc.internal.getNumberOfPages();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
           doc.setPage(i);
           
@@ -638,7 +644,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
         return; // Sair da função para PDF
         } catch (pdfError) {
           console.error('❌ Erro na geração do PDF:', pdfError);
-          throw new Error(`Erro na geração do PDF: ${pdfError.message}`);
+          throw new Error(`Erro na geração do PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`);
         }
       }
       
@@ -663,11 +669,11 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
       setIsOpen(false);
     } catch (error) {
       console.error('❌ Erro na exportação:', error);
-      console.error('❌ Stack trace:', error.stack);
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
       
       toast({
         title: "Erro na exportação",
-        description: error.message || "Não foi possível exportar o relatório. Tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível exportar o relatório. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -712,7 +718,7 @@ export function ExportacaoRelatorios({ dados, filtros, className }: ExportacaoRe
                         ? 'ring-2 ring-blue-500 bg-blue-50' 
                         : 'hover:bg-gray-50'
                     }`}
-                    onClick={() => setConfig({ ...config, formato: formato.value as any })}
+                    onClick={() => setConfig({ ...config, formato: formato.value as 'pdf' | 'excel' | 'csv' })}
                   >
                     <CardContent className="p-4 text-center">
                       <Icon className={`h-8 w-8 mx-auto mb-2 ${
