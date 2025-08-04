@@ -48,7 +48,7 @@ export const listPagamentos = async (req: Request, res: Response): Promise<void>
       sort_order = 'desc'
     } = queryParams;
 
-    const where: any = { hubId }; // Filtro base
+    const where: any = { hubId, ativo: true }; // Filtro base - apenas pagamentos ativos
 
     if (pessoa_id) where.pessoa_id = pessoa_id;
     if (forma_pagamento) where.forma_pagamento = forma_pagamento;
@@ -134,7 +134,7 @@ export const getPagamento = async (req: Request, res: Response): Promise<void> =
     const { id } = pagamentoParamsSchema.parse(req.params);
 
     const pagamento = await req.prisma.pagamentos.findUnique({
-      where: { id }, // A RLS já garante o acesso ao Hub
+      where: { id, ativo: true }, // Apenas pagamentos ativos
       include: {
         pessoas_pagamentos_pessoa_idTopessoas: { select: { id: true, nome: true, email: true, telefone: true } },
         pessoas_pagamentos_registrado_porTopessoas: { select: { id: true, nome: true } },
@@ -460,7 +460,7 @@ export const updatePagamento = async (req: Request, res: Response): Promise<void
 
     // 1. Verificar se o pagamento existe e buscar dados para validação
     const pagamento = await req.prisma.pagamentos.findUnique({
-      where: { id: pagamentoId },
+      where: { id: pagamentoId, ativo: true },
       include: {
         pagamento_transacoes: {
           include: {
@@ -589,7 +589,7 @@ export const deletePagamento = async (req: Request, res: Response): Promise<void
         }
 
         const pagamento = await req.prisma.pagamentos.findUnique({
-            where: { id: pagamentoId },
+            where: { id: pagamentoId, ativo: true },
             select: { registrado_por: true }
         });
 

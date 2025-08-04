@@ -36,7 +36,6 @@ interface EditTransactionFormProps {
   availableTags?: { id: string; nome: string; cor: string }[];
   loadingTags?: boolean;
   tipoTransacao?: 'GASTO' | 'RECEITA'; // ✅ NOVO: Tipo da transação para controlar campos
-  dataTransacao?: string; // ✅ NOVO: Data da transação para validação de vencimento
 }
 
 export default function EditTransactionForm({ 
@@ -45,8 +44,7 @@ export default function EditTransactionForm({
   onCancel, 
   availableTags = [], 
   loadingTags = false,
-  tipoTransacao = 'GASTO', // ✅ NOVO
-  dataTransacao // ✅ NOVO
+  tipoTransacao = 'GASTO' // ✅ NOVO
 }: EditTransactionFormProps) {
   const form = useForm<EditTransactionFormValues>({
     resolver: zodResolver(editTransactionSchema),
@@ -104,7 +102,6 @@ export default function EditTransactionForm({
                 id="data_vencimento" 
                 type="date" 
                 {...form.register('data_vencimento')}
-                min={dataTransacao}
               />
               {form.formState.errors.data_vencimento && (
                 <p className="text-sm text-red-500">{form.formState.errors.data_vencimento.message}</p>

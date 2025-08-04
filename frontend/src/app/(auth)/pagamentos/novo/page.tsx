@@ -16,8 +16,7 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useMutation } from '@tanstack/react-query';
-import { pagamentosApi } from '@/lib/api';
+import { useCreatePagamento } from '@/hooks/usePagamentos';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -367,46 +366,7 @@ export default function NovoPagamentoPage() {
   };
 
   // Mutação para criar pagamento
-  const mutation = useMutation({
-    mutationFn: async () => {
-      setIsSubmitting(true);
-      try {
-      // Montar payload conforme API
-      const payload = {
-        pessoa_id: pessoaSelecionada,
-        valor_total: valorTotal,
-        data_pagamento: new Date().toISOString().split('T')[0],
-        forma_pagamento: formaPagamento,
-        processar_excedente: processarExcedente,
-        transacoes: selecionadas.map(id => ({
-          transacao_id: id,
-          valor_aplicado: parseFloat(valoresPagamento[id]) || 0,
-        })),
-      };
-      await pagamentosApi.create(payload);
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    onSuccess: () => {
-      toast({ title: 'Pagamento registrado com sucesso!' });
-      setSelecionadas([]);
-      setValoresPagamento({});
-      // Redirecionar para listagem após sucesso
-      setTimeout(() => router.push('/pagamentos'), 1200);
-    },
-    onError: (err: unknown) => {
-      let message = 'Tente novamente.';
-      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
-        message = (err.response.data as { message?: string }).message || message;
-      }
-      toast({
-        title: 'Erro ao registrar pagamento',
-        description: message,
-        variant: 'destructive',
-      });
-    },
-  });
+  const createPagamentoMutation = useCreatePagamento();
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -959,12 +919,33 @@ export default function NovoPagamentoPage() {
               <Separator />
 
                   <Button
-                onClick={() => mutation.mutate()}
-                disabled={mutation.isPending || isSubmitting || selecionadas.length === 0 || valorTotal <= 0 || !pessoaSelecionada}
+                onClick={async () => {
+                  setIsSubmitting(true);
+                  try {
+                    const payload = {
+                      pessoa_id: pessoaSelecionada!,
+                      valor_total: valorTotal,
+                      data_pagamento: new Date().toISOString().split('T')[0],
+                      forma_pagamento: formaPagamento as 'PIX' | 'DINHEIRO' | 'TRANSFERENCIA' | 'DEBITO' | 'CREDITO' | 'OUTROS',
+                      processar_excedente: processarExcedente,
+                      transacoes: selecionadas.map(id => ({
+                        transacao_id: id,
+                        valor_aplicado: parseFloat(valoresPagamento[id]) || 0,
+                      })),
+                    };
+                    await createPagamentoMutation.mutateAsync(payload);
+                    setSelecionadas([]);
+                    setValoresPagamento({});
+                    setTimeout(() => router.push('/pagamentos'), 1200);
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={createPagamentoMutation.isPending || isSubmitting || selecionadas.length === 0 || valorTotal <= 0 || !pessoaSelecionada}
                 className="w-full"
                     size="lg"
               >
-                {isSubmitting ? (
+                {isSubmitting || createPagamentoMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Processando...

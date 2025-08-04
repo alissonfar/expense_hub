@@ -48,13 +48,9 @@ export const createPagamentoIndividualSchema = z.object({
     .refine(
       (date) => {
         const inputDate = new Date(date);
-        const today = new Date();
-        const maxFuture = new Date();
-        maxFuture.setFullYear(today.getFullYear() + 1);
-        
-        return inputDate >= new Date('2020-01-01') && inputDate <= maxFuture;
+        return inputDate >= new Date('2020-01-01');
       },
-      'Data deve estar entre 2020 e 1 ano no futuro'
+      'Data deve estar a partir de 2020'
     ),
   
   forma_pagamento: z
@@ -105,13 +101,9 @@ export const createPagamentoCompostoSchema = z.object({
     .refine(
       (date) => {
         const inputDate = new Date(date);
-        const today = new Date();
-        const maxFuture = new Date();
-        maxFuture.setFullYear(today.getFullYear() + 1);
-        
-        return inputDate >= new Date('2020-01-01') && inputDate <= maxFuture;
+        return inputDate >= new Date('2020-01-01');
       },
-      'Data deve estar entre 2020 e 1 ano no futuro'
+      'Data deve estar a partir de 2020'
     ),
   
   forma_pagamento: z
@@ -176,9 +168,9 @@ export const updatePagamentoSchema = z.object({
         const maxFuture = new Date();
         maxFuture.setFullYear(today.getFullYear() + 1);
         
-        return inputDate >= new Date('2020-01-01') && inputDate <= maxFuture;
+        return inputDate >= new Date('2020-01-01');
       },
-      'Data deve estar entre 2020 e 1 ano no futuro'
+      'Data deve estar a partir de 2020'
     )
     .optional(),
   

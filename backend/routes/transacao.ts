@@ -129,7 +129,8 @@ router.get('/info', (req, res) => {
           'Parcelamento flexível com valores diferentes por parcela',
           'Datas automáticas (dia 1 do mês seguinte)',
           'Participantes e tags podem variar por parcela',
-          'Agrupamento por UUID para controle'
+          'Agrupamento por UUID para controle',
+          'Suporte a datas futuras para planejamento'
         ]
       },
       receitas: {
@@ -138,7 +139,8 @@ router.get('/info', (req, res) => {
           'Apenas proprietário pode criar/editar receitas',
           'Valor recebido automaticamente atribuído ao proprietário',
           'Status automaticamente marcado como PAGO_TOTAL',
-          'Sem parcelamento (transação única)'
+          'Sem parcelamento (transação única)',
+          'Suporte a datas futuras para planejamento'
         ]
       },
       validacoes: {
@@ -148,7 +150,7 @@ router.get('/info', (req, res) => {
           'Receitas: Apenas proprietário participa',
           'Pessoas devem existir e estar ativas',
           'Tags devem existir e estar ativas',
-          'Data não pode ser futura',
+          'Data pode ser futura (para planejamento)',
           'Máximo 36 parcelas, 10 participantes, 5 tags'
         ]
       }

@@ -634,7 +634,6 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                         id="data_vencimento" 
                         type="date" 
                         {...gastoForm.register('data_vencimento')}
-                        min={gastoForm.watch('data_transacao')}
                         disabled={modoEdicao}
                       />
                       {gastoForm.formState.errors.data_vencimento && (

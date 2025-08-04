@@ -311,7 +311,6 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
             availableTags={tagsData.map(tag => ({ id: String(tag.id), nome: tag.nome, cor: tag.cor }))}
             loadingTags={loadingTags}
             tipoTransacao={transacao.tipo} // ✅ NOVO: Passar tipo da transação
-            dataTransacao={transacao.data_transacao} // ✅ NOVO: Passar data da transação para validação
             onSubmit={async (payload) => {
               try {
                 await updateMutation.mutateAsync({

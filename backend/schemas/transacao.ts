@@ -21,10 +21,8 @@ const validarDataTransacao = (date: string): boolean => {
     return false;
   }
   
-  // Verificar se não é futura
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return inputDate <= today;
+  // REMOVIDO: Verificação de data futura - agora permite datas futuras
+  return true;
 };
 
 /**
@@ -75,8 +73,7 @@ export const createGastoSchema = z.object({
   descricao: z
     .string()
     .min(3, 'Descrição deve ter pelo menos 3 caracteres')
-    .max(200, 'Descrição deve ter no máximo 200 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ0-9\s\-\.,:()]+$/, 'Descrição contém caracteres inválidos'),
+    .max(200, 'Descrição deve ter no máximo 200 caracteres'),
   
   local: z
     .string()
@@ -96,7 +93,7 @@ export const createGastoSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
       validarDataTransacao,
-      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
+      'Data deve estar entre os anos 2000-2050'
     ),
   
   observacoes: z
@@ -185,8 +182,7 @@ export const createReceitaSchema = z.object({
   descricao: z
     .string()
     .min(3, 'Descrição deve ter pelo menos 3 caracteres')
-    .max(200, 'Descrição deve ter no máximo 200 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ0-9\s\-\.,:()]+$/, 'Descrição contém caracteres inválidos'),
+    .max(200, 'Descrição deve ter no máximo 200 caracteres'),
   
   local: z
     .string()
@@ -207,7 +203,7 @@ export const createReceitaSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
       validarDataTransacao,
-      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
+      'Data deve estar entre os anos 2000-2050'
     ),
   
   observacoes: z
@@ -238,7 +234,6 @@ export const updateGastoSchema = z.object({
     .string()
     .min(3, 'Descrição deve ter pelo menos 3 caracteres')
     .max(200, 'Descrição deve ter no máximo 200 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ0-9\s\-\.,:()]+$/, 'Descrição contém caracteres inválidos')
     .optional(),
   
   local: z
@@ -281,7 +276,6 @@ export const updateReceitaSchema = z.object({
     .string()
     .min(3, 'Descrição deve ter pelo menos 3 caracteres')
     .max(200, 'Descrição deve ter no máximo 200 caracteres')
-    .regex(/^[a-zA-ZÀ-ÿ0-9\s\-\.,:()]+$/, 'Descrição contém caracteres inválidos')
     .optional(),
   
   local: z
@@ -304,7 +298,7 @@ export const updateReceitaSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve estar no formato YYYY-MM-DD')
     .refine(
       validarDataTransacao,
-      'Data deve estar entre os anos 2000-2050 e não pode ser futura'
+      'Data deve estar entre os anos 2000-2050'
     )
     .optional(),
   

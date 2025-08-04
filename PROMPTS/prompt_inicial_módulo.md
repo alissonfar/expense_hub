@@ -1,6 +1,9 @@
 # 🔍 INVESTIGAÇÃO COMPLETA DE MÓDULO
 
-**MÓDULO ALVO**: [Relatórios]
+**MÓDULO ALVO**: [Validações de transações no backend:
+- Limitações de caracteres na descrição;
+- Validações de datas;
+- E quaisquer outras que houver no backend]
 
 **IMPORTANTE**: Utilize o **MCP Sequential Thinking** para executar esta tarefa. Processe cada fase da investigação de forma sequencial e estruturada, documentando seu raciocínio e descobertas em cada etapa.
 
