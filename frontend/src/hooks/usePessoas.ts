@@ -92,12 +92,39 @@ export function useUpdatePessoaRole() {
 // Hook para remover pessoa do hub
 export function useRemovePessoa() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
   return useMutation({
     mutationFn: async (pessoaId: number) => {
       await api.delete(`/pessoas/${pessoaId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: pessoaKeys.all });
+      toast({
+        title: "Sucesso",
+        description: "Membro removido com sucesso.",
+      });
+    },
+    onError: (error: unknown) => {
+      console.error('Erro ao remover membro:', error);
+      
+      // Extrair mensagem específica do backend
+      let errorMessage = "Não foi possível remover o membro.";
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 }

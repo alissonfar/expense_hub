@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 import type { Tag, CreateTagFormData } from '@/lib/types';
 
 // Query Keys
@@ -89,6 +90,31 @@ export function useDeleteTag() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tagKeys.all });
+      toast({
+        title: "Sucesso",
+        description: "Tag excluída com sucesso.",
+      });
+    },
+    onError: (error: unknown) => {
+      console.error('Erro ao excluir tag:', error);
+      
+      // Extrair mensagem específica do backend
+      let errorMessage = "Não foi possível excluir a tag.";
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 } 

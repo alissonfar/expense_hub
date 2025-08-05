@@ -342,13 +342,24 @@ export function useDeletePagamento() {
     },
     onError: (error) => {
       console.error('Erro ao excluir pagamento:', error);
-      if (isApiError(error)) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível excluir o pagamento.",
-          variant: "destructive"
-        });
+      
+      // Extrair mensagem específica do backend
+      let errorMessage = "Não foi possível excluir o pagamento.";
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
       }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 }

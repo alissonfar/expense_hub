@@ -498,7 +498,13 @@ export const deleteTransacao = async (req: Request, res: Response): Promise<void
     }
 
     if (transacao.pagamento_transacoes.length > 0) {
-      res.status(400).json({ success: false, message: 'Não é possível excluir transações com pagamentos associados.' });
+      const pagamentosAssociados = transacao.pagamento_transacoes.length;
+      res.status(400).json({ 
+        success: false, 
+        message: `Não é possível excluir esta transação porque ela possui ${pagamentosAssociados} pagamento(s) associado(s). Primeiro remova os pagamentos relacionados e depois tente excluir a transação novamente.`,
+        error: 'TRANSACAO_COM_PAGAMENTOS',
+        pagamentosAssociados: pagamentosAssociados
+      });
       return;
     }
 

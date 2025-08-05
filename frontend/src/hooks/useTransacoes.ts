@@ -351,6 +351,31 @@ export function useDeleteTransacao() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.all });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast({
+        title: "Sucesso",
+        description: "Transação excluída com sucesso.",
+      });
+    },
+    onError: (error: unknown) => {
+      console.error('Erro ao excluir transação:', error);
+      
+      // Extrair mensagem específica do backend
+      let errorMessage = "Não foi possível excluir a transação.";
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        }
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 }

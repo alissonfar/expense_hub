@@ -298,6 +298,44 @@ export const removerMembro = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Verificar se a pessoa tem transações associadas
+    const transacoesAssociadas = await req.prisma.transacao_participantes.count({
+      where: {
+        pessoa_id: pessoaId,
+        transacoes: {
+          hubId: hubId,
+          ativo: true
+        }
+      }
+    });
+
+    if (transacoesAssociadas > 0) {
+      res.status(400).json({
+        error: 'PESSOA_COM_TRANSACOES',
+        message: `Não é possível remover este membro porque ele possui ${transacoesAssociadas} transação(ões) associada(s). Primeiro remova ou transfira as transações relacionadas e depois tente remover o membro novamente.`,
+        transacoesAssociadas: transacoesAssociadas
+      });
+      return;
+    }
+
+    // Verificar se a pessoa tem pagamentos associados
+    const pagamentosAssociados = await req.prisma.pagamentos.count({
+      where: {
+        pessoa_id: pessoaId,
+        hubId: hubId,
+        ativo: true
+      }
+    });
+
+    if (pagamentosAssociados > 0) {
+      res.status(400).json({
+        error: 'PESSOA_COM_PAGAMENTOS',
+        message: `Não é possível remover este membro porque ele possui ${pagamentosAssociados} pagamento(s) associado(s). Primeiro remova os pagamentos relacionados e depois tente remover o membro novamente.`,
+        pagamentosAssociados: pagamentosAssociados
+      });
+      return;
+    }
+
     await req.prisma.$transaction(async (tx) => {
       // 1. Desativar o membro do Hub
       await tx.membros_hub.update({

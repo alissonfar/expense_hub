@@ -464,9 +464,20 @@ export const deleteTag = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (transacoesUsando) {
+      // Contar quantas transações estão usando esta tag
+      const transacoesCount = await req.prisma.transacao_tags.count({
+        where: { 
+          tag_id: id,
+          transacoes: {
+            ativo: true
+          }
+        }
+      });
+
       res.status(400).json({
-        error: 'Tag em uso',
-        message: 'Não é possível desativar tag que está sendo usada em transações. Remova das transações primeiro.',
+        error: 'TAG_EM_USO',
+        message: `Não é possível desativar esta tag porque ela está sendo usada em ${transacoesCount} transação(ões) ativa(s). Primeiro remova a tag das transações relacionadas e depois tente desativá-la novamente.`,
+        transacoesAssociadas: transacoesCount,
         timestamp: new Date().toISOString()
       });
       return;
