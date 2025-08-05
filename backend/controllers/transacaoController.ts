@@ -346,10 +346,24 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
     const transacao = await prisma.transacoes.findUnique({
       where: { id: parseInt(id, 10) },
       include: {
-        transacao_participantes: { include: { pessoas: { select: { id: true, nome: true } } } },
+        transacao_participantes: { 
+          include: { 
+            pessoas: { select: { id: true, nome: true, email: true } } 
+          } 
+        },
         transacao_tags: { include: { tags: true } },
-        pagamento_transacoes: { include: { pagamentos: true } },
-        pessoas_transacoes_criado_porTopessoas: { select: { id: true, nome: true } }
+        pagamento_transacoes: { 
+          include: { 
+            pagamentos: {
+              include: {
+                pessoas_pagamentos_pessoa_idTopessoas: { select: { id: true, nome: true, email: true } },
+                pessoas_pagamentos_registrado_porTopessoas: { select: { id: true, nome: true } }
+              }
+            } 
+          } 
+        },
+        pessoas_transacoes_criado_porTopessoas: { select: { id: true, nome: true } },
+        pessoas_transacoes_proprietario_idTopessoas: { select: { id: true, nome: true } }
       }
     });
 

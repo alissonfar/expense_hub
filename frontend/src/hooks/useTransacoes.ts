@@ -129,11 +129,92 @@ export function useTransacao(id: number) {
     queryFn: async (): Promise<Transacao> => {
       const response = await api.get(`/transacoes/${id}`);
       const data = response.data.data;
+      
       // Mapeamento para compatibilidade com frontend
+      const participantes = data.transacao_participantes?.map((p: unknown) => {
+        const participante = p as {
+          id: number;
+          transacao_id: number;
+          pessoa_id: number;
+          valor_devido?: string | number;
+          valor_pago?: string | number;
+          valor_recebido?: string | number;
+          eh_proprietario?: boolean;
+          pessoas?: { id: number; nome: string; email: string };
+          criado_em?: string;
+          atualizado_em?: string;
+        };
+        
+        return {
+          id: participante.id,
+          transacao_id: participante.transacao_id,
+          pessoa_id: participante.pessoa_id,
+          valor_devido: Number(participante.valor_devido || 0),
+          valor_pago: Number(participante.valor_pago || 0),
+          valor_recebido: Number(participante.valor_recebido || 0),
+          eh_proprietario: participante.eh_proprietario || false,
+          quitado: Number(participante.valor_pago || 0) >= Number(participante.valor_devido || 0),
+          pessoa: participante.pessoas,
+          criado_em: participante.criado_em,
+          atualizado_em: participante.atualizado_em
+        };
+      }) || [];
+
+      // Mapear pagamentos através de pagamento_transacoes
+      const pagamentos = data.pagamento_transacoes?.map((pt: unknown) => {
+        const pagamentoTransacao = pt as {
+          valor_aplicado?: string | number;
+          pagamentos: {
+            id: number;
+            pessoa_id: number;
+            valor_total?: string | number;
+            valor_excedente?: string | number;
+            data_pagamento?: string;
+            forma_pagamento?: string;
+            observacoes?: string;
+            processar_excedente?: boolean;
+            receita_excedente_id?: number;
+            registrado_por: number;
+            criado_em?: string;
+            atualizado_em?: string;
+            hubId: number;
+            pessoas_pagamentos_pessoa_idTopessoas?: { id: number; nome: string; email: string };
+            pessoas_pagamentos_registrado_porTopessoas?: { id: number; nome: string };
+          };
+        };
+        
+        return {
+          id: pagamentoTransacao.pagamentos.id,
+          pessoa_id: pagamentoTransacao.pagamentos.pessoa_id,
+          valor_total: Number(pagamentoTransacao.pagamentos.valor_total || 0),
+          valor_excedente: Number(pagamentoTransacao.pagamentos.valor_excedente || 0),
+          data_pagamento: pagamentoTransacao.pagamentos.data_pagamento,
+          forma_pagamento: pagamentoTransacao.pagamentos.forma_pagamento,
+          observacoes: pagamentoTransacao.pagamentos.observacoes,
+          processar_excedente: pagamentoTransacao.pagamentos.processar_excedente,
+          receita_excedente_id: pagamentoTransacao.pagamentos.receita_excedente_id,
+          registrado_por: pagamentoTransacao.pagamentos.registrado_por,
+          criado_em: pagamentoTransacao.pagamentos.criado_em,
+          atualizado_em: pagamentoTransacao.pagamentos.atualizado_em,
+          hubId: pagamentoTransacao.pagamentos.hubId,
+          valor_aplicado: Number(pagamentoTransacao.valor_aplicado || 0),
+          pessoa: pagamentoTransacao.pagamentos.pessoas_pagamentos_pessoa_idTopessoas,
+          registrado_por_pessoa: pagamentoTransacao.pagamentos.pessoas_pagamentos_registrado_porTopessoas,
+          transacoes: [{
+            id: data.id,
+            tipo: data.tipo,
+            descricao: data.descricao,
+            valor_total: Number(data.valor_total || 0),
+            status_pagamento: data.status_pagamento,
+            data_transacao: data.data_transacao
+          }]
+        };
+      }) || [];
+
       return {
         ...data,
-        participantes: data.participantes || data.transacao_participantes || [],
-        pagamentos: data.pagamentos || data.pagamento_transacoes || [],
+        participantes,
+        pagamentos,
       };
     },
     enabled: !!id,

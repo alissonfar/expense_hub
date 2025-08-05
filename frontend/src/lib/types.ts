@@ -116,6 +116,7 @@ export interface Pagamento {
   id: number;
   pessoa_id: number;
   valor_total: number;
+  valor_aplicado?: number; // ✅ NOVO: Valor aplicado nesta transação específica
   valor_excedente?: number;
   data_pagamento: string;
   forma_pagamento: PaymentMethod;

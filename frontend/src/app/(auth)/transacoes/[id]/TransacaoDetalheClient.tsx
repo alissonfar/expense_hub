@@ -5,7 +5,7 @@ import { useTransacao, useDeleteTransacao, useUpdateTransacao } from '@/hooks/us
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, DollarSign, Users, Tag, Trash, Edit2 } from 'lucide-react';
+import { Check, DollarSign, Users, Tag, Trash, Edit2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useState } from 'react';
@@ -54,7 +54,16 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Detalhes da Transação</h1>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => router.push('/transacoes')}
+            className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-600 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+          </Button>
+          <h1 className="text-2xl font-bold">Detalhes da Transação</h1>
+        </div>
         <div className="space-x-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Edit2 className="h-4 w-4 mr-2" /> Editar
@@ -179,7 +188,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
               })}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">Sem participantes</div>
+            <div className="text-sm text-muted-foreground">Esta transação não possui participantes registrados.</div>
           )}
         </CardContent>
       </Card>
@@ -203,7 +212,7 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
       )}
 
       {/* Pagamentos */}
-      {transacao.pagamentos && transacao.pagamentos.length > 0 && (
+      {transacao.pagamentos && transacao.pagamentos.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -219,9 +228,9 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                     {/* Frase explicativa do pagamento */}
                     {(() => {
                       const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pessoa_id);
-                      const nome = pagador?.pessoa?.nome || 'N/A';
+                      const nome = pagador?.pessoa?.nome || pg.pessoa?.nome || 'N/A';
                       const valorDevido = Number(pagador?.valor_devido ?? 0);
-                      const valorPago = Number(pg.valor_total ?? 0);
+                      const valorPago = Number(pg.valor_aplicado ?? pg.valor_total ?? 0);
                       if (!pagador) return null;
                       if (valorPago >= valorDevido) {
                         return (
@@ -243,20 +252,22 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                         <div className="font-medium flex items-center gap-2">
                           {(() => {
                             const pagador = transacao.participantes?.find(p => p.pessoa_id === pg.pessoa_id);
-                            return pagador?.pessoa?.nome || 'N/A';
+                            return pagador?.pessoa?.nome || pg.pessoa?.nome || 'N/A';
                           })()}
                           {pg.pessoa?.email && (
                             <span className="text-xs text-muted-foreground">({pg.pessoa.email})</span>
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Valor: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(pg.valor_total ?? 0))}</span>
+                          Valor: <span className="font-semibold text-black dark:text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(pg.valor_aplicado ?? pg.valor_total ?? 0))}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Data: <span className="font-semibold text-black dark:text-white">{new Date(pg.data_pagamento).toLocaleDateString('pt-BR')}</span>
+                          Data: <span className="font-semibold text-black dark:text-white">
+                            {pg.data_pagamento ? new Date(pg.data_pagamento).toLocaleDateString('pt-BR') : 'N/A'}
+                          </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Forma: <span className="font-semibold text-black dark:text-white">{pg.forma_pagamento}</span>
+                          Forma: <span className="font-semibold text-black dark:text-white">{pg.forma_pagamento || 'N/A'}</span>
                         </div>
                         {pg.observacoes && (
                           <div className="text-xs text-muted-foreground">
@@ -281,14 +292,25 @@ export default function TransacaoDetalheClient({ id }: TransacaoDetalheClientPro
                       </div>
                     )}
                     <div className="flex flex-col items-end min-w-[120px]">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${pg.valor_total > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>
-                        {pg.valor_total > 0 ? 'Parcial' : 'Pendente'}
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${Number(pg.valor_aplicado ?? pg.valor_total ?? 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}`}>
+                        {Number(pg.valor_aplicado ?? pg.valor_total ?? 0) > 0 ? 'Pago' : 'Pendente'}
                       </span>
                     </div>
                   </div>
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" /> Pagamentos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">Nenhum pagamento registrado para esta transação.</div>
           </CardContent>
         </Card>
       )}
