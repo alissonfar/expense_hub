@@ -140,8 +140,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     // Salvar accessToken normalmente
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
-    // Configurar header Authorization global
-    api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
+    // Configurar header Authorization global somente se houver token
+    if (newAccessToken && newAccessToken.trim().length > 0) {
+      api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
+    } else {
+      delete api.defaults.headers.Authorization;
+    }
   }, [STORAGE_KEYS.ACCESS_TOKEN, STORAGE_KEYS.REFRESH_TOKEN, refreshToken]);
 
   // Função de login (1ª etapa)
@@ -309,7 +313,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de atualização de perfil
   const atualizarPerfil = async (data: Partial<UserIdentifier>): Promise<UserIdentifier> => {
     try {
-      const response = await api.put('/auth/perfil', data);
+      const response = await api.put('/auth/profile', data);
       const usuarioAtualizado = response.data.data as UserIdentifier;
       
       setUsuario(usuarioAtualizado);
@@ -324,7 +328,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Função de alteração de senha
   const alterarSenha = async (senhaAtual: string, novaSenha: string): Promise<void> => {
     try {
-      await api.put('/auth/alterar-senha', { senhaAtual, novaSenha });
+      await api.put('/auth/change-password', { senhaAtual, novaSenha });
     } catch (error) {
       throw error;
     }

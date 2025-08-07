@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // Import dos tipos personalizados e middlewares
 import './types';
-import { requireAuth } from './middleware/auth';
+import { requireAuth, validateHubContext, autoRefreshToken } from './middleware/auth';
 import { injectPrismaClient } from './middleware/prisma';
 
 // Import das rotas
@@ -58,12 +58,18 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(o => o.trim()) : ['https://expense-hub-three.vercel.app'])
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
-// ATENÇÃO: CORS aberto para qualquer origem. Entenda os riscos de segurança!
-const corsOptions: CorsOptions = {
-  origin: true, // Permite requisições de QUALQUER origem
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+// CORS restrito a origens permitidas em produção, aberto em desenvolvimento
+const corsOptions: CorsOptions | CorsOptionsDelegate = (req, callback) => {
+  const requestOrigin = (req.headers?.origin as string) || '';
+  const isDev = process.env.NODE_ENV !== 'production';
+  const isAllowed = isDev || (requestOrigin && allowedOrigins.includes(requestOrigin));
+  const options: CorsOptions = {
+    origin: !!isAllowed,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  };
+  callback(null, options);
 };
 app.use(cors(corsOptions));
 
@@ -118,7 +124,7 @@ app.post('/api/hubs', createHub);
 // 1. `requireAuth` valida o JWT e anexa o `AuthContext` ao `req.auth`.
 // 2. `injectPrismaClient` usa o `req.auth` para criar um cliente Prisma com RLS e o anexa ao `req.prisma`.
 const protectedApi = express.Router();
-protectedApi.use(requireAuth, injectPrismaClient);
+protectedApi.use(requireAuth, autoRefreshToken, validateHubContext, injectPrismaClient);
 
 // Todas as rotas de negócio agora usam o router protegido
 protectedApi.use('/pessoas', pessoaRoutes);

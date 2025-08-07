@@ -169,6 +169,9 @@ router.get('/info', (req, res) => {
  */
 router.get(
   '/',
+  requireAuth,
+  validateHubContext,
+  injectPrismaClient,
   validateQuery(transacaoQuerySchema),
   listTransacoes
 );
@@ -179,6 +182,9 @@ router.get(
  */
 router.get(
   '/:id',
+  requireAuth,
+  validateHubContext,
+  injectPrismaClient,
   validateParams(transacaoParamsSchema),
   getTransacao
 );

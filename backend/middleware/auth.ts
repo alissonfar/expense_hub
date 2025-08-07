@@ -88,12 +88,10 @@ export const validateHubContext = async (req: Request, res: Response, next: Next
     }
 
     // Verificar se o usuário ainda é membro ativo do hub
-    const membership = await prisma.membros_hub.findUnique({
+    const membership = await prisma.membros_hub.findFirst({
       where: {
-        hubId_pessoaId: {
-          hubId,
-          pessoaId,
-        },
+        hubId,
+        pessoaId,
         ativo: true,
       },
       select: { role: true, dataAccessPolicy: true }

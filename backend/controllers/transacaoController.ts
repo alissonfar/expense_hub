@@ -343,8 +343,8 @@ export const getTransacao = async (req: Request, res: Response): Promise<void> =
   }
 
   try {
-    const transacao = await prisma.transacoes.findUnique({
-      where: { id: parseInt(id, 10) },
+    const transacao = await prisma.transacoes.findFirst({
+      where: { id: parseInt(id, 10), hubId: req.auth!.hubId },
       include: {
         transacao_participantes: { 
           include: { 
