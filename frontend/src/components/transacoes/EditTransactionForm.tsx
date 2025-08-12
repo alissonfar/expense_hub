@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tag, Calendar, CreditCard } from 'lucide-react';
+import { Tag, Calendar, CreditCard, X, Check } from 'lucide-react';
 
 const editTransactionSchema = z.object({
   descricao: z.string().min(3, 'Descrição obrigatória (mínimo 3 caracteres).'),
@@ -83,7 +83,7 @@ export default function EditTransactionForm({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="descricao" className="font-medium">Descrição *</label>
-            <Input id="descricao" {...form.register('descricao')} autoFocus />
+            <Input id="descricao" required aria-required="true" aria-invalid={!!form.formState.errors.descricao} {...form.register('descricao')} autoFocus />
             {form.formState.errors.descricao && <p className="text-sm text-red-500">{form.formState.errors.descricao.message}</p>}
           </div>
           <div className="space-y-2">
@@ -98,11 +98,17 @@ export default function EditTransactionForm({
                 <Calendar className="h-4 w-4" />
                 Data de Vencimento
               </label>
-              <Input 
-                id="data_vencimento" 
-                type="date" 
-                {...form.register('data_vencimento')}
-              />
+              <div className="relative">
+                <Input 
+                  id="data_vencimento" 
+                  type="date" 
+                  aria-invalid={!!form.formState.errors.data_vencimento}
+                  {...form.register('data_vencimento')}
+                />
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  {form.formState.errors.data_vencimento ? <X className="h-4 w-4 text-red-600" /> : (form.watch('data_vencimento') ? <Check className="h-4 w-4 text-green-600" /> : null)}
+                </div>
+              </div>
               {form.formState.errors.data_vencimento && (
                 <p className="text-sm text-red-500">{form.formState.errors.data_vencimento.message}</p>
               )}

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateTransacao } from '@/hooks/useTransacoes';
 import { usePessoasAtivas } from '@/hooks/usePessoas';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
+import { SuccessFeedback } from '@/components/ui/success-feedback';
+import { useEnhancedToast } from '@/components/ui/enhanced-toast';
+import { ValidationIndicator } from '@/components/ui/validation-indicator';
+// import type { FieldErrors } from 'react-hook-form';
 import { useTags } from '@/hooks/useTags';
 import { useRouter } from 'next/navigation'; // Mantido apenas para Cancelar
 import { useEffect } from 'react';
@@ -126,15 +132,16 @@ interface TransactionFormProps {
 const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false, defaultValues, onSubmitEdicao }: TransactionFormProps) {
   const { usuario } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
+  const { showSuccess, showError } = useEnhancedToast();
   const { data: participantesAtivos = [] } = usePessoasAtivas();
   const createTransacao = useCreateTransacao();
   const createReceita = useCreateReceita();
   // NOVO: Estado para tipo de transação
   const [tipoTransacao, setTipoTransacao] = useState<'GASTO' | 'RECEITA'>(TipoTransacao.GASTO);
   const [activeTab, setActiveTab] = useState('basico');
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const { data: categorias = [], isLoading: loadingCategorias } = useTags({ ativo: true });
 
   // NOVO: Alternar schema conforme tipo
@@ -154,7 +161,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       participantes: [],
       tags: [],
     },
-    mode: 'onChange',
+    mode: 'onBlur',
     shouldUnregister: false,
   });
 
@@ -168,10 +175,10 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       forma_pagamento: undefined, // ✅ NOVO
       observacoes: '',
       tags: [],
-    },
-    mode: 'onChange',
-    shouldUnregister: false,
-  });
+      },
+  mode: 'onBlur',
+  shouldUnregister: false,
+});
 
   // Seleciona o form correto conforme o tipo
   const form = tipoTransacao === 'GASTO' ? gastoForm : receitaForm;
@@ -260,6 +267,40 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
 
   const valorTotal = tipoTransacao === 'GASTO' ? Number(gastoForm.watch('valor_total')) || 0 : 0;
 
+  const fieldLabelMap = useMemo(() => ({
+    descricao: 'Descrição',
+    local: 'Local/Fonte',
+    valor_total: 'Valor Total',
+    valor_recebido: 'Valor Recebido',
+    data_transacao: 'Data',
+    data_vencimento: 'Data de Vencimento',
+    forma_pagamento: 'Forma de Pagamento',
+    eh_parcelado: 'Parcelamento',
+    total_parcelas: 'Total de Parcelas',
+    observacoes: 'Observações',
+    participantes: 'Participantes',
+    tags: 'Tags',
+  }), []);
+
+  const navigateToField = useCallback((name: string) => {
+    if (['participantes', 'tags', 'resumo'].includes(name)) {
+      setActiveTab(name === 'tags' ? 'tags' : 'participantes');
+    } else {
+      setActiveTab('basico');
+    }
+    try {
+      // @ts-expect-error foco por nome dinâmico
+      form.setFocus(name);
+    } catch {}
+    requestAnimationFrame(() => {
+      const byId = formRef.current?.querySelector(`#${name}`) as HTMLElement | null;
+      const byName = formRef.current?.querySelector(`[name="${name}"]`) as HTMLElement | null;
+      const el = byId || byName;
+      el?.focus();
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [form]);
+
   // Handler de envio
   const onSubmit = useCallback(async (values: TransactionFormValues | ReceitaFormValues) => {
     if (modoEdicao && onSubmitEdicao) {
@@ -290,6 +331,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       return;
     }
     try {
+      // Mostrar overlay de loading via isPending (já controlado pelos hooks)
       if (tipoTransacao === TipoTransacao.GASTO) {
         // Mapear participantes para o formato da API { pessoa_id, valor_devido }
         const participantesPayload = (values as TransactionFormValues).participantes.map(p => {
@@ -316,10 +358,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
         };
 
         await createTransacao.mutateAsync(payload);
-        toast({
-          title: 'Sucesso',
-          description: 'Transação criada com sucesso!',
-        });
+        showSuccess('Transação criada', 'Transação criada com sucesso!')
       } else {
         // RECEITA
         const payload = {
@@ -331,12 +370,9 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
           tags: (values.tags || []).map(t => Number(t)),
         };
         await createReceita.mutateAsync(payload);
-        toast({
-          title: 'Sucesso',
-          description: 'Receita criada com sucesso!',
-        });
+        showSuccess('Receita criada', 'Receita criada com sucesso!')
       }
-      setShowSuccess(true);
+      setShowSuccessBanner(true);
       form.reset();
       setActiveTab('basico');
       // Focar no primeiro campo para agilizar próximo lançamento
@@ -349,17 +385,43 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       }, 0);
 
       // Ocultar mensagem de sucesso após alguns segundos
-      setTimeout(() => setShowSuccess(false), 4000);
+      setTimeout(() => setShowSuccessBanner(false), 4000);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } }; message?: string };
       const mensagem = err?.response?.data?.error || err?.message || 'Não foi possível criar a transação';
-      toast({
-        title: 'Erro',
-        description: mensagem,
-        variant: 'destructive',
+      showError('Erro ao salvar', mensagem);
+    }
+  }, [participantesAtivos, usuario, createTransacao, createReceita, showError, form, tipoTransacao, modoEdicao, onSubmitEdicao, gastoForm, receitaForm, showSuccess]);
+
+  // Focar no primeiro campo inválido ao tentar salvar com erros
+  const handleInvalidSubmit = useCallback(async () => {
+    const isValid = await form.trigger();
+    if (isValid) return;
+
+    const errors = form.formState.errors as Record<string, unknown>;
+    const firstErrorKey = Object.keys(errors)[0];
+
+    if (firstErrorKey) {
+      if (['participantes', 'tags'].includes(firstErrorKey)) {
+        setActiveTab(firstErrorKey);
+      } else {
+        setActiveTab('basico');
+      }
+
+      try {
+        // @ts-expect-error foco por nome dinâmico
+        form.setFocus(firstErrorKey);
+      } catch {}
+
+      requestAnimationFrame(() => {
+        const elById = formRef.current?.querySelector(`#${firstErrorKey}`) as HTMLElement | null;
+        const elByName = formRef.current?.querySelector(`[name="${firstErrorKey}"]`) as HTMLElement | null;
+        const el = elById || elByName;
+        el?.focus();
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
-  }, [participantesAtivos, usuario, createTransacao, createReceita, toast, form, tipoTransacao, modoEdicao, onSubmitEdicao, gastoForm, receitaForm]);
+  }, [form]);
 
   // Função de dividir igualmente extraída para reutilizar em atalho Ctrl+D
   // Dividir igualmente
@@ -437,7 +499,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
 
   // NOVO: Renderização condicional dos campos
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6">
+    <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto space-y-6 relative">
       {modoEdicao && (
         <div className="p-3 mb-4 bg-yellow-50 border border-yellow-300 rounded text-yellow-800 text-sm">
           Apenas os campos <b>descrição</b>, <b>local</b>, <b>observações</b> e <b>tags</b> podem ser editados. Os demais campos são bloqueados por regras do sistema.
@@ -507,34 +569,43 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
       )}
 
       {/* Feedback de Sucesso */}
-      {showSuccess && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <Check className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-green-800">Transação salva com sucesso!</h3>
-                  <p className="text-sm text-green-600">
-                    Formulário será resetado em alguns segundos...
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSuccess(false)}
-                className="border-green-300 text-green-700 hover:bg-green-100"
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Nova Agora
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {showSuccessBanner && (
+        <SuccessFeedback 
+          message="Transação salva com sucesso!"
+          description="Formulário será resetado em alguns segundos..."
+          autoHide
+          duration={4000}
+        />
       )}
+
+      {/* Sumário de erros + indicador */}
+      <div aria-live="assertive" aria-atomic="true">
+      {!form.formState.isValid && Object.keys(form.formState.errors).length > 0 && (
+        <div className="space-y-2">
+          <ValidationIndicator isValid={false} message="Existem campos com erro" />
+          <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            <div className="font-medium mb-1">Há campos com erro:</div>
+            <ul className="list-disc pl-5 space-y-1">
+              {Object.keys(form.formState.errors).map((name) => (
+                <li key={name}>
+                  <button
+                    type="button"
+                    onClick={() => navigateToField(name)}
+                    className="underline hover:opacity-80"
+                  >
+                    {fieldLabelMap[name as keyof typeof fieldLabelMap] || name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      </div>
+
+      {/* Overlay de loading durante submit */}
+      <LoadingOverlay isVisible={createTransacao.isPending || createReceita.isPending} message="Salvando..." />
 
       {/* Abas principais do formulário */}
       <Card>
@@ -593,7 +664,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                       <FileText className="h-4 w-4" />
                       Descrição *
                     </label>
-                    <Input id="descricao" {...gastoForm.register('descricao')} autoFocus />
+                    <Input id="descricao" required aria-required="true" aria-invalid={!!gastoForm.formState.errors.descricao} {...gastoForm.register('descricao')} autoFocus />
                     {gastoForm.formState.errors.descricao && <p className="text-sm text-red-500">{gastoForm.formState.errors.descricao.message}</p>}
                   </div>
                   {/* Local/Fonte */}
@@ -606,11 +677,40 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                   </div>
                   {/* Valor Total */}
                   <div className="space-y-2">
-                    <label htmlFor="valor" className="flex items-center gap-2 font-medium">
+                    <label htmlFor="valor" className="flex items-center gap-2 font-medium" title="Digite números; a formatação será aplicada automaticamente">
+                        <span className="sr-only">Formato BRL</span>
                       <DollarSign className="h-4 w-4" />
                       Valor Total *
                     </label>
-                    <Input id="valor" type="number" step="0.01" min="0.01" {...gastoForm.register('valor_total', { valueAsNumber: true })} disabled={modoEdicao} />
+                    <div className="relative">
+                      <Input
+                        id="valor"
+                        inputMode="decimal"
+                        type="text"
+                        placeholder="0,00"
+                        aria-invalid={!!gastoForm.formState.errors.valor_total}
+                        value={((): string | number => { const v = gastoForm.watch('valor_total') as unknown; return typeof v === 'number' ? v : ''; })()}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.');
+                          const num = raw ? parseFloat(raw) : NaN;
+                          gastoForm.setValue('valor_total', isNaN(num) ? ('' as unknown as number) : num, { shouldValidate: true });
+                        }}
+                        onBlur={(e) => {
+                          const v = Number(gastoForm.getValues().valor_total || 0);
+                          if (!isNaN(v)) e.currentTarget.value = brl.format(v);
+                        }}
+                        onFocus={(e) => {
+                          const v = Number(gastoForm.getValues().valor_total || 0);
+                          if (!isNaN(v)) e.currentTarget.value = v.toString().replace('.', ',');
+                        }}
+                        disabled={modoEdicao}
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                        {gastoForm.formState.errors.valor_total ? (
+                          <X className="h-4 w-4 text-red-600" />
+                        ) : (typeof gastoForm.watch('valor_total') === 'number' ? <Check className="h-4 w-4 text-green-600" /> : null)}
+                      </div>
+                    </div>
                     {gastoForm.formState.errors.valor_total && <p className="text-sm text-red-500">{gastoForm.formState.errors.valor_total.message}</p>}
                   </div>
                   {/* Data */}
@@ -619,7 +719,12 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                       <Calendar className="h-4 w-4" />
                       Data *
                     </label>
-                    <Input id="data" type="date" {...gastoForm.register('data_transacao')} disabled={modoEdicao} />
+                    <div className="relative">
+                      <Input id="data" type="date" aria-invalid={!!gastoForm.formState.errors.data_transacao} {...gastoForm.register('data_transacao')} disabled={modoEdicao} />
+                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                        {gastoForm.formState.errors.data_transacao ? <X className="h-4 w-4 text-red-600" /> : (gastoForm.watch('data_transacao') ? <Check className="h-4 w-4 text-green-600" /> : null)}
+                      </div>
+                    </div>
                     {gastoForm.formState.errors.data_transacao && <p className="text-sm text-red-500">{gastoForm.formState.errors.data_transacao.message}</p>}
                   </div>
                   
@@ -630,12 +735,18 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                         <Calendar className="h-4 w-4" />
                         Data de Vencimento
                       </label>
-                      <Input 
-                        id="data_vencimento" 
-                        type="date" 
-                        {...gastoForm.register('data_vencimento')}
-                        disabled={modoEdicao}
-                      />
+                      <div className="relative">
+                         <Input 
+                           id="data_vencimento" 
+                           type="date" 
+                           aria-invalid={!!gastoForm.formState.errors.data_vencimento}
+                           {...gastoForm.register('data_vencimento')}
+                           disabled={modoEdicao}
+                         />
+                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                           {gastoForm.formState.errors.data_vencimento ? <X className="h-4 w-4 text-red-600" /> : (gastoForm.watch('data_vencimento') ? <Check className="h-4 w-4 text-green-600" /> : null)}
+                         </div>
+                       </div>
                       {gastoForm.formState.errors.data_vencimento && (
                         <p className="text-sm text-red-500">{gastoForm.formState.errors.data_vencimento.message}</p>
                       )}
@@ -658,9 +769,20 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                         }
                       }}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a forma de pagamento" />
-                      </SelectTrigger>
+                      <div className="relative">
+                       <SelectTrigger>
+                         <SelectValue placeholder="Selecione a forma de pagamento" />
+                       </SelectTrigger>
+                       <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                         {(() => {
+                           const hasError = !!gastoForm.formState.errors.forma_pagamento || (!!receitaForm.formState.errors.forma_pagamento);
+                           const hasValue = !!(tipoTransacao === 'GASTO' ? gastoForm.watch('forma_pagamento') : receitaForm.watch('forma_pagamento'));
+                           if (hasError) return <X className="h-4 w-4 text-red-600" />;
+                           if (hasValue) return <Check className="h-4 w-4 text-green-600" />;
+                           return null;
+                         })()}
+                       </div>
+                     </div>
                       <SelectContent>
                         <SelectItem value="PIX">PIX</SelectItem>
                         <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
@@ -681,35 +803,37 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                   <div className="space-y-4 md:col-span-2">
                     <Separator />
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="parcelado" {...gastoForm.register('eh_parcelado')} disabled={modoEdicao} />
-                      <label htmlFor="parcelado" className="flex items-center gap-2 font-medium">
+                      <Checkbox id="eh_parcelado" {...gastoForm.register('eh_parcelado')} disabled={modoEdicao} />
+                      <label htmlFor="eh_parcelado" className="flex items-center gap-2 font-medium">
                         <CreditCard className="h-4 w-4" />
                         Parcelar este gasto
                       </label>
                     </div>
                     {/* Total de Parcelas (condicional) */}
-                    <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
-                      <div className="space-y-2">
-                        <label htmlFor="parcelas">Total de Parcelas *</label>
-                        <Select value={String(gastoForm.watch('total_parcelas'))} onValueChange={value => gastoForm.setValue('total_parcelas', Number(value))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="1" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 36 }, (_, i) => i + 1).map(num => (
-                              <SelectItem key={num} value={num.toString()}>{num}x</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {gastoForm.formState.errors.total_parcelas && <p className="text-sm text-red-500">{gastoForm.formState.errors.total_parcelas.message}</p>}
-                      </div>
-                      <div className="space-y-2">
-                        <label>Valor por Parcela</label>
-                        <div className="p-3 bg-background rounded border text-lg font-semibold">
-                          {gastoForm.watch('eh_parcelado') ? `R$ ${(Number(gastoForm.watch('valor_total') || 0) / Math.max(Number(gastoForm.watch('total_parcelas') || 1), 1)).toFixed(2)}` : `R$ ${Number(gastoForm.watch('valor_total') || 0).toFixed(2)}`}
+                    {gastoForm.watch('eh_parcelado') && (
+                      <div className="grid gap-4 md:grid-cols-2 p-4 bg-muted/50 rounded-lg">
+                        <div className="space-y-2">
+                          <label htmlFor="total_parcelas">Total de Parcelas *</label>
+                          <Select value={String(gastoForm.watch('total_parcelas'))} onValueChange={value => gastoForm.setValue('total_parcelas', Number(value))}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="1" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 36 }, (_, i) => i + 1).map(num => (
+                                <SelectItem key={num} value={num.toString()}>{num}x</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {gastoForm.formState.errors.total_parcelas && <p className="text-sm text-red-500">{gastoForm.formState.errors.total_parcelas.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <label>Valor por Parcela</label>
+                          <div className="p-3 bg-background rounded border text-lg font-semibold">
+                            {`R$ ${(Number(gastoForm.watch('valor_total') || 0) / Math.max(Number(gastoForm.watch('total_parcelas') || 1), 1)).toFixed(2)}`}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   {/* Observações */}
                   <div className="space-y-2 md:col-span-2">
@@ -1033,7 +1157,7 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                   <label htmlFor="descricao" className="flex items-center gap-2 font-medium">
                     <FileText className="h-4 w-4" /> Descrição *
                   </label>
-                  <Input id="descricao" {...receitaForm.register('descricao')} autoFocus />
+                  <Input id="descricao" required aria-required="true" aria-invalid={!!receitaForm.formState.errors.descricao} {...receitaForm.register('descricao')} autoFocus />
                   {receitaForm.formState.errors.descricao && <p className="text-sm text-red-500">{receitaForm.formState.errors.descricao.message}</p>}
                 </div>
                 <div className="space-y-2">
@@ -1043,10 +1167,38 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
                   <Input id="local" {...receitaForm.register('local')} />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="valor_recebido" className="flex items-center gap-2 font-medium">
+                                     <label htmlFor="valor_recebido" className="flex items-center gap-2 font-medium" title="Digite números; a formatação será aplicada automaticamente">
+                    <span className="sr-only">Formato BRL</span>
                     <DollarSign className="h-4 w-4" /> Valor Recebido *
                   </label>
-                  <Input id="valor_recebido" type="number" step="0.01" min="0.01" {...receitaForm.register('valor_recebido', { valueAsNumber: true })} />
+                                     <div className="relative">
+                    <Input
+                      id="valor_recebido"
+                      inputMode="decimal"
+                      type="text"
+                      placeholder="0,00"
+                      aria-invalid={!!receitaForm.formState.errors.valor_recebido}
+                      value={((): string | number => { const v = receitaForm.watch('valor_recebido') as unknown; return typeof v === 'number' ? v : ''; })()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.');
+                        const num = raw ? parseFloat(raw) : NaN;
+                        receitaForm.setValue('valor_recebido', isNaN(num) ? ('' as unknown as number) : num, { shouldValidate: true });
+                      }}
+                      onBlur={(e) => {
+                        const v = Number(receitaForm.getValues().valor_recebido || 0);
+                        if (!isNaN(v)) e.currentTarget.value = brl.format(v);
+                      }}
+                      onFocus={(e) => {
+                        const v = Number(receitaForm.getValues().valor_recebido || 0);
+                        if (!isNaN(v)) e.currentTarget.value = v.toString().replace('.', ',');
+                      }}
+                    />
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      {receitaForm.formState.errors.valor_recebido ? (
+                        <X className="h-4 w-4 text-red-600" />
+                      ) : (typeof receitaForm.watch('valor_recebido') === 'number' ? <Check className="h-4 w-4 text-green-600" /> : null)}
+                    </div>
+                  </div>
                   {receitaForm.formState.errors.valor_recebido && <p className="text-sm text-red-500">{receitaForm.formState.errors.valor_recebido.message}</p>}
                 </div>
                 <div className="space-y-2">
@@ -1136,13 +1288,25 @@ const TransactionForm = React.memo(function TransactionForm({ modoEdicao = false
               </div>
             </div>
           )}
-          {/* Botões de ação */}
+          {/* Botões de ação (estático) */}
           <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
             <Button type="button" variant="outline" onClick={() => router.back()}>
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button type="submit" className="min-w-[140px]" disabled={!form.formState.isValid || createTransacao.isPending || createReceita.isPending}>
+            <Button
+              type="button"
+              className="min-w-[140px]"
+              disabled={createTransacao.isPending || createReceita.isPending}
+              onClick={async () => {
+                const isValid = await form.trigger();
+                if (!isValid) {
+                  handleInvalidSubmit();
+                  return;
+                }
+                form.handleSubmit(onSubmit)();
+              }}
+            >
               <Check className="h-4 w-4 mr-2" />
               {tipoTransacao === 'GASTO' ? 'Salvar Transação' : 'Salvar Receita'}
               <kbd className="ml-2 px-1 py-0.5 bg-white/20 rounded text-xs">Ctrl+↵</kbd>

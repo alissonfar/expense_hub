@@ -25,7 +25,7 @@ const inviteSchema = z.object({
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
 
-export function InvitePessoaForm({ onSuccess }: { onSuccess?: () => void }) {
+export function InvitePessoaForm({ onSuccess, onCancel }: { onSuccess?: () => void; onCancel?: () => void }) {
   const { toast } = useToast();
   const invitePessoa = useInvitePessoa();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -137,12 +137,19 @@ export function InvitePessoaForm({ onSuccess }: { onSuccess?: () => void }) {
               )}
             </div>
           )}
-          <Button type="submit" className="w-full mt-2" disabled={invitePessoa.isPending}>
-            {invitePessoa.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Convidar
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button type="submit" className="flex-1" disabled={invitePessoa.isPending}>
+              {invitePessoa.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Convidar
+            </Button>
+            {onCancel && (
+              <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={invitePessoa.isPending}>
+                Cancelar
+              </Button>
+            )}
+          </div>
           {showSuccess && (
-            <div className="text-green-600 text-sm mt-2">Convite enviado com sucesso!</div>
+            <div className="text-green-600 text-sm">Convite enviado com sucesso!</div>
           )}
         </form>
       </CardContent>

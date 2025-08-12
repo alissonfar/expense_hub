@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
@@ -14,6 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { Tag as TagType } from '@/lib/types';
 import type { Row } from '@tanstack/react-table';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import FilterBar from '@/components/ui/FilterBar';
+import LoadingState from '@/components/ui/LoadingState';
 
 export default function CategoriasPage() {
   const router = useRouter();
@@ -22,6 +26,15 @@ export default function CategoriasPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTag, setEditTag] = useState<TagType | null>(null);
   const deleteTag = useDeleteTag();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredCategorias = categorias.filter((cat) => {
+    const q = searchTerm.toLowerCase();
+    const name = (cat.nome || '').toLowerCase();
+    const icon = (cat.icone || '').toLowerCase();
+    const color = (cat.cor || '').toLowerCase();
+    return name.includes(q) || icon.includes(q) || color.includes(q);
+  });
 
   // Colunas da tabela
   const columns = [
@@ -109,15 +122,20 @@ export default function CategoriasPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Categorias</h1>
-        <Button variant="default" className="gap-2" onClick={() => router.push('/categorias/nova')}>
-          <Plus className="w-4 h-4" />
-          Nova Categoria
-        </Button>
-      </div>
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <PageHeader
+        title="Categorias"
+        subtitle="Gerencie as categorias do hub"
+        icon={<Tag className="w-6 h-6" />}
+        primaryAction={{ label: 'Nova Categoria', href: '/categorias/nova', icon: <Plus className="w-4 h-4" /> }}
+        variant={getPageVariant('categorias')}
+      />
+
+      <FilterBar
+        searchPlaceholder="Buscar por nome, cor ou ícone..."
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
       {/* Formulário de criação/edição centralizado */}
       {showForm && !editTag && (
@@ -145,12 +163,10 @@ export default function CategoriasPage() {
 
       {/* Tabela de categorias */}
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Categorias</CardTitle>
-        </CardHeader>
+
         <CardContent>
           {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Carregando...</div>
+            <LoadingState message="Carregando categorias..." />
           ) : categorias.length === 0 ? (
             <EmptyState
               icon={Tag}
@@ -159,7 +175,7 @@ export default function CategoriasPage() {
               action={{ label: 'Nova Categoria', onClick: () => router.push('/categorias/nova') }}
             />
           ) : (
-            <DataTable columns={columns} data={categorias} />
+            <DataTable columns={columns} data={filteredCategorias} variant={getPageVariant('categorias')} />
           )}
         </CardContent>
       </Card>

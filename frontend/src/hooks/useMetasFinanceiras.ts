@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from './useAuth';
 
 export type TipoMeta = 'economia' | 'reducao_gastos' | 'limite_categoria' | 'valor_fixo' | 'percentual';
@@ -307,7 +307,7 @@ export function useMetasFinanceiras() {
   /**
    * Obter estatísticas gerais
    */
-  const getEstatisticas = () => {
+  const getEstatisticas = useCallback(() => {
     const metasAtivas = metas.filter(m => m.status === 'ativa');
     const metasConcluidas = metas.filter(m => m.status === 'concluida');
     const metasVencidas = metasAtivas.filter(m => new Date(m.dataFim) < new Date());
@@ -345,14 +345,14 @@ export function useMetasFinanceiras() {
       conquistasRecentes: conquistasUltimos30Dias.length,
       taxaSucesso: metas.length > 0 ? (metasConcluidas.length / metas.length) * 100 : 0,
     };
-  };
+  }, [metas, conquistas]);
 
   /**
    * Obter metas por status
    */
-  const getMetasPorStatus = (status: StatusMeta) => {
+  const getMetasPorStatus = useCallback((status: StatusMeta) => {
     return metas.filter(m => m.status === status);
-  };
+  }, [metas]);
 
   /**
    * Obter metas por prioridade
@@ -362,9 +362,9 @@ export function useMetasFinanceiras() {
   };
 
   // Memoizar estatísticas e listas para evitar re-renderizações infinitas
-  const estatisticas = useMemo(() => getEstatisticas(), [metas, conquistas]);
-  const metasAtivas = useMemo(() => getMetasPorStatus('ativa'), [metas]);
-  const metasConcluidas = useMemo(() => getMetasPorStatus('concluida'), [metas]);
+  const estatisticas = useMemo(() => getEstatisticas(), [getEstatisticas]);
+  const metasAtivas = useMemo(() => getMetasPorStatus('ativa'), [getMetasPorStatus]);
+  const metasConcluidas = useMemo(() => getMetasPorStatus('concluida'), [getMetasPorStatus]);
 
   return {
     metas,

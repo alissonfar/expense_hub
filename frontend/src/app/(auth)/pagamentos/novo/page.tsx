@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
 
 // Sistema de debug condicional (só em desenvolvimento)
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -370,27 +372,14 @@ export default function NovoPagamentoPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Novo Pagamento</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Registre pagamentos para quitar pendências de transações
-          </p>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                Ajuda
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-sm">
-              <p>Selecione uma pessoa, escolha as transações e defina os valores para registrar o pagamento.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      <PageHeader
+        title="Novo Pagamento"
+        subtitle="Registre pagamentos para quitar pendências"
+        icon={<DollarSign className="w-6 h-6" />}
+        variant={getPageVariant('pagamentos')}
+        backHref="/pagamentos"
+        breadcrumbs={[{ label: 'Pagamentos', href: '/pagamentos' }, { label: 'Novo' }]}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Coluna Principal */}
@@ -761,16 +750,16 @@ export default function NovoPagamentoPage() {
                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                               {linha.saldoDevedor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 relative">
                               <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max={linha.saldoDevedor}
-                                value={valoresPagamento[linha.id] || ''}
-                                onChange={(e) => {
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0,00"
+                                  value={valoresPagamento[linha.id] || ''}
+                                  onChange={(e) => {
                                   const valor = e.target.value;
-                                  const num = parseFloat(valor);
+                                  const raw = valor.replace(/[^0-9,\.]/g, '').replace(',', '.');
+                                  const num = raw ? parseFloat(raw) : NaN;
                                   
                                   // Validações
                                   if (valor && (num < 0 || num > linha.saldoDevedor)) {
@@ -787,14 +776,31 @@ export default function NovoPagamentoPage() {
                                     [linha.id]: valor
                                   }));
                                 }}
-                                placeholder="0,00"
-                                disabled={!isSelected || isQuitado}
-                                className="w-24 text-sm"
-                                ref={(el) => {
-                                  inputRefs.current[linha.id] = el;
-                                }}
-                                aria-label={`Valor a pagar para ${linha.descricao}`}
-                              />
+                                onBlur={(e) => {
+                                    const v = parseFloat(valoresPagamento[linha.id] || '');
+                                    if (!isNaN(v)) e.currentTarget.value = v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                  }}
+                                  onFocus={(e) => {
+                                    const v = parseFloat(valoresPagamento[linha.id] || '');
+                                    if (!isNaN(v)) e.currentTarget.value = v.toString().replace('.', ',');
+                                  }}
+                                  disabled={!isSelected || isQuitado}
+                                  className="w-28 text-sm pr-7"
+                                  aria-invalid={!!valoresPagamento[linha.id] && (parseFloat(valoresPagamento[linha.id]) > linha.saldoDevedor)}
+                                  ref={(el) => {
+                                    inputRefs.current[linha.id] = el;
+                                  }}
+                                  aria-label={`Valor a pagar para ${linha.descricao}`}
+                                />
+                                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                                  {(() => {
+                                    const v = valoresPagamento[linha.id];
+                                    const hasErr = !!v && parseFloat(v) > linha.saldoDevedor;
+                                    if (hasErr) return <AlertCircle className="h-4 w-4 text-red-600" />;
+                                    if (!!v && !isNaN(parseFloat(v))) return <CheckSquare className="h-4 w-4 text-green-600" />;
+                                    return null;
+                                  })()}
+                                </div>
                             </td>
                           </tr>
                         );
@@ -841,17 +847,19 @@ export default function NovoPagamentoPage() {
                     Definir valor total do pagamento:
                   </label>
                     <Input
-                      type="number"
-                    step="0.01"
-                    min="0"
-                    value={valorTotal || ''}
-                    onChange={(e) => {
-                      const valor = parseFloat(e.target.value) || 0;
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={Number.isFinite(valorTotal) && valorTotal > 0 ? valorTotal : ''}
+                      onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9,\.]/g, '').replace(',', '.');
+                       const valor = raw ? parseFloat(raw) : 0;
                       setValorTotal(valor);
                     }}
-                    placeholder="0,00"
-                    className="w-full"
-                    />
+                    onBlur={(e) => { if (!isNaN(valorTotal) && valorTotal > 0) e.currentTarget.value = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }}
+                     onFocus={(e) => { if (!isNaN(valorTotal) && valorTotal > 0) e.currentTarget.value = valorTotal.toString().replace('.', ','); }}
+                     className="w-full"
+                     />
                   </div>
 
                 {/* Botões rápidos para valores */}

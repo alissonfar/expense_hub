@@ -14,17 +14,31 @@ import { usePessoas, useResendInvite } from '@/hooks/usePessoas';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { InvitePessoaForm } from '@/components/pessoas/InvitePessoaForm';
+// import { InvitePessoaForm } from '@/components/pessoas/InvitePessoaForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { PessoaHub } from '@/lib/types';
 import { CellContext } from '@tanstack/react-table';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import FilterBar from '@/components/ui/FilterBar';
+import LoadingState from '@/components/ui/LoadingState';
 
 export default function PessoasPage() {
   const { data: pessoas = [], isLoading } = usePessoas();
   const { toast } = useToast();
   const resendInvite = useResendInvite();
-  const [showInvite, setShowInvite] = useState(false);
+  // const [showInvite, setShowInvite] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredPessoas = pessoas.filter((item: PessoaHub) => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return true;
+    const nome = item.pessoa?.nome?.toLowerCase() || '';
+    const email = item.pessoa?.email?.toLowerCase() || '';
+    const telefone = item.pessoa?.telefone?.toLowerCase() || '';
+    return nome.includes(q) || email.includes(q) || telefone.includes(q);
+  });
 
   const getInviteLink = (token: string) => `${typeof window !== 'undefined' ? window.location.origin : ''}/ativar-convite?token=${token}`;
 
@@ -198,49 +212,53 @@ export default function PessoasPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Membros do Hub</h1>
-        <div className="flex gap-2">
-          <Button variant={showInvite ? 'secondary' : 'default'} className="gap-2" onClick={() => setShowInvite((v) => !v)}>
-            <Plus className="w-4 h-4" /> {showInvite ? 'Fechar' : 'Convidar Membro'}
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setShowHelp(true)}>
-            <Info className="w-4 h-4" /> Fluxo do Sistema
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Membros do Hub"
+        icon={<Users className="w-6 h-6" />}
+        variant={getPageVariant('membros')}
+        backHref="/dashboard"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Membros' }]}
+        rightActions={
+          <>
+            <Button variant="default" className="gap-2" onClick={() => (window.location.href = '/membros/novo')}>
+              <Plus className="w-4 h-4" /> Convidar Membro
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => setShowHelp(true)}>
+              <Info className="w-4 h-4" /> Fluxo do Sistema
+            </Button>
+          </>
+        }
+      />
 
-      {/* Formulário de convite centralizado */}
-      {showInvite && (
-        <div className="max-w-xl mx-auto">
-          <InvitePessoaForm onSuccess={() => setShowInvite(false)} />
-        </div>
-      )}
+      {/* Barra de busca */}
+      <FilterBar
+        searchPlaceholder="Buscar por nome, email ou telefone..."
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
       {/* Tabela de membros */}
-      {!showInvite && (
         <Card>
           <CardHeader>
             <CardTitle>Lista de Membros</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-12 text-center text-muted-foreground">Carregando...</div>
-            ) : pessoas.length === 0 ? (
+              <LoadingState />
+            ) : filteredPessoas.length === 0 ? (
               <EmptyState
                 icon={Users}
                 title="Nenhum membro encontrado"
                 description="Convide pessoas para colaborar no seu Hub."
-                action={{ label: 'Convidar Membro', onClick: () => setShowInvite(true) }}
+                action={{ label: 'Convidar Membro', onClick: () => (window.location.href = '/membros/novo') }}
               />
             ) : (
-              <DataTable columns={columns} data={pessoas} />
+              <DataTable columns={columns} data={filteredPessoas} variant="neutral" />
             )}
           </CardContent>
         </Card>
-      )}
 
       {/* Dialog centralizado para o Fluxo do Sistema */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>

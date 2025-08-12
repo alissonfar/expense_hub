@@ -5,18 +5,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RelatoriosDashboard } from '@/components/relatorios/RelatoriosDashboard';
 import { PanoramaGeralHub } from '@/components/relatorios/PanoramaGeralHub';
 import { BarChart3, Users } from 'lucide-react';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
 
 export default function RelatoriosPage() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Relatórios</h1>
-          <p className="text-gray-600">Análise completa das suas finanças pessoais</p>
-        </div>
-      </div>
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <PageHeader 
+        title="Relatórios" 
+        subtitle="Análise completa das suas finanças pessoais" 
+        icon={<BarChart3 className="w-6 h-6" />} 
+        variant={getPageVariant('relatorios')}
+        backHref="/dashboard"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Relatórios' }]}
+      />
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">

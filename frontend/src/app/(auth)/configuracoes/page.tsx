@@ -15,7 +15,9 @@ import { IntegrationTestPanel } from "@/components/test/IntegrationTestPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, Settings } from "lucide-react";
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
 
 const schema = z.object({
   theme_interface: z.enum(["light", "dark", "auto"], {
@@ -81,7 +83,15 @@ export default function ConfiguracoesPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-10">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <PageHeader 
+        title="Configurações" 
+        subtitle="Preferências do sistema e gerenciamento de hubs" 
+        icon={<Settings className="w-6 h-6" />} 
+        variant={getPageVariant('configuracoes')}
+        backHref="/dashboard"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Configurações' }]}
+      />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="configuracoes">Configurações</TabsTrigger>

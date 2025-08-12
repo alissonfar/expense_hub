@@ -54,6 +54,12 @@ const menuItems = [
     description: 'Gerenciar participantes'
   },
   {
+    title: 'Convidar Membro',
+    href: '/membros/novo',
+    icon: Users,
+    description: 'Adicionar novo membro'
+  },
+  {
     title: 'Relatórios',
     href: '/relatorios',
     icon: FileText,

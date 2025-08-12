@@ -29,11 +29,20 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import React from "react"
 
+type DataTableVariant = 'neutral' | 'green' | 'blue'
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   className?: string
   showGlobalFilter?: boolean
+  variant?: DataTableVariant
+}
+
+const variantClasses: Record<DataTableVariant, string> = {
+  neutral: "[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-gray-100 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-gray-50/50 [&_tr]:hover:to-gray-100/50 [&_tr]:transition-all [&_tr]:duration-200",
+  green: "[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-green-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-green-50/50 [&_tr]:hover:to-emerald-50/50 [&_tr]:transition-all [&_tr]:duration-200",
+  blue: "[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-blue-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-blue-50/50 [&_tr]:hover:to-purple-50/50 [&_tr]:transition-all [&_tr]:duration-200",
 }
 
 export function DataTable<TData, TValue>({
@@ -41,6 +50,7 @@ export function DataTable<TData, TValue>({
   data,
   className,
   showGlobalFilter = false,
+  variant = 'neutral',
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -70,8 +80,10 @@ export function DataTable<TData, TValue>({
     },
   })
 
+  const themedClass = `${variantClasses[variant]} ${className || ''}`
+
   return (
-    <div className={className}>
+    <div className={themedClass}>
       {showGlobalFilter && (
         <div className="flex items-center py-4">
           <div className="relative flex-1 max-w-md">

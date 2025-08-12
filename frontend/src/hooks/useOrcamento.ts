@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from './useAuth';
 
 export interface OrcamentoCategoria {
@@ -98,13 +98,13 @@ export function useOrcamento() {
   /**
    * Obter orçamento do mês atual ou específico
    */
-  const getOrcamentoMes = (ano?: number, mes?: number): OrcamentoMensal | null => {
+  const getOrcamentoMes = useCallback((ano?: number, mes?: number): OrcamentoMensal | null => {
     const agora = new Date();
     const targetAno = ano ?? agora.getFullYear();
     const targetMes = mes ?? agora.getMonth() + 1;
 
     return orcamentos.find(o => o.ano === targetAno && o.mes === targetMes) || null;
-  };
+  }, [orcamentos]);
 
   /**
    * Criar ou atualizar orçamento mensal
@@ -297,7 +297,7 @@ export function useOrcamento() {
   /**
    * Estatísticas rápidas
    */
-  const getEstatisticas = () => {
+  const getEstatisticas = useCallback(() => {
     const orcamentoAtual = getOrcamentoMes();
     if (!orcamentoAtual) {
       return {
@@ -330,11 +330,11 @@ export function useOrcamento() {
       categoriasUltrapassadas,
       alertasNaoLidos: alertas.filter(a => !a.lido).length,
     };
-  };
+  }, [getOrcamentoMes, alertas]);
 
   // Memoizar estatísticas para evitar re-renderizações infinitas
-  const estatisticas = useMemo(() => getEstatisticas(), [orcamentos, alertas]);
-  const orcamentoAtual = useMemo(() => getOrcamentoMes(), [orcamentos]);
+  const estatisticas = useMemo(() => getEstatisticas(), [getEstatisticas]);
+  const orcamentoAtual = useMemo(() => getOrcamentoMes(), [getOrcamentoMes]);
 
   return {
     orcamentos,

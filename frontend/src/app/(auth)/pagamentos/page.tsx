@@ -1,25 +1,26 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { calcularProgressoTemporal } from '@/lib/utils';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import FilterBar from '@/components/ui/FilterBar';
+import LoadingState from '@/components/ui/LoadingState';
 import { 
   Plus, 
   CalendarIcon, 
   MoreHorizontal, 
   DollarSign, 
   ListChecks, 
-  Search,
   TrendingUp,
   CheckCircle,
   Clock,
   AlertCircle,
-  Filter,
   Download,
   RefreshCw
 } from 'lucide-react';
@@ -242,26 +243,13 @@ export default function PagamentosPage() {
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Header com gradiente */}
-      <div className="flex items-center justify-between bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-            <DollarSign className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-blue-600 bg-clip-text text-transparent">
-              Pagamentos
-            </h1>
-            <p className="text-gray-600 mt-1">Gerencie todos os pagamentos do hub</p>
-          </div>
-        </div>
-        <Button 
-          onClick={() => router.push('/pagamentos/novo')}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Novo Pagamento
-        </Button>
-      </div>
+      <PageHeader
+        title="Pagamentos"
+        subtitle="Gerencie todos os pagamentos do hub"
+        icon={<DollarSign className="w-6 h-6" />}
+        primaryAction={{ label: 'Novo Pagamento', href: '/pagamentos/novo', icon: <Plus className="w-5 h-5" /> }}
+        variant={getPageVariant('pagamentos')}
+      />
 
       {/* Toggle para Configurar Cards */}
       <div className="flex items-center justify-between mb-4">
@@ -404,44 +392,27 @@ export default function PagamentosPage() {
       </div>
 
       {/* Filtros e busca com design moderno */}
-      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  placeholder="Buscar por pessoa, valor ou data..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-12 pr-4 py-3 border-0 bg-white rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-all duration-200"
-                />
-              </div>
-              <Button variant="outline" className="gap-2 px-4 py-3 rounded-xl border-gray-200 hover:bg-gray-50 transition-all duration-200">
-                <Filter className="w-4 h-4" />
-                Filtros
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
-                <Download className="w-4 h-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <FilterBar
+        searchPlaceholder="Buscar por pessoa, valor ou data..."
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        rightActions={(
+          <>
+            <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" className="rounded-xl border-gray-200 hover:bg-gray-50">
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </>
+        )}
+      />
 
       {/* Tabela de pagamentos com design moderno */}
       <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-16 text-center">
-              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600 font-medium">Carregando pagamentos...</p>
-            </div>
+            <LoadingState message="Carregando pagamentos..." />
           ) : pagamentos.length === 0 ? (
             <div className="py-16 text-center">
               <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -459,11 +430,11 @@ export default function PagamentosPage() {
             </div>
           ) : (
             <div className="overflow-hidden">
-              <DataTable 
-                columns={columns} 
-                data={pagamentos}
-                className="[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-blue-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-blue-50/50 [&_tr]:hover:to-purple-50/50 [&_tr]:transition-all [&_tr]:duration-200"
-              />
+                              <DataTable 
+                  columns={columns} 
+                  data={pagamentos}
+                  variant={getPageVariant('pagamentos')}
+                />
             </div>
           )}
         </CardContent>

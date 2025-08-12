@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useRequireHub, usePermissions } from '@/hooks/useAuth';
@@ -11,6 +11,9 @@ import { useTransacoes, useDeleteTransacao, useDuplicateTransacao } from '@/hook
 import { useRouter } from 'next/navigation';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { calcularProgressoTemporal } from '@/lib/utils';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import FilterBar from '@/components/ui/FilterBar';
 
 import type { TransacaoFilters, Transacao } from '@/lib/types';
 import { DataTable } from '@/components/ui/data-table';
@@ -21,8 +24,8 @@ import { ptBR } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { 
   Plus, 
-  Search, 
-  Filter, 
+  // Search, 
+  // Filter, 
   CalendarIcon, 
   MoreHorizontal, 
   DollarSign, 
@@ -492,26 +495,13 @@ export default function TransacoesPage() {
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Header com gradiente */}
-      <div className="flex items-center justify-between bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-            <DollarSign className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-green-600 bg-clip-text text-transparent">
-              Transações
-            </h1>
-            <p className="text-gray-600 mt-1">Gerencie todas as transações do hub</p>
-          </div>
-        </div>
-        <Button 
-          onClick={() => router.push('/transacoes/nova')}
-          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Nova Transação
-        </Button>
-      </div>
+      <PageHeader
+        title="Transações"
+        subtitle="Gerencie todas as transações do hub"
+        icon={<DollarSign className="w-6 h-6" />}
+        primaryAction={{ label: 'Nova Transação', href: '/transacoes/nova', icon: <Plus className="w-5 h-5" /> }}
+        variant={getPageVariant('transacoes')}
+      />
 
       {/* Toggle para Configurar Cards */}
       <div className="flex items-center justify-between mb-4">
@@ -653,142 +643,119 @@ export default function TransacoesPage() {
       </div>
 
       {/* Filters and Search */}
-      <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-gray-50 to-green-50 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar transações..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10 border-0 bg-white rounded-xl shadow-sm"
-                />
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`${showFilters ? 'bg-green-50 border-green-200 text-green-700' : ''} rounded-xl shadow-sm`}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filtros
+      <FilterBar
+        searchPlaceholder="Buscar transações..."
+        searchValue={searchTerm}
+        onSearchChange={(v) => handleSearch(v)}
+        showAdvancedToggle
+        advancedOpen={showFilters}
+        onToggleAdvanced={() => setShowFilters(!showFilters)}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <Select
+            value={filters.tipo || ''}
+            onValueChange={(value) => handleFilterChange('tipo', value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os tipos</SelectItem>
+              <SelectItem value="GASTO">Gastos</SelectItem>
+              <SelectItem value="RECEITA">Receitas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.status_pagamento || ''}
+            onValueChange={(value) => handleFilterChange('status_pagamento', value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os status</SelectItem>
+              <SelectItem value="PENDENTE">Pendente</SelectItem>
+              <SelectItem value="PAGO_PARCIAL">Pago Parcial</SelectItem>
+              <SelectItem value="PAGO_TOTAL">Pago Total</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.forma_pagamento || ''}
+            onValueChange={(value) => handleFilterChange('forma_pagamento', value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Forma de Pagamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as formas</SelectItem>
+              <SelectItem value="PIX">PIX</SelectItem>
+              <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+              <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+              <SelectItem value="DEBITO">Débito</SelectItem>
+              <SelectItem value="CREDITO">Crédito</SelectItem>
+              <SelectItem value="OUTROS">Outros</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.vencimento_status || ''}
+            onValueChange={(value) => handleFilterChange('vencimento_status', value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Status Vencimento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="VENCIDA">Vencidas</SelectItem>
+              <SelectItem value="VENCE_HOJE">Vence hoje</SelectItem>
+              <SelectItem value="VENCE_SEMANA">Vence esta semana</SelectItem>
+              <SelectItem value="VENCE_MES">Vence este mês</SelectItem>
+              <SelectItem value="NAO_VENCE">Não vence</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start text-left font-normal">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'dd/MM/yy')} - {format(dateRange.to, 'dd/MM/yy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'dd/MM/yyyy')
+                  )
+                ) : (
+                  'Período'
+                )}
               </Button>
-            </div>
-          </div>
-        </CardHeader>
-        
-        {showFilters && (
-          <CardContent className="border-t">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-              <Select
-                value={filters.tipo || ''}
-                onValueChange={(value) => handleFilterChange('tipo', value || undefined)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os tipos</SelectItem>
-                  <SelectItem value="GASTO">Gastos</SelectItem>
-                  <SelectItem value="RECEITA">Receitas</SelectItem>
-                </SelectContent>
-              </Select>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={handleDateRangeChange}
+                locale={ptBR}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
 
-              <Select
-                value={filters.status_pagamento || ''}
-                onValueChange={(value) => handleFilterChange('status_pagamento', value || undefined)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
-                  <SelectItem value="PENDENTE">Pendente</SelectItem>
-                  <SelectItem value="PAGO_PARCIAL">Pago Parcial</SelectItem>
-                  <SelectItem value="PAGO_TOTAL">Pago Total</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* ✅ NOVO: Filtro por Forma de Pagamento */}
-              <Select
-                value={filters.forma_pagamento || ''}
-                onValueChange={(value) => handleFilterChange('forma_pagamento', value || undefined)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Forma de Pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas as formas</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
-                  <SelectItem value="DEBITO">Débito</SelectItem>
-                  <SelectItem value="CREDITO">Crédito</SelectItem>
-                  <SelectItem value="OUTROS">Outros</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* ✅ NOVO: Filtro por Status de Vencimento */}
-              <Select
-                value={filters.vencimento_status || ''}
-                onValueChange={(value) => handleFilterChange('vencimento_status', value || undefined)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status Vencimento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="VENCIDA">Vencidas</SelectItem>
-                  <SelectItem value="VENCE_HOJE">Vence hoje</SelectItem>
-                  <SelectItem value="VENCE_SEMANA">Vence esta semana</SelectItem>
-                  <SelectItem value="VENCE_MES">Vence este mês</SelectItem>
-                  <SelectItem value="NAO_VENCE">Não vence</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, 'dd/MM/yy')} - {format(dateRange.to, 'dd/MM/yy')}
-                        </>
-                      ) : (
-                        format(dateRange.from, 'dd/MM/yyyy')
-                      )
-                    ) : (
-                      'Período'
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={handleDateRangeChange}
-                    locale={ptBR}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setFilters({ page: 1, limit: 1000 });
-                  setSearchTerm('');
-                  setDateRange(undefined);
-                }}
-              >
-                Limpar
-              </Button>
-            </div>
-          </CardContent>
-        )}
-      </Card>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFilters({ page: 1, limit: 1000 });
+              setSearchTerm('');
+              setDateRange(undefined);
+            }}
+          >
+            Limpar
+          </Button>
+        </div>
+      </FilterBar>
 
       {/* Data Table */}
       <Card className="bg-white border-0 shadow-lg rounded-2xl overflow-hidden">
@@ -796,7 +763,7 @@ export default function TransacoesPage() {
           <DataTable 
             columns={columns} 
             data={transacoes}
-            className="[&_table]:w-full [&_thead]:bg-gradient-to-r [&_thead]:from-gray-50 [&_thead]:to-green-50 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-4 [&_th]:px-6 [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-700 [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-4 [&_td]:px-6 [&_tr]:hover:bg-gradient-to-r [&_tr]:hover:from-green-50/50 [&_tr]:hover:to-emerald-50/50 [&_tr]:transition-all [&_tr]:duration-200"
+            variant={getPageVariant('transacoes')}
           />
         </CardContent>
       </Card>

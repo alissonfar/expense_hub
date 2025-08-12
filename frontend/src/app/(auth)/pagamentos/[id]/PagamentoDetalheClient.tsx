@@ -5,10 +5,14 @@ import { usePagamento, useDeletePagamento } from '@/hooks/usePagamentos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, Trash, Edit2, ArrowLeft, AlertCircle, TrendingUp } from 'lucide-react';
+import { DollarSign, Users, Trash, Edit2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import LoadingState from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // Sistema de debug condicional (só em desenvolvimento)
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -38,7 +42,7 @@ export default function PagamentoDetalheClient({ id }: PagamentoDetalheClientPro
   };
 
   if (isLoading || !pagamento) {
-    return <div className="p-6">Carregando...</div>;
+    return <div className="p-6"><LoadingState message="Carregando pagamento..." /></div>;
   }
 
   const valorDisplay = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
@@ -46,23 +50,27 @@ export default function PagamentoDetalheClient({ id }: PagamentoDetalheClientPro
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
-          </Button>
-          <h1 className="text-2xl font-bold">Detalhes do Pagamento</h1>
-        </div>
-        <div className="space-x-2">
-          <Button variant="outline" onClick={() => {}}>
-            <Edit2 className="h-4 w-4 mr-2" /> Editar
-          </Button>
-          <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
-            <Trash className="h-4 w-4 mr-2" /> Excluir
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <PageHeader 
+        title="Detalhes do Pagamento"
+        icon={<DollarSign className="w-6 h-6" />}
+        variant={getPageVariant('pagamentos')}
+        backHref="/pagamentos"
+        breadcrumbs={[
+          { label: 'Pagamentos', href: '/pagamentos' },
+          { label: `#${pagamento.id}` }
+        ]}
+        rightActions={
+          <>
+            <Button variant="outline" onClick={() => {}}>
+              <Edit2 className="h-4 w-4 mr-2" /> Editar
+            </Button>
+            <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)} disabled={deleteMutation.isPending}>
+              <Trash className="h-4 w-4 mr-2" /> Excluir
+            </Button>
+          </>
+        }
+      />
 
       {/* Informações Básicas */}
       <Card>
@@ -148,9 +156,11 @@ export default function PagamentoDetalheClient({ id }: PagamentoDetalheClientPro
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhuma transação encontrada para este pagamento.
-            </div>
+            <EmptyState
+              icon={Users}
+              title="Sem transações"
+              description="Este pagamento ainda não está associado a nenhuma transação."
+            />
           )}
         </CardContent>
       </Card>

@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { changePasswordSchema } from "@/lib/validations";
+import PageHeader from '@/components/ui/PageHeader';
+import { getPageVariant } from '@/lib/pageTheme';
+import { User } from 'lucide-react';
 
 const perfilSchema = z.object({
   nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -88,10 +91,18 @@ export default function PerfilPage() {
     : "Não disponível";
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center py-8 px-2">
-      <Card className="w-full max-w-2xl shadow-lg">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <PageHeader 
+        title="Meu Perfil" 
+        subtitle="Gerencie seus dados pessoais e de acesso" 
+        icon={<User className="w-6 h-6" />} 
+        variant={getPageVariant('perfil')}
+        backHref="/dashboard"
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Perfil' }]}
+      />
+      <Card className="w-full max-w-2xl shadow-lg mx-auto">
         <CardHeader>
-          <CardTitle>Meu Perfil</CardTitle>
+          <CardTitle>Informações Pessoais</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

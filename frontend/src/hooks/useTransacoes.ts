@@ -320,10 +320,7 @@ export function useCreateTransacao() {
         }
       );
       
-      toast({
-        title: "Sucesso",
-        description: "Transação criada com sucesso!",
-      });
+      // toast removido para evitar duplicidade; o formulário já exibe o feedback de sucesso
     },
     onError: (error) => {
       console.error('Erro na criação da transação:', error);
